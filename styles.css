@@ -87,11 +87,26 @@ button:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3p
 
 .coach-panel { align-self: stretch; padding: clamp(10px, 3vh, 32px) 0; display: flex; flex-direction: column; justify-content: center; }
 .panel-head { margin-bottom: 22px; }
+.learning-back { margin: 0 0 13px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: .72rem; cursor: pointer; }
+.learning-back:hover { color: var(--gold); }
 .eyebrow { color: var(--gold); font-size: .72rem; font-weight: 800; letter-spacing: .16em; }
 .panel-head h1 { margin: 10px 0 8px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 500; line-height: 1.02; }
 .panel-head p { color: var(--muted); font-size: .95rem; line-height: 1.6; margin: 0; max-width: 38ch; }
 .control-section { padding: 18px; border: 1px solid var(--line); background: linear-gradient(145deg, rgba(30,39,32,.84), rgba(19,25,21,.88)); margin-bottom: 14px; }
 .control-section > label { display: block; font-size: .76rem; color: var(--muted); font-weight: 700; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.card-kicker { color: var(--gold); font-size: .65rem; font-weight: 800; letter-spacing: .13em; }
+.onboarding-controls h2 { margin: 9px 0 5px; font-family: Georgia, serif; font-size: 1.35rem; }
+.onboarding-controls > p { margin-bottom: 15px; }
+.learning-cycle { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 15px; }
+.learning-cycle span { padding: 7px 3px; color: var(--muted); background: #111713; font-size: .59rem; text-align: center; }
+.learning-cycle b { display: grid; width: 20px; height: 20px; margin: 0 auto 5px; place-items: center; border: 1px solid var(--gold-dark); border-radius: 50%; color: var(--gold); font-size: .65rem; }
+.learning-menu { display: grid; gap: 8px; margin-top: 12px; }
+.learning-menu button { display: grid; grid-template-columns: 34px 1fr auto; grid-template-rows: auto auto; gap: 2px 9px; align-items: center; padding: 11px; border: 1px solid var(--line); background: #111713; text-align: left; cursor: pointer; }
+.learning-menu button:hover { border-color: var(--gold-dark); background: #182019; }
+.learning-number { grid-row: 1 / 3; display: grid; width: 31px; height: 31px; place-items: center; border-radius: 50%; background: #242d26; color: var(--gold); font-size: .65rem; font-weight: 800; }
+.learning-menu strong { font-size: .82rem; }
+.learning-menu small { color: var(--muted); font-size: .67rem; line-height: 1.35; }
+.learning-menu em { grid-column: 3; grid-row: 1 / 3; color: var(--gold); font-size: .72rem; font-style: normal; }
 .training-controls { padding: 16px 18px 18px; }
 .training-goal { margin: -2px 0 16px; }
 .training-goal > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -135,6 +150,14 @@ textarea { width: 100%; resize: vertical; padding: 11px; background: #0e130f; co
 .training-stats span { margin-top: 3px; color: var(--muted); font-size: .61rem; text-transform: uppercase; letter-spacing: .06em; }
 .training-tips { margin: 12px 0 16px; padding-left: 19px; color: #c6cbc7; font-size: .8rem; line-height: 1.5; }
 .training-tips li + li { margin-top: 5px; }
+.opening-head, .opening-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.opening-head { margin-top: 2px; color: var(--muted); font-size: .7rem; }
+.opening-head span { padding: 3px 6px; border: 1px solid var(--gold-dark); color: var(--gold); }
+.opening-head strong { font-weight: 650; }
+.opening-warning { margin: 10px 0 14px !important; padding: 9px 10px; border-left: 2px solid var(--danger); background: #211817; }
+.opening-line { margin: 12px 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: .7rem; }
+.opening-line span { color: var(--muted); letter-spacing: .1em; }
+.opening-line strong { color: var(--gold); }
 .strategy-choices { display: grid; gap: 7px; margin-top: 14px; }
 .strategy-choice { padding: 10px 12px; border: 1px solid var(--line); background: #111713; text-align: left; cursor: pointer; }
 .strategy-choice:hover { border-color: #6f806f; }
@@ -144,6 +167,17 @@ textarea { width: 100%; resize: vertical; padding: 11px; background: #0e130f; co
 .coach-review { margin-top: 10px; padding: 12px; border-left: 3px solid var(--gold); background: #111713; }
 .coach-review strong { display: block; margin-bottom: 5px; color: var(--gold); }
 .coach-review p { margin: 0; color: #cbd0cc; font-size: .78rem; line-height: 1.45; }
+.rating-card { margin: -4px 0 18px; padding: 13px 14px; border: 1px solid var(--line); background: #111713; }
+.rating-main { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 1px 12px; }
+.rating-main span { color: var(--gold); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.rating-main strong { grid-row: 1 / 3; grid-column: 2; font-family: Georgia, serif; color: var(--gold); font-size: 1.75rem; font-weight: 500; }
+.rating-main small { color: var(--muted); font-size: .62rem; }
+.rating-track { height: 5px; margin: 10px 0; overflow: hidden; border-radius: 99px; background: #273129; }
+.rating-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold-dark), var(--gold)); transition: width .3s ease; }
+.rating-modules { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.rating-modules > span { padding: 6px 3px; color: var(--muted); background: #172019; font-size: .59rem; text-align: center; }
+.rating-modules strong { display: block; margin-top: 2px; color: var(--ink); font-size: .75rem; }
+.rating-card > p { margin: 9px 0 0; color: var(--muted); font-size: .66rem; text-align: center; }
 .moves-section { border-top: 1px solid var(--line); padding-top: 15px; }
 .section-title { display: flex; align-items: center; justify-content: space-between; }
 .section-title h2 { font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; margin: 0; }
@@ -162,8 +196,8 @@ dialog h2 { font-family: Georgia, serif; margin: 0; } dialog p { color: var(--mu
 
 @media (max-width: 900px) {
   .topbar { grid-template-columns: 1fr auto; height: auto; min-height: 70px; padding-top: 8px; }
-  .mode-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 48px; justify-content: center; }
-  .mode-tab { flex: 1; min-width: 0; max-width: 150px; padding: 0 5px; font-size: .73rem; }
+  .mode-tabs { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; height: auto; }
+  .mode-tab { min-width: 0; max-width: none; height: 38px; padding: 0 5px; font-size: .7rem; }
   .workspace { grid-template-columns: 1fr; width: min(680px, calc(100% - 24px)); padding-top: 18px; gap: 12px; }
   .coach-panel { padding: 8px 0 28px; }
   .panel-head h1 { font-size: 2.1rem; }

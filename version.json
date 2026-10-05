@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.2.0",
   "name": "Schachwerkstatt",
-  "description": "Lokale Schach-Lernplattform mit Taktiktrainer, Endspielkurs, Strategie-Masterclass und Coach-Review."
+  "description": "Lokale Schach-Lernplattform mit Eröffnungsrepertoire, Lern-Elo, Taktik, Endspiel, Strategie und Coach-Review."
 }

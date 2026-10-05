@@ -3,6 +3,10 @@
 
   const VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
   const pawnMemo = new Map();
+  const RATING_STAGES = [
+    { min: 400, name: "Bauer" }, { min: 700, name: "Springer" }, { min: 900, name: "Läufer" },
+    { min: 1100, name: "Turm" }, { min: 1300, name: "Dame" }, { min: 1500, name: "Meister" }
+  ];
 
   function uci(move) {
     return move.from + move.to + (move.promotion || "");
@@ -15,6 +19,20 @@
       expected,
       complete: uci(move) === expected && step === task.line.length - 1
     };
+  }
+
+  function updateRating(current, score, challengeRating) {
+    const expected = 1 / (1 + 10 ** ((challengeRating - current) / 400));
+    return Math.max(400, Math.min(2000, Math.round(current + 32 * (score - expected))));
+  }
+
+  function ratingStage(rating) {
+    let index = 0;
+    for (let i = 0; i < RATING_STAGES.length; i++) if (rating >= RATING_STAGES[i].min) index = i;
+    const current = RATING_STAGES[index];
+    const next = RATING_STAGES[index + 1] || null;
+    const progress = next ? (rating - current.min) / (next.min - current.min) : 1;
+    return { name: current.name, min: current.min, next, progress: Math.max(0, Math.min(1, progress)) };
   }
 
   function materialFor(engine, state, color) {
@@ -137,5 +155,5 @@
     };
   }
 
-  root.ChessTraining = { validateTactic, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview };
+  root.ChessTraining = { validateTactic, updateRating, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview };
 })(typeof window !== "undefined" ? window : globalThis);

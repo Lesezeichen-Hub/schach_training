@@ -16,14 +16,13 @@
         <span class="brand-mark" aria-hidden="true">♞</span>
         <span><strong>Schachwerkstatt</strong><small>sehen · rechnen · spielen</small></span>
       </a>
-      <nav class="mode-tabs" aria-label="Trainingsmodus">
-        <button class="mode-tab active" data-mode="tactics">Taktik</button>
-        <button class="mode-tab" data-mode="endgame">Endspiel</button>
-        <button class="mode-tab" data-mode="strategy">Strategie</button>
-        <button class="mode-tab" data-mode="match">Partie</button>
+      <nav class="mode-tabs" aria-label="Hauptnavigation">
+        <button class="mode-tab active" data-mode="home">Start</button>
+        <button class="mode-tab" data-mode="learn">Lernweg</button>
+        <button class="mode-tab" data-mode="match">Spielen</button>
         <button class="mode-tab" data-mode="practice">Analyse</button>
       </nav>
-      <div class="streak" title="Heute gelöste Aufgaben"><span>◆</span><strong id="streakCount">0</strong><small>heute</small></div>
+      <div class="streak" title="Lokaler Trainingswert – keine offizielle Wertungszahl"><span>◆</span><strong id="learningRating">800</strong><small id="learningLevel">Springer</small></div>
     </header>
 
     <main class="workspace">
@@ -46,10 +45,40 @@
 
       <aside class="coach-panel">
         <div class="panel-head">
-          <span class="eyebrow" id="panelEyebrow">DEIN TAGESPLAN</span>
-          <h1 id="panelTitle">Muster sehen. Besser spielen.</h1>
-          <p id="panelIntro">Verstehe das Motiv, berechne den Zug und wiederhole gezielt deine Fehler.</p>
+          <button id="learningBack" class="learning-back" type="button" hidden>← Zurück zum Lernweg</button>
+          <span class="eyebrow" id="panelEyebrow">WILLKOMMEN</span>
+          <h1 id="panelTitle">Schach lernen – Schritt für Schritt.</h1>
+          <p id="panelIntro">Du brauchst kein Vorwissen. Die Werkstatt zeigt dir immer, was als Nächstes sinnvoll ist.</p>
         </div>
+
+        <section id="homeControls" class="control-section onboarding-controls">
+          <span class="card-kicker">DEINE NÄCHSTE EINHEIT</span>
+          <h2 id="homeRecommendation">Taktische Grundlagen</h2>
+          <p id="homeRecommendationText">Lerne zuerst, wie du ungedeckte Figuren und Doppelangriffe erkennst.</p>
+          <button class="primary-button" id="continueLearning">Empfohlene Einheit starten</button>
+          <div class="learning-cycle" aria-label="So funktioniert der Lernweg">
+            <span><b>1</b> Verstehen</span><span><b>2</b> Ausprobieren</span><span><b>3</b> Wiederholen</span><span><b>4</b> Anwenden</span>
+          </div>
+        </section>
+
+        <section id="learnControls" class="control-section learn-overview" hidden>
+          <span class="card-kicker">WÄHLE EIN LERNZIEL</span>
+          <div class="learning-menu">
+            <button type="button" data-learning-mode="basics"><span class="learning-number">00</span><strong>Schach von Anfang an</strong><small>Spielziel, Figuren, Schach und Matt verstehen</small><em id="menuBasics">Start</em></button>
+            <button type="button" data-learning-mode="tactics"><span class="learning-number">01</span><strong>Figuren gewinnen</strong><small>Gabel, Fesselung, Spieß und Abzugsangriff</small><em id="menuRatingTactics">800</em></button>
+            <button type="button" data-learning-mode="openings"><span class="learning-number">02</span><strong>Gut in die Partie starten</strong><small>Eröffnungszüge verstehen und selbst spielen</small><em id="menuRatingOpenings">800</em></button>
+            <button type="button" data-learning-mode="endgame"><span class="learning-number">03</span><strong>Partien sicher beenden</strong><small>Mattsetzen, Bauern umwandeln, Opposition</small><em id="menuRatingEndgame">800</em></button>
+            <button type="button" data-learning-mode="strategy"><span class="learning-number">04</span><strong>Einen Plan finden</strong><small>Gute und schlechte Entscheidungen vergleichen</small><em id="menuRatingStrategy">800</em></button>
+          </div>
+        </section>
+
+        <section id="basicsControls" class="control-section" hidden>
+          <div class="puzzle-meta"><span>SCHACH VON ANFANG AN</span><span id="basicsProgress">1 / 4</span></div>
+          <h2 id="basicsTitle">Das Ziel des Spiels</h2>
+          <p id="basicsText"></p>
+          <ul id="basicsPoints" class="training-tips"></ul>
+          <button class="primary-button" id="nextBasics">Weiter</button>
+        </section>
 
         <section id="matchControls" class="control-section" hidden>
           <label for="difficulty">Spielstärke</label>
@@ -113,6 +142,18 @@
           <button class="primary-button" id="nextStrategy" disabled>Nächste Stellung</button>
         </section>
 
+        <section id="openingControls" class="control-section" hidden>
+          <div class="puzzle-meta"><span>ERÖFFNUNGS-REPERTOIRE</span><span id="openingProgress">1 / 25</span></div>
+          <label for="openingSelect">Variante</label>
+          <select id="openingSelect"></select>
+          <div class="opening-head"><span id="openingEco">C50</span><strong id="openingSide">Training mit Weiß</strong></div>
+          <h2 id="openingTitle">Italienische Partie</h2>
+          <ul id="openingIdeas" class="training-tips"></ul>
+          <p id="openingWarning" class="opening-warning"></p>
+          <div class="opening-line"><span>VARIANTE</span><strong id="openingLineProgress">0 / 6 eigene Züge</strong></div>
+          <button class="primary-button" id="restartOpening">Variante neu starten</button>
+        </section>
+
         <section id="practiceControls" class="control-section" hidden>
           <label for="fenInput">Stellung (FEN)</label>
           <textarea id="fenInput" rows="3" spellcheck="false" aria-describedby="fenHelp"></textarea>
@@ -123,6 +164,18 @@
         <section class="status-card" aria-live="polite">
           <span class="status-icon" id="statusIcon">●</span>
           <div><strong id="statusTitle">Du bist am Zug</strong><p id="statusText">Wähle eine Figur und danach ihr Zielfeld.</p></div>
+        </section>
+
+        <section id="ratingCard" class="rating-card" aria-label="Lernfortschritt">
+          <div class="rating-main"><span id="ratingStage">Aufbaustufe Springer</span><strong id="ratingOverall">800</strong><small>Lern-Elo · lokal</small></div>
+          <div class="rating-track"><span id="ratingBar"></span></div>
+          <div class="rating-modules">
+            <span>Taktik <strong id="ratingTactics">800</strong></span>
+            <span>Endspiel <strong id="ratingEndgame">800</strong></span>
+            <span>Strategie <strong id="ratingStrategy">800</strong></span>
+            <span>Eröffnung <strong id="ratingOpenings">800</strong></span>
+          </div>
+          <p id="ratingNext">Noch 100 Punkte bis zur nächsten Aufbaustufe.</p>
         </section>
 
         <section id="trainingStats" class="training-stats" aria-label="Trainingsfortschritt">

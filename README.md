@@ -4,15 +4,22 @@ Eine vollständig lokale Schach-Lernapp für den Lesezeichen-Hub. Sie benötigt 
 
 ## Lernkonzept
 
-Die App startet direkt im Taktiktraining. Jede Aufgabe verbindet eine kurze Motiverklärung mit einer festen Denkfolge: **Schachs → Schlagzüge → Drohungen**. Richtige und falsche Versuche werden lokal ausgewertet; über „Meine Fehler“ lassen sich schwierige Motive gezielt wiederholen.
+Die App startet auf einer geführten Einstiegsseite und empfiehlt die nächste sinnvolle Einheit. Jede Taktikaufgabe verbindet eine kurze Motiverklärung mit einer festen Denkfolge: **Schachs → Schlagzüge → Drohungen**. Richtige und falsche Versuche werden lokal ausgewertet; über „Meine Fehler“ lassen sich schwierige Motive gezielt wiederholen.
+
+Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **Start**, **Lernweg**, **Spielen** und **Analyse**. Der Start empfiehlt automatisch den aktuell schwächsten Lernbereich. Im Lernweg werden Fachbegriffe zusätzlich als konkrete Ziele erklärt, etwa „Figuren gewinnen“ oder „Gut in die Partie starten“.
 
 ## Funktionen
 
 - 20 Taktikaufgaben zu Gabel, Fesselung, Spieß und Abzugsangriff
+- Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien
 - Drei Fehlversuche mit anschließend animierter Lösungshilfe
 - Interaktive Endspiele: Treppenmatt und König-Bauer gegen König mit Opposition
 - Regelbasierte Endspielverteidigung und unmittelbare Fehlererklärung
 - Strategie-Masterclass mit Multiple-Choice-Entscheidungen
+- Spielbarer Eröffnungstrainer mit 25 sinnvollen Repertoirevarianten für Weiß und Schwarz
+- Pläne, typische Fehler, ECO-Codes und schrittweise Zugkontrolle zu jeder Eröffnung
+- Lokale Lern-Elo für Taktik, Endspiel, Strategie und Eröffnungen
+- Aufbaustufen Bauer, Springer, Läufer, Turm, Dame und Meister
 - Coach-Review aus dem PGN-Partieverlauf mit Material- und Rochadeheuristik
 - Tagesziel, Trefferquote, Gesamtfortschritt und persönlicher Trainingsfokus
 - Lokale Fehlerwiederholung für noch unsichere Motive
@@ -26,7 +33,7 @@ Die App startet direkt im Taktiktraining. Jede Aufgabe verbindet eine kurze Moti
 
 ## Trainingsdaten erweitern
 
-Neue Aufgaben werden in `training-data.json` ergänzt. Jede Taktik enthält eine FEN-Stellung, eine UCI-Zugfolge, Erklärung, Hinweis und visuelle Anker. Danach wird die ohne Server lauffähige Browserdatei neu erzeugt:
+Neue Aufgaben und Eröffnungsvarianten werden in `training-data.json` ergänzt. Jede Taktik enthält eine FEN-Stellung, eine UCI-Zugfolge, Erklärung, Hinweis und visuelle Anker. Eröffnungen enthalten ECO-Code, Trainingsseite, vollständige Zugfolge, Pläne und typische Fehler. Danach wird die ohne Server lauffähige Browserdatei neu erzeugt:
 
 ```powershell
 node build-training-data.mjs
@@ -45,3 +52,5 @@ node tests.mjs
 ```
 
 Die Tests prüfen unter anderem, dass jede Kategorie mindestens fünf Aufgaben enthält und alle hinterlegten Taktik- und Strategiezüge legal sind.
+
+Die Lern-Elo beginnt bei 800 und reagiert ähnlich einer Elo-Wertung auf richtige und falsche Entscheidungen sowie die Schwierigkeit der Übung. Sie dient ausschließlich als lokaler Trainings- und Fortschrittswert und ist keine offizielle Spielstärke.

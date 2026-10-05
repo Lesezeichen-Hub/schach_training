@@ -7,10 +7,11 @@
   const boardEl = document.querySelector("#board");
   const statusCard = document.querySelector(".status-card");
   const state = {
-    game: E.fromFEN(), mode: "tactics", level: "medium", selected: null,
+    game: E.fromFEN(), mode: "home", level: "medium", selected: null,
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null,
-    endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false, messageOverride: null
+    endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
+    openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, messageOverride: null
   };
 
   const trainingData = window.CHESS_TRAINING_DATA;
@@ -21,6 +22,12 @@
     skewer: { title: "Spieß", concept: "Die wertvollere Figur steht vorn und muss ausweichen; die Figur dahinter geht anschließend verloren.", rule: "Gib dem vorderen Ziel Schach und prüfe, was dahinter ungeschützt bleibt." },
     discovered: { title: "Abzugsangriff", concept: "Eine Figur zieht mit Tempo weg und öffnet dadurch die Angriffslinie einer zweiten Figur.", rule: "Prüfe, welche eigenen Figuren Linien blockieren und mit Schach abziehen können." }
   };
+  const basicsLessons = [
+    { title: "Das Ziel des Spiels", fen: E.START_FEN, text: "Du gewinnst nicht durch das Schlagen aller Figuren, sondern durch Schachmatt gegen den gegnerischen König.", points: ["Schach: Der König wird angegriffen.", "Matt: Der König ist angegriffen und kann nicht entkommen.", "Der eigene König darf niemals im Schach stehen bleiben."] },
+    { title: "So arbeiten die Figuren", fen: E.START_FEN, text: "Jede Figur bewegt sich anders. Für den Anfang reicht es, ihre Aufgaben grob zu kennen.", points: ["Dame und Türme wirken auf geraden Linien.", "Läufer ziehen diagonal, Springer springen in L-Form.", "Bauern ziehen vorwärts und schlagen diagonal."] },
+    { title: "Schach, Matt und Patt", fen: "6k1/6pp/7Q/8/8/2B5/8/6K1 w - - 0 1", text: "Vor jedem Zug prüfst du zuerst, ob ein König angegriffen ist und welche Fluchtfelder bleiben.", points: ["Ein Schach muss sofort beantwortet werden.", "Beim Matt gibt es keine legale Antwort.", "Patt ist remis: kein legaler Zug, aber kein Schach."] },
+    { title: "Dein Plan für die ersten Züge", fen: E.START_FEN, text: "Du musst keine langen Varianten auswendig lernen. Halte dich zunächst an drei einfache Regeln.", points: ["Besetze das Zentrum mit einem Bauern.", "Entwickle Springer und Läufer.", "Rochiere früh und bringe den König in Sicherheit."] }
+  ];
 
   function $(selector) { return document.querySelector(selector); }
   function all(selector) { return [...document.querySelectorAll(selector)]; }
@@ -29,8 +36,9 @@
     renderBoard();
     renderMoves();
     renderStatus();
-    $("#whiteTurn").classList.toggle("active", state.game.turn === "w" && !state.thinking);
-    $("#blackTurn").classList.toggle("active", state.game.turn === "b");
+    const interactiveBoard = !["home", "learn", "basics", "strategy"].includes(state.mode);
+    $("#whiteTurn").classList.toggle("active", interactiveBoard && state.game.turn === "w" && !state.thinking);
+    $("#blackTurn").classList.toggle("active", interactiveBoard && state.game.turn === "b");
     $("#thinking").hidden = !state.thinking;
     $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode);
     if (state.mode === "match" && E.gameStatus(state.game).over) renderCoachReview();
@@ -39,7 +47,10 @@
   function renderBoard() {
     boardEl.innerHTML = "";
     const checkColor = E.inCheck(state.game, state.game.turn) ? state.game.turn : null;
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const flipped = state.mode === "openings" && trainingData.openings[state.openingIndex].side === "b";
+    for (let viewRow = 0; viewRow < 8; viewRow++) for (let viewCol = 0; viewCol < 8; viewCol++) {
+      const r = flipped ? 7 - viewRow : viewRow;
+      const c = flipped ? 7 - viewCol : viewCol;
       const squareName = E.sq(r, c);
       const piece = state.game.board[r][c];
       const button = document.createElement("button");
@@ -64,8 +75,8 @@
       }
       if (piece && E.typeOf(piece) === "k" && E.colorOf(piece) === checkColor) button.classList.add("in-check");
       if (piece) button.innerHTML = `<span class="piece" aria-hidden="true">${glyph[piece]}</span>`;
-      if (c === 0) button.insertAdjacentHTML("beforeend", `<span class="coord rank" aria-hidden="true">${8 - r}</span>`);
-      if (r === 7) button.insertAdjacentHTML("beforeend", `<span class="coord file" aria-hidden="true">${"abcdefgh"[c]}</span>`);
+      if (viewCol === 0) button.insertAdjacentHTML("beforeend", `<span class="coord rank" aria-hidden="true">${8 - r}</span>`);
+      if (viewRow === 7) button.insertAdjacentHTML("beforeend", `<span class="coord file" aria-hidden="true">${"abcdefgh"[c]}</span>`);
       button.addEventListener("click", () => selectSquare(squareName));
       boardEl.appendChild(button);
     }
@@ -78,8 +89,10 @@
 
   async function selectSquare(square) {
     if (state.thinking || E.gameStatus(state.game).over) return;
+    if (["home", "learn", "basics"].includes(state.mode)) return;
     if (state.mode === "tactics" && state.puzzleSolved) return;
     if (state.mode === "strategy" || (state.mode === "endgame" && (state.endgameFailed || state.game.turn === "b"))) return;
+    if (state.mode === "openings" && (state.openingPly >= trainingData.openings[state.openingIndex].line.length || state.game.turn !== trainingData.openings[state.openingIndex].side)) return;
     if (state.mode === "match" && state.game.turn === "b") return;
     const [r, c] = E.coords(square);
     const piece = state.game.board[r][c];
@@ -144,15 +157,31 @@
       return;
     }
 
+    if (state.mode === "openings" && actor === "human") {
+      const opening = trainingData.openings[state.openingIndex];
+      const played = move.from + move.to + (move.promotion || "");
+      if (played !== opening.line[state.openingPly]) {
+        state.game = before; state.moves.pop(); state.lastMove = before.history.at(-1)?.move || null; state.openingErrors += 1;
+        state.messageOverride = { kind: "error", title: "Nicht der Repertoirezug", text: `Versuch es noch einmal. Denke an den Plan: ${opening.ideas[0]}.` };
+        updateLearningRating("openings", 0, opening.rating); animateBoard("wrong-shake"); render(); return;
+      }
+      state.openingPly += 1;
+      updateLearningRating("openings", 1, opening.rating);
+      state.messageOverride = { kind: "success", title: "Repertoirezug erkannt", text: opening.ideas[Math.min(opening.ideas.length - 1, Math.floor(state.openingPly / 4))] };
+      animateBoard("correct-flash"); updateOpeningLineProgress(); render();
+      window.setTimeout(advanceOpeningLine, 380); return;
+    }
+
     if (state.mode === "endgame") {
       if (actor === "human") {
         const review = T.reviewEndgameMove(E, before, state.game, state.endgameId, move);
         state.messageOverride = { kind: review.ok ? "success" : "error", title: review.title, text: review.text };
         if (!review.ok) {
           state.game = before; state.moves.pop(); state.lastMove = null; state.endgameFailed = true;
+          updateLearningRating("endgame", 0, state.endgameId === "pawn-opposition" ? 900 : 800);
           animateBoard("wrong-shake"); render(); return;
         }
-        if (review.complete) { animateBoard("correct-flash"); render(); return; }
+        if (review.complete) { updateLearningRating("endgame", 1, state.endgameId === "pawn-opposition" ? 900 : 800); animateBoard("correct-flash"); render(); return; }
         render(); requestEndgameDefense(); return;
       }
       render();
@@ -225,27 +254,48 @@
 
   function switchMode(mode) {
     state.mode = mode;
-    all(".mode-tab").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+    const learningModes = ["basics", "tactics", "endgame", "strategy", "openings"];
+    const navigationMode = learningModes.includes(mode) ? "learn" : mode;
+    all(".mode-tab").forEach((button) => button.classList.toggle("active", button.dataset.mode === navigationMode));
+    $("#homeControls").hidden = mode !== "home";
+    $("#learnControls").hidden = mode !== "learn";
+    $("#basicsControls").hidden = mode !== "basics";
     $("#matchControls").hidden = mode !== "match";
     $("#tacticsControls").hidden = mode !== "tactics";
     $("#endgameControls").hidden = mode !== "endgame";
     $("#strategyControls").hidden = mode !== "strategy";
+    $("#openingControls").hidden = mode !== "openings";
     $("#practiceControls").hidden = mode !== "practice";
     $("#trainingStats").hidden = mode !== "tactics";
-    $("#opponentAvatar").textContent = mode === "match" ? "KI" : mode === "practice" ? "AN" : "LE";
-    $("#opponentName").textContent = mode === "match" ? "Trainingspartner" : mode === "practice" ? "Analysebrett" : "Lerneinheit";
-    $("#opponentDetail").textContent = mode === "match" ? `${state.level === "easy" ? "Leicht" : state.level === "hard" ? "Stark" : "Mittel"} · Trainingspartie` : mode === "tactics" ? "Muster erkennen · Zug berechnen" : mode === "endgame" ? "Technik gegen beste Verteidigung" : mode === "strategy" ? "Verstehen, bevor du ziehst" : "Varianten ohne Zeitdruck";
+    $("#learningBack").hidden = !learningModes.includes(mode);
+    document.querySelector(".moves-section").hidden = ["home", "learn", "basics"].includes(mode);
+    document.querySelector(".lesson-card").hidden = ["home", "learn"].includes(mode);
+    $("#opponentAvatar").textContent = mode === "match" ? "KI" : mode === "practice" ? "AN" : ["home", "learn"].includes(mode) ? "LOS" : "LE";
+    $("#opponentName").textContent = mode === "match" ? "Trainingspartner" : mode === "practice" ? "Analysebrett" : ["home", "learn"].includes(mode) ? "Dein Lernbrett" : "Lerneinheit";
+    $("#opponentDetail").textContent = mode === "match" ? `${state.level === "easy" ? "Leicht" : state.level === "hard" ? "Stark" : "Mittel"} · Trainingspartie` : mode === "tactics" ? "Muster erkennen · Zug berechnen" : mode === "endgame" ? "Technik gegen beste Verteidigung" : mode === "strategy" ? "Verstehen, bevor du ziehst" : mode === "openings" ? "Zugfolge und Pläne lernen" : mode === "home" ? "Hier beginnt dein Training" : mode === "learn" ? "Wähle dein nächstes Lernziel" : "Varianten ohne Zeitdruck";
+    $("#playerDetail").textContent = ["home", "learn"].includes(mode) ? "Dein Tempo · ohne Zeitdruck" : mode === "basics" ? "Erst verstehen, dann ziehen" : mode === "strategy" ? "Wähle eine Antwort im Lernpanel" : mode === "openings" ? `Du spielst ${trainingData.openings[state.openingIndex].side === "w" ? "Weiß" : "Schwarz"}` : "Weiß · konzentriert";
     const copy = {
+      home: ["WILLKOMMEN", "Schach lernen – Schritt für Schritt.", "Du brauchst kein Vorwissen. Die Werkstatt zeigt dir immer, was als Nächstes sinnvoll ist."],
+      learn: ["DEIN LERNWEG", "Was möchtest du heute lernen?", "Jeder Bereich erklärt zuerst die Idee und lässt dich danach selbst auf dem Brett üben."],
+      basics: ["GRUNDLAGEN", "Schach ohne Vorwissen.", "Vier kurze Schritte erklären dir das Spielziel, die Figuren und deinen ersten einfachen Plan."],
       match: ["TRANSFER IN DIE PARTIE", "Spiel mit Plan.", "Wende deine Muster in einer ruhigen Trainingspartie an."],
       tactics: ["DEIN TAGESPLAN", "Muster sehen. Besser spielen.", "Verstehe das Motiv, berechne den Zug und wiederhole gezielt deine Fehler."],
       endgame: ["ENDSPIEL-FUNDAMENTE", "Gewinnen mit Technik.", "Übe elementare Gewinnstellungen gegen eine regelbasierte Verteidigung."],
       strategy: ["DIE WARUM-EBENE", "Plane wie ein Meister.", "Entscheide an kritischen Stellen und verstehe Aktivität, Initiative und offene Linien."],
+      openings: ["ERÖFFNUNGS-REPERTOIRE", "Verstehe den Aufbau.", "Lerne nicht nur Züge: Verbinde jede Variante mit ihren Plänen und typischen Fehlern."],
       practice: ["ANALYSETRAINING", "Stellungen verstehen.", "Prüfe Material, Königssicherheit und Bauernstruktur, bevor du Varianten ziehst."]
     }[mode];
     $("#panelEyebrow").textContent = copy[0]; $("#panelTitle").textContent = copy[1]; $("#panelIntro").textContent = copy[2];
     if (mode === "tactics") loadPuzzle(state.puzzlePosition);
+    else if (mode === "basics") loadBasics(state.basicsStep);
     else if (mode === "endgame") loadEndgame($("#endgameSelect").value);
     else if (mode === "strategy") loadStrategyStep(state.strategyStep);
+    else if (mode === "openings") loadOpening($("#openingSelect").value || trainingData.openings[0].id);
+    else if (["home", "learn"].includes(mode)) {
+      state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.thinking = false;
+      state.messageOverride = mode === "home" ? { kind: "", title: "Bereit für deine erste Einheit?", text: "Starte mit der Empfehlung. Es gibt keinen Zeitdruck und jeder Fehler wird erklärt." } : { kind: "", title: "Fünf Bausteine für gutes Schach", text: "Beginne ohne Vorwissen bei den Grundlagen. Danach folgen Taktik, Eröffnungen, Endspiel und Strategie." };
+      updateHomeRecommendation(); render();
+    }
     else resetGame();
   }
 
@@ -255,6 +305,25 @@
     $("#fenInput").value = E.START_FEN;
     $("#coachReview").hidden = true;
     render();
+  }
+
+  function loadBasics(index) {
+    state.basicsStep = Math.max(0, Math.min(basicsLessons.length - 1, index));
+    const lesson = basicsLessons[state.basicsStep];
+    state.game = E.fromFEN(lesson.fen); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.thinking = false;
+    state.messageOverride = { kind: "", title: lesson.title, text: lesson.text };
+    $("#basicsProgress").textContent = `${state.basicsStep + 1} / ${basicsLessons.length}`;
+    $("#basicsTitle").textContent = lesson.title; $("#basicsText").textContent = lesson.text;
+    $("#basicsPoints").innerHTML = lesson.points.map((point) => `<li>${point}</li>`).join("");
+    $("#nextBasics").textContent = state.basicsStep === basicsLessons.length - 1 ? "Grundlagen abschließen" : "Weiter";
+    $("#lessonText").textContent = lesson.points[0]; render();
+  }
+
+  function advanceBasics() {
+    if (state.basicsStep < basicsLessons.length - 1) { loadBasics(state.basicsStep + 1); return; }
+    const saved = getProgress(); saved.basicsCompleted = true;
+    localStorage.setItem("schachwerkstatt-progress", JSON.stringify(saved));
+    state.basicsStep = 0; updateHomeRecommendation(); switchMode("learn");
   }
 
   function loadEndgame(id) {
@@ -291,13 +360,69 @@
   function chooseStrategy(choice, button) {
     if (state.strategySolved) return;
     if (choice.kind !== "correct") {
-      button.classList.add("incorrect"); $("#strategyFeedback").textContent = choice.text; animateBoard("wrong-shake"); return;
+      button.classList.add("incorrect"); button.disabled = true; $("#strategyFeedback").textContent = choice.text;
+      updateLearningRating("strategy", 0, 850 + state.strategyStep * 100); animateBoard("wrong-shake"); return;
     }
     state.strategySolved = true; button.classList.add("correct");
     all(".strategy-choice").forEach((item) => { item.disabled = true; });
     $("#strategyFeedback").textContent = choice.text;
     state.game = E.fromFEN(trainingData.masterclass.steps[state.strategyStep].nextFen);
+    updateLearningRating("strategy", 1, 850 + state.strategyStep * 100);
     $("#nextStrategy").disabled = false; animateBoard("correct-flash"); render();
+  }
+
+  function populateOpeningSelect() {
+    const select = $("#openingSelect"); select.innerHTML = "";
+    for (const [side, label] of [["w", "Mit Weiß"], ["b", "Mit Schwarz"]]) {
+      const group = document.createElement("optgroup"); group.label = label;
+      trainingData.openings.forEach((opening) => {
+        if (opening.side !== side) return;
+        const option = document.createElement("option"); option.value = opening.id; option.textContent = `${opening.eco} · ${opening.name}`; group.appendChild(option);
+      });
+      select.appendChild(group);
+    }
+  }
+
+  function loadOpening(id) {
+    const index = trainingData.openings.findIndex((opening) => opening.id === id);
+    state.openingIndex = index >= 0 ? index : 0; state.openingPly = 0; state.openingErrors = 0;
+    state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.thinking = false;
+    const opening = trainingData.openings[state.openingIndex];
+    $("#openingSelect").value = opening.id; $("#openingTitle").textContent = opening.name; $("#openingEco").textContent = opening.eco;
+    $("#openingSide").textContent = `Training mit ${opening.side === "w" ? "Weiß" : "Schwarz"}`;
+    $("#openingIdeas").innerHTML = opening.ideas.map((idea) => `<li>${idea}</li>`).join("");
+    $("#openingWarning").textContent = `Typischer Fehler: ${opening.warning}`;
+    $("#openingProgress").textContent = `${state.openingIndex + 1} / ${trainingData.openings.length}`;
+    $("#lessonText").textContent = opening.ideas[0];
+    advanceOpeningLine();
+  }
+
+  function advanceOpeningLine() {
+    if (state.mode !== "openings") return;
+    const opening = trainingData.openings[state.openingIndex];
+    while (state.openingPly < opening.line.length && state.game.turn !== opening.side) {
+      const expected = opening.line[state.openingPly];
+      const move = E.legalMoves(state.game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === expected);
+      if (!move) { state.messageOverride = { kind: "error", title: "Variantendaten fehlerhaft", text: `Der Zug ${expected} ist in dieser Stellung nicht legal.` }; render(); return; }
+      const before = state.game; const san = E.notation(before, move); state.game = E.applyMove(before, move);
+      state.moves.push({ color: before.turn, san, whiteMaterialBefore: T.materialFor(E, before, "w"), whiteMaterialAfter: T.materialFor(E, state.game, "w") });
+      state.lastMove = move; state.openingPly += 1;
+    }
+    updateOpeningLineProgress();
+    if (state.openingPly >= opening.line.length) {
+      state.messageOverride = { kind: "success", title: "Variante abgeschlossen", text: `${opening.name}: ${opening.ideas.join(" · ")}` };
+      animateBoard("correct-flash");
+    } else if (!state.messageOverride) {
+      state.messageOverride = { kind: "", title: `${opening.side === "w" ? "Weiß" : "Schwarz"} am Zug`, text: "Finde den nächsten Repertoirezug aus dem Plan der Eröffnung." };
+    }
+    render();
+  }
+
+  function updateOpeningLineProgress() {
+    const opening = trainingData.openings[state.openingIndex];
+    const ownPlies = opening.line.filter((_, index) => (index % 2 === 0 ? "w" : "b") === opening.side).length;
+    const completed = opening.line.slice(0, state.openingPly).filter((_, index) => (index % 2 === 0 ? "w" : "b") === opening.side).length;
+    $("#openingLineProgress").textContent = `${completed} / ${ownPlies} eigene Züge`;
   }
 
   function loadPuzzle(index) {
@@ -351,6 +476,8 @@
     const theme = saved.themes[puzzle.category] ||= { attempts: 0, successes: 0 };
     theme.attempts += 1; theme.successes += success ? 1 : 0;
     localStorage.setItem("schachwerkstatt-progress", JSON.stringify(saved));
+    const challenge = { fork: 650, pin: 750, skewer: 850, discovered: 900 }[puzzle.category];
+    updateLearningRating("tactics", success ? 1 : 0, challenge);
     updateTrainingProgress();
   }
 
@@ -362,15 +489,64 @@
     const accuracy = attempts ? Math.round(solved / attempts * 100) : 0;
     const weakKey = Object.entries(saved.themes || {}).sort((a, b) => (a[1].successes / a[1].attempts) - (b[1].successes / b[1].attempts))[0]?.[0];
     const weak = categoryMeta[weakKey]?.title || "–";
-    $("#streakCount").textContent = todayCount;
     $("#dailyProgressText").textContent = `${todayCount} / 5 Aufgaben`;
     $("#dailyProgressBar").style.width = `${Math.min(100, todayCount / 5 * 100)}%`;
     $("#masteryScore").textContent = `${accuracy}%`;
     $("#solvedTotal").textContent = solved;
     $("#weakTheme").textContent = weak;
+    updateRatingDisplay();
+  }
+
+  function getRatings(saved = getProgress()) {
+    saved.ratings ||= { tactics: 800, endgame: 800, strategy: 800, openings: 800 };
+    for (const area of ["tactics", "endgame", "strategy", "openings"]) if (!Number.isFinite(saved.ratings[area])) saved.ratings[area] = 800;
+    return saved.ratings;
+  }
+
+  function updateLearningRating(area, score, challengeRating) {
+    const saved = getProgress(); const ratings = getRatings(saved);
+    ratings[area] = T.updateRating(ratings[area], score, challengeRating);
+    localStorage.setItem("schachwerkstatt-progress", JSON.stringify(saved));
+    updateRatingDisplay();
+  }
+
+  function updateRatingDisplay() {
+    const ratings = getRatings();
+    const overall = Math.round((ratings.tactics + ratings.endgame + ratings.strategy + ratings.openings) / 4);
+    const stage = T.ratingStage(overall);
+    $("#learningRating").textContent = overall; $("#learningLevel").textContent = stage.name;
+    $("#ratingOverall").textContent = overall; $("#ratingStage").textContent = `Aufbaustufe ${stage.name}`;
+    $("#ratingBar").style.width = `${Math.round(stage.progress * 100)}%`;
+    $("#ratingTactics").textContent = ratings.tactics; $("#ratingEndgame").textContent = ratings.endgame;
+    $("#ratingStrategy").textContent = ratings.strategy; $("#ratingOpenings").textContent = ratings.openings;
+    $("#menuRatingTactics").textContent = ratings.tactics; $("#menuRatingEndgame").textContent = ratings.endgame;
+    $("#menuRatingStrategy").textContent = ratings.strategy; $("#menuRatingOpenings").textContent = ratings.openings;
+    $("#ratingNext").textContent = stage.next ? `Noch ${stage.next.min - overall} Punkte bis zur Stufe ${stage.next.name}.` : "Höchste Aufbaustufe erreicht.";
+    updateHomeRecommendation();
+  }
+
+  function updateHomeRecommendation() {
+    const saved = getProgress(); const ratings = getRatings(saved);
+    const order = ["tactics", "openings", "endgame", "strategy"];
+    const target = saved.basicsCompleted ? order.reduce((weakest, area) => ratings[area] < ratings[weakest] ? area : weakest, order[0]) : "basics";
+    const recommendations = {
+      basics: ["Schach von Anfang an", "Beginne mit Spielziel, Figuren, Schach und Matt. Dafür brauchst du keinerlei Vorwissen."],
+      tactics: ["Taktische Grundlagen", "Lerne zuerst, wie du Figuren mit Gabeln, Fesselungen und Spießen gewinnst."],
+      openings: ["Gut in die Partie starten", "Übe eine kurze Eröffnungsfolge und verstehe den Plan hinter den Zügen."],
+      endgame: ["Partien sicher beenden", "Trainiere Mattsetzen und die Opposition im Bauernendspiel."],
+      strategy: ["Einen guten Plan finden", "Vergleiche typische Entscheidungen aus einer berühmten Meisterpartie."]
+    };
+    $("#homeRecommendation").textContent = recommendations[target][0];
+    $("#homeRecommendationText").textContent = recommendations[target][1];
+    $("#continueLearning").dataset.target = target;
+    $("#menuBasics").textContent = saved.basicsCompleted ? "Erledigt" : "Start";
   }
 
   all(".mode-tab").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.mode)));
+  all("[data-learning-mode]").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.learningMode)));
+  $("#learningBack").addEventListener("click", () => switchMode("learn"));
+  $("#continueLearning").addEventListener("click", (event) => switchMode(event.currentTarget.dataset.target || "tactics"));
+  $("#nextBasics").addEventListener("click", advanceBasics);
   all("[data-level]").forEach((button) => button.addEventListener("click", () => {
     state.level = button.dataset.level;
     all("[data-level]").forEach((b) => { const active = b === button; b.classList.toggle("active", active); b.setAttribute("aria-checked", String(active)); });
@@ -390,6 +566,8 @@
   $("#endgameSelect").addEventListener("change", (event) => loadEndgame(event.target.value));
   $("#restartEndgame").addEventListener("click", () => loadEndgame(state.endgameId));
   $("#nextStrategy").addEventListener("click", () => loadStrategyStep(state.strategyStep + 1));
+  $("#openingSelect").addEventListener("change", (event) => loadOpening(event.target.value));
+  $("#restartOpening").addEventListener("click", () => loadOpening(trainingData.openings[state.openingIndex].id));
   function renderCoachReview() {
     const review = T.coachReview(state.moves, T.toPgn(state.moves)); const box = $("#coachReview"); box.hidden = false; box.innerHTML = "";
     const title = document.createElement("strong"); title.textContent = review.title;
@@ -420,5 +598,5 @@
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 
-  updateTrainingProgress(); loadPuzzle(0);
+  populateOpeningSelect(); updateTrainingProgress(); switchMode("home");
 })();

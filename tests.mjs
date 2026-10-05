@@ -74,6 +74,14 @@ for (const [index, step] of trainingData.masterclass.steps.entries()) {
   const legal = E.legalMoves(E.fromFEN(step.fen));
   for (const choice of step.choices) assert.ok(legal.some((move) => move.from + move.to + (move.promotion || "") === choice.move), `Strategieoption ${index + 1}/${choice.move} ist legal`);
 }
+assert.ok(trainingData.openings.length >= 20, "Eröffnungsrepertoire enthält mindestens 20 sinnvolle Varianten");
+for (const opening of trainingData.openings) {
+  let position = E.fromFEN();
+  for (const uci of opening.line) position = play(position, uci);
+}
+assert.ok(T.updateRating(800, 1, 800) > 800, "Lern-Elo steigt nach erfolgreicher Aufgabe");
+assert.ok(T.updateRating(800, 0, 800) < 800, "Lern-Elo sinkt nach Fehler");
+assert.equal(T.ratingStage(800).name, "Springer", "Aufbaustufe wird korrekt bestimmt");
 
 const ladder = E.fromFEN(trainingData.endgames.find((item) => item.id === "ladder-mate").fen);
 const ladderMove = E.legalMoves(ladder)[0];
