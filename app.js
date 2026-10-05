@@ -11,7 +11,7 @@
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null,
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
-    openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, messageOverride: null
+    openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null
   };
 
   const trainingData = window.CHESS_TRAINING_DATA;
@@ -31,6 +31,7 @@
 
   function $(selector) { return document.querySelector(selector); }
   function all(selector) { return [...document.querySelectorAll(selector)]; }
+  function beginPositionSession() { state.sessionId += 1; state.thinking = false; }
 
   function render() {
     renderBoard();
@@ -169,7 +170,8 @@
       updateLearningRating("openings", 1, opening.rating);
       state.messageOverride = { kind: "success", title: "Repertoirezug erkannt", text: opening.ideas[Math.min(opening.ideas.length - 1, Math.floor(state.openingPly / 4))] };
       animateBoard("correct-flash"); updateOpeningLineProgress(); render();
-      window.setTimeout(advanceOpeningLine, 380); return;
+      const sessionId = state.sessionId;
+      window.setTimeout(() => { if (state.sessionId === sessionId && state.mode === "openings") advanceOpeningLine(); }, 380); return;
     }
 
     if (state.mode === "endgame") {
@@ -200,8 +202,11 @@
   }
 
   function requestEndgameDefense() {
+    const sessionId = state.sessionId;
+    const expectedFen = E.toFEN(state.game);
     state.thinking = true; render();
     window.setTimeout(() => {
+      if (state.sessionId !== sessionId || state.mode !== "endgame" || E.toFEN(state.game) !== expectedFen) return;
       const move = T.chooseEndgameDefense(E, state.game, state.endgameId);
       state.thinking = false;
       if (move) makeMove(move, "defense"); else render();
@@ -209,10 +214,13 @@
   }
 
   function requestAiMove() {
+    const sessionId = state.sessionId;
+    const expectedFen = E.toFEN(state.game);
     state.thinking = true;
     render();
     const delay = state.level === "easy" ? 280 : state.level === "medium" ? 450 : 650;
     window.setTimeout(() => {
+      if (state.sessionId !== sessionId || state.mode !== "match" || E.toFEN(state.game) !== expectedFen) return;
       const move = E.chooseMove(state.game, state.level);
       state.thinking = false;
       if (move) makeMove(move, "ai"); else render();
@@ -225,7 +233,7 @@
     let title, text, kind = "";
     if (state.messageOverride) ({ title, text, kind } = state.messageOverride);
     else if (status.type === "checkmate") { title = "Schachmatt"; text = `${status.winner === "w" ? "Weiß" : "Schwarz"} gewinnt die Partie.`; kind = "success"; }
-    else if (status.type === "stalemate") { title = "Patt"; text = "Kein legaler Zug, aber der König steht nicht im Schach. Die Partie ist remis."; }
+    else if (status.type === "stalemate") { title = "Patt – kein Schach"; text = "Die Materialüberzahl reicht nicht: Der Gegner hat keinen legalen Zug, sein König ist aber nicht angegriffen. Für Matt muss dein letzter Zug zugleich Schach geben."; }
     else if (status.type === "fiftyMove") { title = "Remis"; text = "50-Züge-Regel: 100 Halbzüge ohne Bauernzug oder Schlagzug."; }
     else if (status.type === "repetition") { title = "Remis"; text = "Dieselbe Stellung ist dreimal entstanden."; }
     else if (status.type === "insufficient") { title = "Remis"; text = "Mit diesem Material ist kein Matt mehr möglich."; }
@@ -292,6 +300,7 @@
     else if (mode === "strategy") loadStrategyStep(state.strategyStep);
     else if (mode === "openings") loadOpening($("#openingSelect").value || trainingData.openings[0].id);
     else if (["home", "learn"].includes(mode)) {
+      beginPositionSession();
       state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.thinking = false;
       state.messageOverride = mode === "home" ? { kind: "", title: "Bereit für deine erste Einheit?", text: "Starte mit der Empfehlung. Es gibt keinen Zeitdruck und jeder Fehler wird erklärt." } : { kind: "", title: "Fünf Bausteine für gutes Schach", text: "Beginne ohne Vorwissen bei den Grundlagen. Danach folgen Taktik, Eröffnungen, Endspiel und Strategie." };
       updateHomeRecommendation(); render();
@@ -300,6 +309,7 @@
   }
 
   function resetGame() {
+    beginPositionSession();
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.puzzleSolved = false; state.thinking = false;
     $("#lessonText").textContent = state.mode === "practice" ? "Prüfe zuerst Material, Königssicherheit und Bauernstruktur – erst danach einzelne Varianten." : "Entwickle zuerst deine Figuren, bringe den König in Sicherheit und kämpfe dann um das Zentrum.";
     $("#fenInput").value = E.START_FEN;
@@ -308,6 +318,7 @@
   }
 
   function loadBasics(index) {
+    beginPositionSession();
     state.basicsStep = Math.max(0, Math.min(basicsLessons.length - 1, index));
     const lesson = basicsLessons[state.basicsStep];
     state.game = E.fromFEN(lesson.fen); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.thinking = false;
@@ -327,6 +338,7 @@
   }
 
   function loadEndgame(id) {
+    beginPositionSession();
     const lesson = trainingData.endgames.find((item) => item.id === id) || trainingData.endgames[0];
     state.endgameId = lesson.id; state.endgameFailed = false; state.thinking = false;
     state.game = E.fromFEN(lesson.fen); state.moves = []; state.lastMove = null; state.selected = null; state.legal = [];
@@ -338,6 +350,7 @@
   }
 
   function loadStrategyStep(index) {
+    beginPositionSession();
     const steps = trainingData.masterclass.steps;
     state.strategyStep = (index + steps.length) % steps.length; state.strategySolved = false;
     const step = steps[state.strategyStep];
@@ -384,6 +397,7 @@
   }
 
   function loadOpening(id) {
+    beginPositionSession();
     const index = trainingData.openings.findIndex((opening) => opening.id === id);
     state.openingIndex = index >= 0 ? index : 0; state.openingPly = 0; state.openingErrors = 0;
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.thinking = false;
@@ -426,6 +440,7 @@
   }
 
   function loadPuzzle(index) {
+    beginPositionSession();
     const reviewEmpty = $("#themeFilter")?.value === "review" && !puzzles.some((puzzle) => (getProgress().puzzles?.[puzzle.id]?.errors || 0) > 0);
     const pool = currentPuzzlePool();
     state.puzzlePosition = (index + pool.length) % pool.length;
@@ -593,6 +608,7 @@
     try {
       const parsed = E.fromFEN($("#fenInput").value.trim());
       if (!(E.inCheck(parsed, "w") && E.inCheck(parsed, "b")) && parsed.board.flat().filter((p) => p === "K").length === 1 && parsed.board.flat().filter((p) => p === "k").length === 1) {
+        beginPositionSession();
         state.game = parsed; state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = { kind: "success", title: "Stellung geladen", text: `${parsed.turn === "w" ? "Weiß" : "Schwarz"} ist am Zug.` }; render();
       } else throw new Error();
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }

@@ -55,6 +55,18 @@ let mate = E.fromFEN("6k1/6pp/7Q/8/8/2B5/8/6K1 w - - 0 1");
 mate = play(mate, "h6g7");
 assert.equal(E.gameStatus(mate).type, "checkmate");
 
+const cleanMate = E.fromFEN("7k/6Q1/5K2/8/8/8/8/8 b - - 0 1");
+assert.equal(E.gameStatus(cleanMate).type, "checkmate", "Schach ohne Fluchtfeld wird als Matt erkannt");
+const cleanStalemate = E.fromFEN("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
+assert.equal(E.gameStatus(cleanStalemate).type, "stalemate", "Kein Zug ohne Schach wird als Patt erkannt");
+
+const reportedPositionWhite = E.fromFEN("8/6R1/5R2/3pn3/N2p2Pp/4kP2/1BP1B3/4K3 w - - 0 1");
+assert.equal(E.gameStatus(reportedPositionWhite).over, false, "Gemeldete Stellung ist bei weißem Zug nicht beendet");
+assert.equal(E.legalMoves(reportedPositionWhite).length, 41, "Weiß hat in der gemeldeten Stellung legale Züge");
+const reportedPositionBlack = E.fromFEN("8/6R1/5R2/3pn3/N2p2Pp/4kP2/1BP1B3/4K3 b - - 0 1");
+assert.equal(E.gameStatus(reportedPositionBlack).over, false, "Gemeldete Stellung ist auch bei schwarzem Zug nicht beendet");
+assert.equal(E.legalMoves(reportedPositionBlack).length, 10, "Schwarz hat in der gemeldeten Stellung legale Züge");
+
 const pin = E.fromFEN("4k3/8/8/8/8/8/4R3/4K3 b - - 0 1");
 assert.ok(E.inCheck(pin, "b"));
 
