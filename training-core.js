@@ -136,10 +136,15 @@
     return `${turns.join(" ")} ${result}`.trim();
   }
 
-  function coachReview(records, pgn = toPgn(records)) {
-    const whiteMoves = records.filter((record) => record.color === "w");
-    const castledEarly = whiteMoves.slice(0, 15).some((record) => record.san === "O-O" || record.san === "O-O-O");
-    const materialDrops = records.filter((record) => record.color === "b" && record.whiteMaterialBefore - record.whiteMaterialAfter >= 300);
+  function coachReview(records, pgn = toPgn(records), playerColor = "w") {
+    const ownMoves = records.filter((record) => record.color === playerColor);
+    const castledEarly = ownMoves.slice(0, 15).some((record) => record.san === "O-O" || record.san === "O-O-O");
+    const materialDrops = records.filter((record) => {
+      if (record.color === playerColor) return false;
+      const before = record.playerMaterialBefore ?? (playerColor === "w" ? record.whiteMaterialBefore : undefined);
+      const after = record.playerMaterialAfter ?? (playerColor === "w" ? record.whiteMaterialAfter : undefined);
+      return Number.isFinite(before) && Number.isFinite(after) && before - after >= 300;
+    });
     const strengths = [];
     const improvements = [];
     if (!materialDrops.length) strengths.push("Du hast keine Leichtfigur oder Schwerfigur einzügig eingestellt.");

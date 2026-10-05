@@ -108,6 +108,12 @@ assert.equal(T.canForcePawnWin(E, E.applyMove(opposition, losingKingMove)), fals
 
 const review = T.coachReview([{ color: "w", san: "e4", whiteMaterialBefore: 3900, whiteMaterialAfter: 3900 }]);
 assert.ok(review.improvements.some((text) => text.includes("Rochiere")), "Coach erkennt fehlende Rochade");
+const blackReview = T.coachReview([
+  { color: "w", san: "Bxh6", playerMaterialBefore: 3900, playerMaterialAfter: 3570 },
+  { color: "b", san: "O-O", playerMaterialBefore: 3570, playerMaterialAfter: 3570 }
+], undefined, "b");
+assert.ok(blackReview.improvements.some((text) => text.includes("Figur verloren")), "Coach erkennt Materialverlust des schwarzen Spielers");
+assert.ok(blackReview.strengths.some((text) => text.includes("Rochade")), "Coach erkennt die schwarze Rochade");
 assert.equal(T.toPgn([{ color: "w", san: "e4" }, { color: "b", san: "e5" }]), "1. e4 e5 *", "PGN wird aus dem Partieverlauf erzeugt");
 
 assert.equal(E.DIFFICULTY_LEVELS.length, 8, "Acht fein abgestufte Spielstärken sind verfügbar");

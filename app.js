@@ -8,7 +8,7 @@
   const boardEl = document.querySelector("#board");
   const statusCard = document.querySelector(".status-card");
   const state = {
-    game: E.fromFEN(), mode: "home", level: "learner", selected: null,
+    game: E.fromFEN(), mode: "home", level: "learner", colorChoice: "w", playerColor: "w", selected: null,
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null,
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
@@ -42,14 +42,15 @@
     $("#whiteTurn").classList.toggle("active", interactiveBoard && state.game.turn === "w" && !state.thinking);
     $("#blackTurn").classList.toggle("active", interactiveBoard && state.game.turn === "b");
     $("#thinking").hidden = !state.thinking;
-    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode);
+    const hasOwnMatchMove = state.moves.some((move) => move.color === state.playerColor);
+    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && !hasOwnMatchMove);
     if (state.mode === "match" && E.gameStatus(state.game).over) renderCoachReview();
   }
 
   function renderBoard() {
     boardEl.innerHTML = "";
     const checkColor = E.inCheck(state.game, state.game.turn) ? state.game.turn : null;
-    const flipped = state.mode === "openings" && trainingData.openings[state.openingIndex].side === "b";
+    const flipped = (state.mode === "openings" && trainingData.openings[state.openingIndex].side === "b") || (state.mode === "match" && state.playerColor === "b");
     for (let viewRow = 0; viewRow < 8; viewRow++) for (let viewCol = 0; viewCol < 8; viewCol++) {
       const r = flipped ? 7 - viewRow : viewRow;
       const c = flipped ? 7 - viewCol : viewCol;
@@ -95,7 +96,7 @@
     if (state.mode === "tactics" && state.puzzleSolved) return;
     if (state.mode === "strategy" || (state.mode === "endgame" && (state.endgameFailed || state.game.turn === "b"))) return;
     if (state.mode === "openings" && (state.openingPly >= trainingData.openings[state.openingIndex].line.length || state.game.turn !== trainingData.openings[state.openingIndex].side)) return;
-    if (state.mode === "match" && state.game.turn === "b") return;
+    if (state.mode === "match" && state.game.turn !== state.playerColor) return;
     const [r, c] = E.coords(square);
     const piece = state.game.board[r][c];
     const targetMoves = state.legal.filter((move) => move.to === square);
@@ -131,7 +132,14 @@
     const before = state.game;
     const san = E.notation(before, move);
     state.game = E.applyMove(before, move);
-    state.moves.push({ color: before.turn, san, whiteMaterialBefore: T.materialFor(E, before, "w"), whiteMaterialAfter: T.materialFor(E, state.game, "w") });
+    state.moves.push({
+      color: before.turn,
+      san,
+      whiteMaterialBefore: T.materialFor(E, before, "w"),
+      whiteMaterialAfter: T.materialFor(E, state.game, "w"),
+      playerMaterialBefore: T.materialFor(E, before, state.playerColor),
+      playerMaterialAfter: T.materialFor(E, state.game, state.playerColor)
+    });
     state.lastMove = move;
     if (state.mode === "match" && actor === "ai") state.opponentLastMove = move;
     state.selected = null;
@@ -192,7 +200,7 @@
     }
 
     render();
-    if (state.mode === "match" && !E.gameStatus(state.game).over && state.game.turn === "b") requestAiMove();
+    if (state.mode === "match" && !E.gameStatus(state.game).over && state.game.turn !== state.playerColor) requestAiMove();
   }
 
   function animateBoard(className) {
@@ -240,8 +248,9 @@
     else if (status.type === "repetition") { title = "Remis"; text = "Dieselbe Stellung ist dreimal entstanden."; }
     else if (status.type === "insufficient") { title = "Remis"; text = "Mit diesem Material ist kein Matt mehr möglich."; }
     else if (state.thinking) { title = "Die KI rechnet"; text = "Sie prüft legale Antworten auf deinen letzten Zug."; }
-    else if (status.check) { title = "Schach!"; text = `${state.game.turn === "w" ? "Dein" : "Der schwarze"} König ist angegriffen. Reagiere auf das Schach.`; kind = "error"; }
+    else if (status.check) { title = "Schach!"; text = state.mode === "match" ? `${state.game.turn === state.playerColor ? "Dein König" : "Der gegnerische König"} ist angegriffen.` : `${state.game.turn === "w" ? "Der weiße" : "Der schwarze"} König ist angegriffen.`; kind = "error"; }
     else if (state.mode === "tactics" && state.puzzleSolved) { title = "Aufgabe gelöst"; text = "Sehr gut erkannt. Nimm das Motiv mit in deine nächste Partie."; kind = "success"; }
+    else if (state.mode === "match") { title = state.game.turn === state.playerColor ? "Du bist am Zug" : "KI ist am Zug"; text = state.game.turn === state.playerColor ? "Wähle eine Figur und danach eines der markierten Zielfelder." : "Dein Trainingspartner berechnet seinen Zug."; }
     else { title = state.game.turn === "w" ? "Weiß ist am Zug" : "Schwarz ist am Zug"; text = "Wähle eine Figur und danach eines der markierten Zielfelder."; }
     if (kind) statusCard.classList.add(kind);
     $("#statusTitle").textContent = title;
@@ -283,7 +292,7 @@
     $("#opponentAvatar").textContent = mode === "match" ? "KI" : mode === "practice" ? "AN" : ["home", "learn"].includes(mode) ? "LOS" : "LE";
     $("#opponentName").textContent = mode === "match" ? "Trainingspartner" : mode === "practice" ? "Analysebrett" : ["home", "learn"].includes(mode) ? "Dein Lernbrett" : "Lerneinheit";
     $("#opponentDetail").textContent = mode === "match" ? `${E.difficultyConfig(state.level).name} · Stufe ${difficulties.findIndex((item) => item.id === state.level) + 1}` : mode === "tactics" ? "Muster erkennen · Zug berechnen" : mode === "endgame" ? "Technik gegen beste Verteidigung" : mode === "strategy" ? "Verstehen, bevor du ziehst" : mode === "openings" ? "Zugfolge und Pläne lernen" : mode === "home" ? "Hier beginnt dein Training" : mode === "learn" ? "Wähle dein nächstes Lernziel" : "Varianten ohne Zeitdruck";
-    $("#playerDetail").textContent = ["home", "learn"].includes(mode) ? "Dein Tempo · ohne Zeitdruck" : mode === "basics" ? "Erst verstehen, dann ziehen" : mode === "strategy" ? "Wähle eine Antwort im Lernpanel" : mode === "openings" ? `Du spielst ${trainingData.openings[state.openingIndex].side === "w" ? "Weiß" : "Schwarz"}` : "Weiß · konzentriert";
+    $("#playerDetail").textContent = ["home", "learn"].includes(mode) ? "Dein Tempo · ohne Zeitdruck" : mode === "basics" ? "Erst verstehen, dann ziehen" : mode === "strategy" ? "Wähle eine Antwort im Lernpanel" : mode === "openings" ? `Du spielst ${trainingData.openings[state.openingIndex].side === "w" ? "Weiß" : "Schwarz"}` : mode === "match" ? `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}` : "Weiß · konzentriert";
     const copy = {
       home: ["WILLKOMMEN", "Schach lernen – Schritt für Schritt.", "Du brauchst kein Vorwissen. Die Werkstatt zeigt dir immer, was als Nächstes sinnvoll ist."],
       learn: ["DEIN LERNWEG", "Was möchtest du heute lernen?", "Jeder Bereich erklärt zuerst die Idee und lässt dich danach selbst auf dem Brett üben."],
@@ -312,11 +321,17 @@
 
   function resetGame() {
     beginPositionSession();
+    if (state.mode === "match") state.playerColor = state.colorChoice === "random" ? (Math.random() < .5 ? "w" : "b") : state.colorChoice;
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.puzzleSolved = false; state.thinking = false;
     $("#lessonText").textContent = state.mode === "practice" ? "Prüfe zuerst Material, Königssicherheit und Bauernstruktur – erst danach einzelne Varianten." : "Entwickle zuerst deine Figuren, bringe den König in Sicherheit und kämpfe dann um das Zentrum.";
     $("#fenInput").value = E.START_FEN;
     $("#coachReview").hidden = true;
     render();
+    if (state.mode === "match") {
+      $("#playerDetail").textContent = `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
+      $("#opponentDetail").textContent = `${E.difficultyConfig(state.level).name} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
+      if (state.game.turn !== state.playerColor) requestAiMove();
+    }
   }
 
   function loadBasics(index) {
@@ -570,6 +585,17 @@
     if (restart) resetGame();
   }
 
+  function setColorChoice(choice) {
+    if (!["w", "b", "random"].includes(choice)) return;
+    state.colorChoice = choice;
+    all("[data-color]").forEach((button) => {
+      const active = button.dataset.color === choice;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-checked", String(active));
+    });
+    resetGame();
+  }
+
   all(".mode-tab").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.mode)));
   all("[data-learning-mode]").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.learningMode)));
   $("#learningBack").addEventListener("click", () => switchMode("learn"));
@@ -577,6 +603,7 @@
   $("#nextBasics").addEventListener("click", advanceBasics);
   $("#difficulty").addEventListener("input", (event) => setDifficulty(event.target.value));
   $("#difficulty").addEventListener("change", (event) => setDifficulty(event.target.value, true));
+  all("[data-color]").forEach((button) => button.addEventListener("click", () => setColorChoice(button.dataset.color)));
   $("#newGame").addEventListener("click", resetGame);
   $("#nextPuzzle").addEventListener("click", () => loadPuzzle(state.puzzlePosition + 1));
   $("#hintButton").addEventListener("click", () => { const p = puzzles[state.puzzleIndex]; state.messageOverride = { kind: "", title: "Hinweis", text: p.hint }; render(); });
@@ -593,7 +620,7 @@
   $("#openingSelect").addEventListener("change", (event) => loadOpening(event.target.value));
   $("#restartOpening").addEventListener("click", () => loadOpening(trainingData.openings[state.openingIndex].id));
   function renderCoachReview() {
-    const review = T.coachReview(state.moves, T.toPgn(state.moves)); const box = $("#coachReview"); box.hidden = false; box.innerHTML = "";
+    const review = T.coachReview(state.moves, T.toPgn(state.moves), state.playerColor); const box = $("#coachReview"); box.hidden = false; box.innerHTML = "";
     const title = document.createElement("strong"); title.textContent = review.title;
     const summary = document.createElement("p"); summary.textContent = review.summary;
     box.append(title, summary);
@@ -602,13 +629,21 @@
   $("#loadStart").addEventListener("click", () => { $("#fenInput").value = E.START_FEN; loadFen(); });
   $("#loadFen").addEventListener("click", loadFen);
   $("#undoButton").addEventListener("click", () => {
-    const count = state.mode === "match" && state.game.history.length >= 2 ? 2 : 1;
-    for (let i = 0; i < count; i++) { state.game = E.undo(state.game); state.moves.pop(); }
+    if (state.mode === "match") {
+      let removedOwnMove = false;
+      while (state.game.history.length && !removedOwnMove) {
+        const removed = state.moves.pop();
+        state.game = E.undo(state.game);
+        removedOwnMove = removed?.color === state.playerColor;
+      }
+    } else {
+      state.game = E.undo(state.game); state.moves.pop();
+    }
     state.lastMove = state.game.history.at(-1)?.move || null;
     state.opponentLastMove = null;
     for (let i = state.game.history.length - 1; i >= 0; i--) {
       const entry = state.game.history[i];
-      if (entry.piece && E.colorOf(entry.piece) === "b") { state.opponentLastMove = entry.move; break; }
+      if (entry.piece && E.colorOf(entry.piece) !== state.playerColor) { state.opponentLastMove = entry.move; break; }
     }
     state.selected = null; state.legal = []; state.messageOverride = null; render();
   });

@@ -25,6 +25,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Lokale Fehlerwiederholung für noch unsichere Motive
 - Erklärungen, Hinweise und konkrete Merksätze zu jeder Aufgabe
 - Trainingspartien gegen acht fein abgestufte Computer-Spielstärken von „Einstieg“ bis „Experte“
+- Freie Farbwahl: mit Weiß, Schwarz oder bei jeder neuen Partie zufällig spielen
 - Iterative Tiefensuche, begrenzte Bedenkzeit und taktische Ruhesuche für höhere Stufen
 - Freies Analysebrett mit FEN-Import
 - Vollständige Zugprüfung inklusive Rochade, en passant und Bauernumwandlung

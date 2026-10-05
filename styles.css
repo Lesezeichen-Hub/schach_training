@@ -125,6 +125,7 @@ select { width: 100%; min-height: 40px; margin-bottom: 12px; padding: 8px 34px 8
 .segmented button { padding: 10px 6px; border: 1px solid var(--line); background: #111713; cursor: pointer; font-weight: 750; }
 .segmented button small { display: block; margin-top: 3px; color: var(--muted); font-size: .68rem; font-weight: 500; }
 .segmented button.active { border-color: var(--gold); background: #2c291d; color: var(--gold); }
+.color-choice { margin-bottom: 18px; }
 .difficulty-control { margin-bottom: 14px; padding: 12px; border: 1px solid var(--line); background: #111713; }
 .difficulty-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .difficulty-heading strong { color: var(--gold); font-size: .82rem; }

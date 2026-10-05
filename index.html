@@ -81,6 +81,12 @@
         </section>
 
         <section id="matchControls" class="control-section" hidden>
+          <label>Deine Farbe</label>
+          <div class="segmented color-choice" id="colorChoice" role="radiogroup" aria-label="Deine Spielfarbe">
+            <button class="active" type="button" data-color="w" role="radio" aria-checked="true">Weiß<small>du beginnst</small></button>
+            <button type="button" data-color="b" role="radio" aria-checked="false">Schwarz<small>KI beginnt</small></button>
+            <button type="button" data-color="random" role="radio" aria-checked="false">Zufall<small>neu ausgelost</small></button>
+          </div>
           <label for="difficulty">Spielstärke</label>
           <div class="difficulty-control">
             <div class="difficulty-heading"><strong id="difficultyName">Stufe 3 · Lernpartner</strong><span id="difficultyDepth">2 Halbzüge</span></div>
