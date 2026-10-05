@@ -12,7 +12,8 @@
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null,
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
-    openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null
+    openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
+    lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set()
   };
 
   const trainingData = window.CHESS_TRAINING_DATA;
@@ -32,12 +33,164 @@
 
   function $(selector) { return document.querySelector(selector); }
   function all(selector) { return [...document.querySelectorAll(selector)]; }
-  function beginPositionSession() { state.sessionId += 1; state.thinking = false; }
+  function cancelLessonTimer() {
+    window.clearTimeout(state.lessonTimer); state.lessonTimer = null;
+    state.lessonPlaying = false; state.thinking = false;
+  }
+  function beginPositionSession() {
+    if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
+    cancelLessonTimer(); state.sessionId += 1; state.thinking = false; state.lesson = null;
+    const dialog = $("#promotionDialog");
+    if (dialog.open) dialog.close("cancel");
+  }
+  function isLessonMode() { return ["tactics", "openings"].includes(state.mode) && state.lesson; }
+  function lessonKey() { return `${state.mode}:${state.lesson.record.id}`; }
+  function exposureKey(session = state.lesson) { return `${session.record.category ? 'tactics' : 'openings'}:${session.record.id}:${session.scenario.id}`; }
+  function startLesson(record, options = {}) {
+    const previous = state.lesson;
+    const phase = options.phase || previous?.phase || $("#lessonPhase").value;
+    const scenario = options.scenario || "main";
+    const previouslyAssisted = previous?.record.id === record.id && previous.scenario.id === scenario && (previous.assisted || previous.ply > 0 || previous.phase === "demo" || previous.phase === "guided");
+    beginPositionSession();
+    state.lesson = T.createLessonSession(E, record, { phase, scenario });
+    const stored = getProgress().lessons[lessonKey()];
+    const seenCompletion = stored?.revision === state.lesson.lesson.revision && Object.keys(stored.completions || {}).some((key) => key.startsWith(`${state.lesson.scenario.id}:`) && !key.includes(':explain:'));
+    if (phase === "practice" && (previouslyAssisted || seenCompletion || state.seenLessons.has(exposureKey()))) state.lesson.assisted = true;
+    if (["demo", "guided"].includes(phase)) state.seenLessons.add(exposureKey());
+    state.lessonHint = false;
+    $("#lessonPhase").value = phase;
+    const select = $("#lessonScenario"); select.innerHTML = "";
+    for (const item of state.lesson.lesson.scenarios) {
+      const option = document.createElement("option"); option.value = item.id; option.textContent = item.title; select.appendChild(option);
+    }
+    select.value = state.lesson.scenario.id;
+    state.messageOverride = null; state.puzzleSolved = false;
+    syncLesson(); render(); scheduleLesson();
+  }
+  function syncLesson() {
+    const session = state.lesson;
+    state.game = session.game; state.selected = null; state.legal = [];
+    state.lastMove = session.game.history.at(-1)?.move || null;
+    state.moves = session.game.history.map((entry) => ({ color: E.fromFEN(entry.fen).turn, san: E.notation(E.fromFEN(entry.fen), entry.move) }));
+    state.puzzleSolved = session.ply === session.scenario.line.length;
+    state.openingPly = session.ply;
+    $("#playerDetail").textContent = `Lernfarbe: ${session.learnerSide === "w" ? "Weiß" : "Schwarz"} · ${session.scenario.title}`;
+  }
+  function scheduleLesson() {
+    if (!isLessonMode()) return;
+    const session = state.lesson, view = T.getLessonView(session);
+    if (view.status !== "awaiting-auto" || (session.phase === "demo" && !state.lessonPlaying)) return;
+    const token = { sessionId: state.sessionId, runId: session.runId, scenario: session.scenario.id, phase: session.phase, ply: session.ply, fen: view.fen };
+    window.clearTimeout(state.lessonTimer);
+    state.thinking = session.phase !== "demo"; render();
+    state.lessonTimer = window.setTimeout(() => {
+      if (!isLessonMode() || state.sessionId !== token.sessionId || state.lesson.runId !== token.runId || state.lesson.scenario.id !== token.scenario || state.lesson.phase !== token.phase || state.lesson.ply !== token.ply || E.toFEN(state.game) !== token.fen) return;
+      state.lessonTimer = null; state.thinking = false;
+      lessonAdvance();
+    }, session.phase === "demo" ? 1600 : 900);
+  }
+  function finishLesson(result) {
+    if (!result.completion) return;
+    const event = result.completion, saved = getProgress(), key = lessonKey();
+    const item = saved.lessons[key];
+    const entry = item && typeof item === 'object' && item.revision === event.revision ? item : { revision: event.revision, completions: {}, errors: item?.errors || 0, openError: item?.openError || saved.puzzles[state.lesson.record.id]?.openError };
+    entry.completions = entry.completions && typeof entry.completions === 'object' ? entry.completions : {};
+    const completionKey = `${event.scenario}:${event.phase}:${event.assisted ? "assisted" : "independent"}`;
+    entry.completions[completionKey] = (Number(entry.completions[completionKey]) || 0) + 1;
+    entry.last = { scenario: event.scenario, phase: event.phase, date: localDate(), assisted: event.assisted };
+    entry.errors = Number(entry.errors) || 0;
+    T.setLessonReviewState(entry, event.scenario, event.mistakes > 0);
+    if (state.mode === 'tactics') {
+      const puzzle = saved.puzzles[state.lesson.record.id];
+      if (puzzle) puzzle.openError = entry.openError;
+    }
+    saved.lessons[key] = entry; saveProgress(saved);
+    state.seenLessons.add(exposureKey());
+    if (event.scored) {
+      if (state.mode === "tactics") recordPuzzleAttempt(event.mistakes === 0);
+      else updateLearningRating("openings", event.mistakes === 0 ? 1 : 0, state.lesson.record.rating);
+    }
+    cancelLessonTimer();
+  }
+  function lessonAdvance(assistance = false) {
+    if (!isLessonMode()) return;
+    const result = T.advanceLesson(state.lesson, assistance);
+    if (result.needsHelp) {
+      state.messageOverride = { kind: "", title: "Dein Zug wird nicht übersprungen", text: "Ziehe selbst. Mit „Hinweis und Pfeil“ kannst du ausdrücklich Unterstützung anfordern." }; render(); return;
+    }
+    if (result.correct) { state.messageOverride = null; state.lessonHint = false; syncLesson(); finishLesson(result); render(); scheduleLesson(); }
+  }
+  function lessonHelp() {
+    if (!isLessonMode()) return;
+    const session = state.lesson, view = T.getLessonView(session);
+    if (!view.step) return;
+    session.assisted = true; state.seenLessons.add(exposureKey()); state.lessonHint = true;
+    state.messageOverride = { kind: "", title: "Unterstützter Versuch", text: `${view.step.before} ${view.step.after}` }; render();
+  }
+  function renderLesson() {
+    $("#lessonControls").hidden = !isLessonMode();
+    const svg = $("#lessonArrows"); svg.innerHTML = ""; svg.setAttribute('hidden', '');
+    $("#arrowDescriptions").textContent = '';
+    if (!isLessonMode()) return;
+    const session = state.lesson, view = T.getLessonView(session);
+    const visible = session.phase !== "practice" || state.lessonHint || view.status === "complete";
+    const hideSolution = session.phase === 'practice' && !visible;
+    $("#lessonGoal").textContent = hideSolution ? `${session.scenario.title}: Finde die Zugfolge zum trainierten Motiv oder Eröffnungsplan.` : session.scenario.purpose;
+    if (state.mode === 'tactics') {
+      const record = session.record;
+      $("#conceptTitle").textContent = hideSolution ? categoryMeta[record.category].title : record.title;
+      $("#puzzlePrompt").textContent = hideSolution ? 'Spiele die vollständige trainierte Folge.' : record.prompt;
+    }
+    if (state.mode === 'openings') {
+      $("#openingIdeas").hidden = hideSolution;
+      $("#openingWarning").hidden = hideSolution;
+    }
+    document.querySelector('.lesson-card').hidden = hideSolution;
+    $("#lessonIntro").textContent = session.lesson.intro;
+    $("#lessonIntro").hidden = session.phase === "practice" && !visible;
+    $("#lessonProgress").textContent = `${view.ply} / ${view.total} Halbzüge`;
+    $("#lessonState").textContent = view.status === "complete" ? "ABGESCHLOSSEN" : view.status === "awaiting-user" ? "DEIN ZUG" : view.status === "awaiting-auto" ? "GEGNER / VORFÜHRUNG" : "ERKLÄREN";
+    $("#lessonExplanation").textContent = view.status === "invalid-data" ? session.errors.join('\n') : view.status === "complete" ? session.scenario.outcome : session.phase === "explain" ? `${session.lesson.intro}\n${session.scenario.purpose}\nWähle Vorführen, Geführt oder Selbst üben, um die Folge zu beginnen.` : visible ? `${view.previous ? `Vorheriger Schritt: ${view.previous.before}\n${view.previous.after}\n\n` : ''}Nächster Schritt: ${view.step.before}\n${view.step.after}` : `${session.game.turn === session.learnerSide ? 'Finde deinen nächsten Zug' : 'Kuratierte Gegnerantwort folgt'}. Das Szenarioziel steht oben. Hinweise werden als Unterstützung markiert.`;
+    $("#lessonAssistance").textContent = session.phase === 'demo' || session.phase === 'explain' ? 'Keine Wertung in Erklärung oder Vorführung.' : session.assisted ? 'Unterstützt / Wiederholung – keine Lern-Elo und kein Tageszielpunkt.' : session.phase === 'guided' ? 'Geführt – separater Abschluss, keine Lern-Elo.' : 'Selbstständiger Versuch – Wertung erst nach der ganzen Folge.';
+    const entry = getProgress().lessons[lessonKey()];
+    $("#lessonSaved").textContent = entry?.revision === session.lesson.revision ? `Gespeicherte Abschlüsse dieser Revision: ${Object.values(entry.completions || {}).reduce((sum, n) => sum + (Number(n) || 0), 0)}` : 'Für diese Lernrevision noch kein vollständiger Abschluss. Alte Erfolge bleiben in der Statistik erhalten.';
+    $("#lessonPrevious").disabled = !view.ply || view.status === 'invalid-data';
+    $("#lessonNext").disabled = ['complete', 'explaining', 'invalid-data'].includes(view.status);
+    $("#lessonPlay").disabled = session.phase !== 'demo' || view.status === 'complete' || view.status === 'invalid-data';
+    $("#lessonPlay").textContent = state.lessonPlaying ? 'Pause' : 'Abspielen';
+    $("#lessonPlay").setAttribute('aria-pressed', String(state.lessonPlaying));
+    $("#lessonHelp").disabled = !view.step || view.status === 'invalid-data';
+    $("#arrowLegend").hidden = !visible;
+    $("#revealSolution").disabled = !view.step;
+    if (state.mode === "openings") $("#openingLineProgress").textContent = `${view.ply} / ${view.total} Halbzüge · ${session.scenario.title}`;
+    if (!visible) return;
+    const step = view.step || view.previous;
+    const arrows = step?.visual?.arrows || [];
+    if (!arrows.length) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    const makeSvg = (tag, attrs) => { const el = document.createElementNS(ns, tag); for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value); return el; };
+    const colors = { move: '#e7b65d', attack: '#ee6457', defense: '#329de2', counter: '#be83ef' };
+    const defs = makeSvg('defs', {}); svg.appendChild(defs);
+    for (const [index, arrow] of arrows.entries()) {
+      const color = colors[arrow.kind] || colors.move;
+      const id = `lesson-arrow-${index}`;
+      const marker = makeSvg('marker', { id, markerWidth: 4, markerHeight: 4, refX: 3, refY: 2, orient: 'auto', markerUnits: 'strokeWidth' });
+      marker.appendChild(makeSvg('path', { d: 'M0,0 L4,2 L0,4 Z', fill: color })); defs.appendChild(marker);
+      const from = T.arrowPoint(E, arrow.from, view.flipped), to = T.arrowPoint(E, arrow.to, view.flipped);
+      const line = makeSvg('line', { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: color, 'stroke-width': .095, 'stroke-opacity': .86, 'marker-end': `url(#${id})` });
+      if (arrow.kind !== 'move') line.setAttribute('stroke-dasharray', '.18 .08');
+      const title = makeSvg('title', {}); title.textContent = arrow.label; line.appendChild(title); svg.appendChild(line);
+      const label = makeSvg('text', { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - .12, 'text-anchor': 'middle' }); label.textContent = `${index + 1}`; svg.appendChild(label);
+    }
+    $("#arrowDescriptions").textContent = arrows.map((a, index) => `${index + 1}. ${a.label}: ${a.from} → ${a.to}`).join(' · ');
+    svg.setAttribute('aria-label', arrows.map((a) => `${a.label}, ${a.from} nach ${a.to}`).join('; ')); svg.removeAttribute('hidden');
+  }
 
   function render() {
     renderBoard();
     renderMoves();
     renderStatus();
+    renderLesson();
     const interactiveBoard = !["home", "learn", "basics", "strategy"].includes(state.mode);
     $("#whiteTurn").classList.toggle("active", interactiveBoard && state.game.turn === "w" && !state.thinking);
     $("#blackTurn").classList.toggle("active", interactiveBoard && state.game.turn === "b");
@@ -50,7 +203,8 @@
   function renderBoard() {
     boardEl.innerHTML = "";
     const checkColor = E.inCheck(state.game, state.game.turn) ? state.game.turn : null;
-    const flipped = (state.mode === "openings" && trainingData.openings[state.openingIndex].side === "b") || (state.mode === "match" && state.playerColor === "b");
+    const flipped = isLessonMode() ? state.lesson.learnerSide === 'b' : state.mode === "match" && state.playerColor === "b";
+    boardEl.setAttribute('aria-label', `Schachbrett, ${flipped ? 'Schwarz' : 'Weiß'} unten`);
     for (let viewRow = 0; viewRow < 8; viewRow++) for (let viewCol = 0; viewCol < 8; viewCol++) {
       const r = flipped ? 7 - viewRow : viewRow;
       const c = flipped ? 7 - viewCol : viewCol;
@@ -70,7 +224,7 @@
         if (state.opponentLastMove.from === squareName) button.classList.add("opponent-last-from");
         if (state.opponentLastMove.to === squareName) button.classList.add("opponent-last-to");
       }
-      if (state.mode === "tactics") {
+      if (state.mode === "tactics" && (!isLessonMode() || state.lesson.phase !== 'practice' || state.lessonHint)) {
         const anchors = puzzles[state.puzzleIndex]?.anchors;
         if (anchors?.pieces.includes(squareName)) button.classList.add("training-piece");
         if (state.solutionFrom === squareName) button.classList.add("solution-from");
@@ -95,7 +249,7 @@
     if (["home", "learn", "basics"].includes(state.mode)) return;
     if (state.mode === "tactics" && state.puzzleSolved) return;
     if (state.mode === "strategy" || (state.mode === "endgame" && (state.endgameFailed || state.game.turn === "b"))) return;
-    if (state.mode === "openings" && (state.openingPly >= trainingData.openings[state.openingIndex].line.length || state.game.turn !== trainingData.openings[state.openingIndex].side)) return;
+    if (isLessonMode() && T.getLessonView(state.lesson).status !== 'awaiting-user') return;
     if (state.mode === "match" && state.game.turn !== state.playerColor) return;
     const [r, c] = E.coords(square);
     const piece = state.game.board[r][c];
@@ -103,8 +257,11 @@
     if (state.selected && targetMoves.length) {
       let move = targetMoves[0];
       if (targetMoves.some((m) => m.promotion)) {
+        const token = { sessionId: state.sessionId, fen: E.toFEN(state.game), lesson: state.lesson, ply: state.lesson?.ply };
         const promotion = await choosePromotion();
-        move = targetMoves.find((m) => m.promotion === promotion) || targetMoves[0];
+        if (!promotion || state.sessionId !== token.sessionId || E.toFEN(state.game) !== token.fen || state.lesson !== token.lesson || state.lesson?.ply !== token.ply) return;
+        move = E.legalMoves(state.game).find((m) => m.from === move.from && m.to === move.to && m.promotion === promotion);
+        if (!move) return;
       }
       makeMove(move, "human");
       return;
@@ -122,13 +279,35 @@
   function choosePromotion() {
     return new Promise((resolve) => {
       const dialog = $("#promotionDialog");
-      const onClose = () => { dialog.removeEventListener("close", onClose); resolve(dialog.returnValue || "q"); };
+      dialog.returnValue = "";
+      const onClose = () => { dialog.removeEventListener("close", onClose); resolve(['q', 'r', 'b', 'n'].includes(dialog.returnValue) ? dialog.returnValue : null); };
       dialog.addEventListener("close", onClose);
       dialog.showModal();
     });
   }
 
   function makeMove(move, actor) {
+    if (isLessonMode()) {
+      const result = T.submitLessonMove(state.lesson, move);
+      state.selected = null; state.legal = [];
+      if (!result.correct) {
+        state.messageOverride = { kind: 'error', title: result.illegal ? 'Nicht legal' : 'Zug und Folge vergleichen', text: result.feedback || 'Jetzt ist kein Schülerzug vorgesehen.' };
+        if (!result.blocked && !result.illegal) {
+          const saved = getProgress(), key = lessonKey();
+          const entry = saved.lessons[key] && typeof saved.lessons[key] === 'object' ? saved.lessons[key] : { revision: state.lesson.lesson.revision, completions: {}, openError: saved.puzzles[state.lesson.record.id]?.openError };
+          entry.errors = (Number(entry.errors) || 0) + 1;
+          T.setLessonReviewState(entry, state.lesson.scenario.id, true); saved.lessons[key] = entry;
+          if (state.mode === 'tactics') {
+            const item = saved.puzzles[state.lesson.record.id] ||= { attempts: 0, successes: 0, errors: 0 };
+            item.errors++; item.openError = true;
+          }
+          saveProgress(saved);
+        }
+        render(); return;
+      }
+      state.messageOverride = null; state.lessonHint = false;
+      syncLesson(); finishLesson(result); render(); scheduleLesson(); return;
+    }
     const before = state.game;
     const san = E.notation(before, move);
     state.game = E.applyMove(before, move);
@@ -145,43 +324,6 @@
     state.selected = null;
     state.legal = [];
     state.messageOverride = null;
-
-    if (state.mode === "tactics" && actor === "human") {
-      const result = T.validateTactic(puzzles[state.puzzleIndex], move);
-      if (result.correct) {
-        state.puzzleSolved = true;
-        state.messageOverride = { kind: "success", title: "Richtig!", text: puzzles[state.puzzleIndex].explanation };
-        recordPuzzleAttempt(true);
-        animateBoard("correct-flash");
-      } else {
-        state.game = before;
-        state.moves.pop();
-        state.lastMove = null;
-        state.attemptsOnPuzzle += 1;
-        recordPuzzleAttempt(false);
-        state.messageOverride = { kind: "error", title: "Versuch es noch einmal", text: state.attemptsOnPuzzle >= 3 ? "Drei Versuche sind vorbei. Du kannst dir jetzt die Lösung auf dem Brett anzeigen lassen." : "Setze die Figur zurück und prüfe erneut: Schachs, Schlagzüge, Drohungen." };
-        $("#revealSolution").disabled = state.attemptsOnPuzzle < 3;
-        animateBoard("wrong-shake");
-      }
-      render();
-      return;
-    }
-
-    if (state.mode === "openings" && actor === "human") {
-      const opening = trainingData.openings[state.openingIndex];
-      const played = move.from + move.to + (move.promotion || "");
-      if (played !== opening.line[state.openingPly]) {
-        state.game = before; state.moves.pop(); state.lastMove = before.history.at(-1)?.move || null; state.openingErrors += 1;
-        state.messageOverride = { kind: "error", title: "Nicht der Repertoirezug", text: `Versuch es noch einmal. Denke an den Plan: ${opening.ideas[0]}.` };
-        updateLearningRating("openings", 0, opening.rating); animateBoard("wrong-shake"); render(); return;
-      }
-      state.openingPly += 1;
-      updateLearningRating("openings", 1, opening.rating);
-      state.messageOverride = { kind: "success", title: "Repertoirezug erkannt", text: opening.ideas[Math.min(opening.ideas.length - 1, Math.floor(state.openingPly / 4))] };
-      animateBoard("correct-flash"); updateOpeningLineProgress(); render();
-      const sessionId = state.sessionId;
-      window.setTimeout(() => { if (state.sessionId === sessionId && state.mode === "openings") advanceOpeningLine(); }, 380); return;
-    }
 
     if (state.mode === "endgame") {
       if (actor === "human") {
@@ -242,6 +384,12 @@
     statusCard.className = "status-card";
     let title, text, kind = "";
     if (state.messageOverride) ({ title, text, kind } = state.messageOverride);
+    else if (isLessonMode()) {
+      const view = T.getLessonView(state.lesson);
+      title = view.status === 'complete' ? 'Ganze Lehrfolge abgeschlossen' : view.status === 'awaiting-user' ? 'Dein nächster Zug' : view.status === 'explaining' ? 'Motiv und Voraussetzungen' : 'Kuratierte Lehrantwort';
+      text = view.status === 'complete' ? state.lesson.scenario.outcome : view.status === 'awaiting-user' ? `Du trainierst ${state.lesson.learnerSide === 'w' ? 'Weiß' : 'Schwarz'}. ${state.lesson.scenario.purpose}` : view.status === 'explaining' ? 'Wähle eine Lernphase. Das Brett zeigt die Ausgangsstellung dieses Szenarios.' : 'Eine hinterlegte Antwort, keine Behauptung einer universell besten Verteidigung.';
+      kind = view.status === 'complete' ? 'success' : '';
+    }
     else if (status.type === "checkmate") { title = "Schachmatt"; text = `${status.winner === "w" ? "Weiß" : "Schwarz"} gewinnt die Partie.`; kind = "success"; }
     else if (status.type === "stalemate") { title = "Patt – kein Schach"; text = "Die Materialüberzahl reicht nicht: Der Gegner hat keinen legalen Zug, sein König ist aber nicht angegriffen. Für Matt muss dein letzter Zug zugleich Schach geben."; }
     else if (status.type === "fiftyMove") { title = "Remis"; text = "50-Züge-Regel: 100 Halbzüge ohne Bauernzug oder Schlagzug."; }
@@ -262,10 +410,12 @@
     const list = $("#moveList");
     if (!state.moves.length) { list.innerHTML = '<p class="empty-state">Noch keine Züge gespielt.</p>'; return; }
     list.innerHTML = "";
-    for (let i = 0; i < state.moves.length; i += 2) {
-      const number = document.createElement("span"); number.className = "move-number"; number.textContent = `${i / 2 + 1}.`;
-      const white = document.createElement("span"); white.className = "move-cell"; white.textContent = state.moves[i]?.san || "";
-      const black = document.createElement("span"); black.className = "move-cell"; black.textContent = state.moves[i + 1]?.san || "";
+    const firstFen = state.game.history[0]?.fen;
+    const initialFullmove = firstFen ? E.fromFEN(firstFen).fullmove : 1;
+    for (const row of T.moveRows(state.moves, initialFullmove)) {
+      const number = document.createElement("span"); number.className = "move-number"; number.textContent = `${row.number}.`;
+      const white = document.createElement("span"); white.className = "move-cell"; white.textContent = row.white;
+      const black = document.createElement("span"); black.className = "move-cell"; black.textContent = row.black;
       list.append(number, white, black);
     }
     list.scrollTop = list.scrollHeight;
@@ -350,7 +500,7 @@
   function advanceBasics() {
     if (state.basicsStep < basicsLessons.length - 1) { loadBasics(state.basicsStep + 1); return; }
     const saved = getProgress(); saved.basicsCompleted = true;
-    localStorage.setItem("schachwerkstatt-progress", JSON.stringify(saved));
+    saveProgress(saved);
     state.basicsStep = 0; updateHomeRecommendation(); switchMode("learn");
   }
 
@@ -414,7 +564,6 @@
   }
 
   function loadOpening(id) {
-    beginPositionSession();
     const index = trainingData.openings.findIndex((opening) => opening.id === id);
     state.openingIndex = index >= 0 ? index : 0; state.openingPly = 0; state.openingErrors = 0;
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.thinking = false;
@@ -425,40 +574,11 @@
     $("#openingWarning").textContent = `Typischer Fehler: ${opening.warning}`;
     $("#openingProgress").textContent = `${state.openingIndex + 1} / ${trainingData.openings.length}`;
     $("#lessonText").textContent = opening.ideas[0];
-    advanceOpeningLine();
-  }
-
-  function advanceOpeningLine() {
-    if (state.mode !== "openings") return;
-    const opening = trainingData.openings[state.openingIndex];
-    while (state.openingPly < opening.line.length && state.game.turn !== opening.side) {
-      const expected = opening.line[state.openingPly];
-      const move = E.legalMoves(state.game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === expected);
-      if (!move) { state.messageOverride = { kind: "error", title: "Variantendaten fehlerhaft", text: `Der Zug ${expected} ist in dieser Stellung nicht legal.` }; render(); return; }
-      const before = state.game; const san = E.notation(before, move); state.game = E.applyMove(before, move);
-      state.moves.push({ color: before.turn, san, whiteMaterialBefore: T.materialFor(E, before, "w"), whiteMaterialAfter: T.materialFor(E, state.game, "w") });
-      state.lastMove = move; state.openingPly += 1;
-    }
-    updateOpeningLineProgress();
-    if (state.openingPly >= opening.line.length) {
-      state.messageOverride = { kind: "success", title: "Variante abgeschlossen", text: `${opening.name}: ${opening.ideas.join(" · ")}` };
-      animateBoard("correct-flash");
-    } else if (!state.messageOverride) {
-      state.messageOverride = { kind: "", title: `${opening.side === "w" ? "Weiß" : "Schwarz"} am Zug`, text: "Finde den nächsten Repertoirezug aus dem Plan der Eröffnung." };
-    }
-    render();
-  }
-
-  function updateOpeningLineProgress() {
-    const opening = trainingData.openings[state.openingIndex];
-    const ownPlies = opening.line.filter((_, index) => (index % 2 === 0 ? "w" : "b") === opening.side).length;
-    const completed = opening.line.slice(0, state.openingPly).filter((_, index) => (index % 2 === 0 ? "w" : "b") === opening.side).length;
-    $("#openingLineProgress").textContent = `${completed} / ${ownPlies} eigene Züge`;
+    startLesson(opening);
   }
 
   function loadPuzzle(index) {
-    beginPositionSession();
-    const reviewEmpty = $("#themeFilter")?.value === "review" && !puzzles.some((puzzle) => (getProgress().puzzles?.[puzzle.id]?.errors || 0) > 0);
+    const reviewEmpty = $("#themeFilter")?.value === "review" && !puzzles.some((puzzle) => getProgress().puzzles?.[puzzle.id]?.openError);
     const pool = currentPuzzlePool();
     state.puzzlePosition = (index + pool.length) % pool.length;
     const puzzle = pool[state.puzzlePosition];
@@ -466,20 +586,27 @@
     state.game = E.fromFEN(puzzle.fen); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = reviewEmpty ? { kind: "success", title: "Noch keine Fehler offen", text: "Stark! Bis hierhin gibt es keine Fehlversuche. Du trainierst deshalb weiter im gemischten Modus." } : null; state.puzzleSolved = false; state.attemptsOnPuzzle = 0; state.solutionFrom = null; state.solutionTo = null;
     $("#puzzleTheme").textContent = categoryMeta[puzzle.category].title; $("#puzzleProgress").textContent = `${state.puzzlePosition + 1} / ${pool.length}`;
     $("#conceptTitle").textContent = puzzle.title; $("#conceptText").textContent = categoryMeta[puzzle.category].concept;
-    $("#puzzlePrompt").textContent = puzzle.prompt; $("#puzzleDescription").textContent = "Weiß ist am Zug. Führe den besten Zug direkt auf dem Brett aus."; $("#lessonText").textContent = categoryMeta[puzzle.category].rule;
+    $("#puzzlePrompt").textContent = puzzle.prompt; $("#puzzleDescription").textContent = "Trainiere die gesamte Lehrfolge einschließlich gegnerischer Antworten. Wähle unten Phase und Szenario."; $("#lessonText").textContent = categoryMeta[puzzle.category].rule;
     $("#nextPuzzle").textContent = "Nächste Aufgabe";
-    $("#revealSolution").disabled = true; $("#revealSolution").textContent = "Lösung anzeigen · nach 3 Versuchen";
+    $("#revealSolution").disabled = false; $("#revealSolution").textContent = "Nächsten Zug zeigen · unterstützt";
     updateTrainingProgress();
-    render();
+    startLesson(puzzle);
   }
 
   function localDate() {
     return new Date().toLocaleDateString("sv-SE");
   }
 
+  let memoryProgress = null;
   function getProgress() {
-    try { return JSON.parse(localStorage.getItem("schachwerkstatt-progress") || "{}"); }
-    catch { return {}; }
+    if (memoryProgress) return T.normalizeProgress(JSON.parse(JSON.stringify(memoryProgress)));
+    try { return T.normalizeProgress(JSON.parse(localStorage.getItem("schachwerkstatt-progress") || "{}")); }
+    catch { $("#storageWarning").hidden = false; return T.normalizeProgress({}); }
+  }
+  function saveProgress(saved) {
+    memoryProgress = T.normalizeProgress(saved);
+    try { localStorage.setItem("schachwerkstatt-progress", JSON.stringify(memoryProgress)); }
+    catch { $("#storageWarning").hidden = false; }
   }
 
   function currentPuzzlePool() {
@@ -487,7 +614,7 @@
     if (filter === "all") return puzzles;
     if (filter === "review") {
       const progress = getProgress();
-      const review = puzzles.filter((puzzle) => (progress.puzzles?.[puzzle.id]?.errors || 0) > 0);
+      const review = puzzles.filter((puzzle) => progress.puzzles?.[puzzle.id]?.openError);
       return review.length ? review : puzzles;
     }
     return puzzles.filter((puzzle) => puzzle.category === filter);
@@ -504,10 +631,11 @@
     saved.themes ||= {};
     const puzzle = puzzles[state.puzzleIndex];
     const item = saved.puzzles[puzzle.id] ||= { attempts: 0, successes: 0, errors: 0 };
-    item.attempts += 1; item.successes += success ? 1 : 0; item.errors += success ? 0 : 1; item.lastSeen = today;
+    item.attempts += 1; item.successes += success ? 1 : 0; item.lastSeen = today;
+    item.openError = saved.lessons[`tactics:${puzzle.id}`]?.openError ?? !success;
     const theme = saved.themes[puzzle.category] ||= { attempts: 0, successes: 0 };
     theme.attempts += 1; theme.successes += success ? 1 : 0;
-    localStorage.setItem("schachwerkstatt-progress", JSON.stringify(saved));
+    saveProgress(saved);
     const challenge = { fork: 650, pin: 750, skewer: 850, discovered: 900 }[puzzle.category];
     updateLearningRating("tactics", success ? 1 : 0, challenge);
     updateTrainingProgress();
@@ -538,7 +666,7 @@
   function updateLearningRating(area, score, challengeRating) {
     const saved = getProgress(); const ratings = getRatings(saved);
     ratings[area] = T.updateRating(ratings[area], score, challengeRating);
-    localStorage.setItem("schachwerkstatt-progress", JSON.stringify(saved));
+    saveProgress(saved);
     updateRatingDisplay();
   }
 
@@ -606,12 +734,27 @@
   all("[data-color]").forEach((button) => button.addEventListener("click", () => setColorChoice(button.dataset.color)));
   $("#newGame").addEventListener("click", resetGame);
   $("#nextPuzzle").addEventListener("click", () => loadPuzzle(state.puzzlePosition + 1));
-  $("#hintButton").addEventListener("click", () => { const p = puzzles[state.puzzleIndex]; state.messageOverride = { kind: "", title: "Hinweis", text: p.hint }; render(); });
-  $("#revealSolution").addEventListener("click", () => {
-    if (state.attemptsOnPuzzle < 3) return;
-    const solution = puzzles[state.puzzleIndex].line[0]; state.solutionFrom = solution.slice(0, 2); state.solutionTo = solution.slice(2, 4);
-    state.messageOverride = { kind: "", title: "Lösung auf dem Brett", text: `${state.solutionFrom} → ${state.solutionTo}. ${puzzles[state.puzzleIndex].explanation}` };
-    $("#revealSolution").textContent = `${state.solutionFrom} → ${state.solutionTo}`; render();
+  $("#hintButton").addEventListener("click", lessonHelp);
+  $("#revealSolution").addEventListener("click", lessonHelp);
+  $("#lessonHelp").addEventListener("click", lessonHelp);
+  $("#lessonPhase").addEventListener("change", (event) => { if (isLessonMode()) startLesson(state.lesson.record, { phase: event.target.value, scenario: state.lesson.scenario.id }); });
+  $("#lessonScenario").addEventListener("change", (event) => { if (isLessonMode()) startLesson(state.lesson.record, { scenario: event.target.value }); });
+  $("#lessonPrevious").addEventListener("click", () => {
+    if (!isLessonMode()) return;
+    cancelLessonTimer(); state.sessionId++;
+    T.seekLesson(state.lesson, state.lesson.ply - 1);
+    state.lessonHint = false; state.messageOverride = null; syncLesson(); render();
+    scheduleLesson();
+  });
+  $("#lessonNext").addEventListener("click", () => { cancelLessonTimer(); lessonAdvance(); });
+  $("#lessonRestart").addEventListener("click", () => {
+    if (!isLessonMode()) return;
+    startLesson(state.lesson.record, { scenario: state.lesson.scenario.id });
+  });
+  $("#lessonPlay").addEventListener("click", () => {
+    if (!isLessonMode() || state.lesson.phase !== 'demo') return;
+    if (state.lessonPlaying) cancelLessonTimer(); else { state.lessonPlaying = true; scheduleLesson(); }
+    render();
   });
   $("#themeFilter").addEventListener("change", () => loadPuzzle(0));
   $("#endgameSelect").addEventListener("change", (event) => loadEndgame(event.target.value));
