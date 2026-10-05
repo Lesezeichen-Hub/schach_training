@@ -13,6 +13,8 @@
   --danger: #df776d;
   --board-light: #cbd5c6;
   --board-dark: #657d69;
+  --board-frame: #253029;
+  --board-grid: rgba(20, 31, 23, .08);
   --shadow: 0 28px 80px rgba(0, 0, 0, .42);
 }
 
@@ -50,9 +52,9 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(231, 182,
 .player-strip small { margin-top: 3px; color: var(--muted); font-size: .75rem; }
 .turn-indicator { margin-left: auto; color: var(--muted); font-size: .72rem; border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; opacity: 0; }
 .turn-indicator.active { opacity: 1; color: var(--gold); border-color: var(--gold-dark); }
-.board-wrap { position: relative; box-shadow: var(--shadow); border: 8px solid #222c25; outline: 1px solid #3b493e; }
-.board { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; width: 100%; user-select: none; touch-action: manipulation; }
-.square { border: 0; border-radius: 0; padding: 0; display: grid; place-items: center; position: relative; background: var(--board-light); color: #172018; cursor: pointer; font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", serif; font-size: clamp(2rem, 6.4vw, 4.8rem); line-height: 1; text-shadow: 0 2px 0 rgba(255,255,255,.18), 0 3px 6px rgba(0,0,0,.22); }
+.board-wrap { position: relative; padding: 6px; background: var(--board-frame); border: 1px solid #46554a; box-shadow: var(--shadow); }
+.board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; overflow: hidden; user-select: none; touch-action: manipulation; }
+.square { min-width: 0; min-height: 0; border: 1px solid var(--board-grid); border-radius: 0; padding: 0; display: grid; place-items: center; position: relative; background: var(--board-light); color: #172018; cursor: pointer; font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", serif; font-size: clamp(2rem, 6.1vw, 4.55rem); line-height: 1; text-shadow: 0 2px 0 rgba(255,255,255,.18), 0 3px 6px rgba(0,0,0,.22); }
 .square.dark-square { background: var(--board-dark); }
 .square.selected { box-shadow: inset 0 0 0 5px var(--gold); }
 .square.last-move::before { content: ""; position: absolute; inset: 0; background: rgba(231, 182, 93, .28); }
@@ -64,8 +66,9 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(231, 182,
 .square.in-check { box-shadow: inset 0 0 0 6px var(--danger); }
 .square.legal::after { content: ""; width: 21%; aspect-ratio: 1; border-radius: 50%; background: rgba(16, 26, 18, .38); position: absolute; }
 .square.legal.capture::after { width: 74%; background: transparent; border: clamp(4px, .55vw, 7px) solid rgba(16, 26, 18, .36); }
-.square .piece { position: relative; z-index: 2; transform: translateY(-2%); }
-.square .coord { position: absolute; z-index: 3; font-family: ui-sans-serif, system-ui; font-size: clamp(.56rem, 1vw, .72rem); font-weight: 800; text-shadow: none; opacity: .68; }
+.square .piece { position: relative; z-index: 2; display: grid; width: 82%; height: 82%; place-items: center; transform: translateY(-1%); }
+.square .coord { position: absolute; z-index: 3; color: rgba(23, 32, 24, .72); font-family: ui-sans-serif, system-ui; font-size: clamp(.56rem, 1vw, .72rem); font-weight: 800; line-height: 1; text-shadow: none; }
+.square.dark-square .coord { color: rgba(236, 241, 234, .72); }
 .coord.rank { top: 5px; left: 6px; }
 .coord.file { right: 6px; bottom: 4px; }
 .thinking { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); z-index: 6; padding: 8px 13px; border-radius: 999px; background: rgba(12, 16, 13, .9); border: 1px solid #48584b; font-size: .75rem; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
@@ -127,7 +130,7 @@ dialog h2 { font-family: Georgia, serif; margin: 0; } dialog p { color: var(--mu
   .brand small { display: none; }.brand strong { font-size: .92rem; }.brand-mark { width: 35px; height: 35px; }
   .streak small { display: none; }
   .workspace { width: calc(100% - 12px); }
-  .board-wrap { border-width: 5px; }
+  .board-wrap { padding: 4px; }
   .square { font-size: 10.5vw; }
   .coach-panel { padding-left: 5px; padding-right: 5px; }
 }
