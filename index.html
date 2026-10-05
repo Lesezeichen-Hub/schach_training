@@ -17,9 +17,11 @@
         <span><strong>Schachwerkstatt</strong><small>sehen · rechnen · spielen</small></span>
       </a>
       <nav class="mode-tabs" aria-label="Trainingsmodus">
-        <button class="mode-tab active" data-mode="match">Partie</button>
-        <button class="mode-tab" data-mode="tactics">Taktik</button>
-        <button class="mode-tab" data-mode="practice">Üben</button>
+        <button class="mode-tab active" data-mode="tactics">Taktik</button>
+        <button class="mode-tab" data-mode="endgame">Endspiel</button>
+        <button class="mode-tab" data-mode="strategy">Strategie</button>
+        <button class="mode-tab" data-mode="match">Partie</button>
+        <button class="mode-tab" data-mode="practice">Analyse</button>
       </nav>
       <div class="streak" title="Heute gelöste Aufgaben"><span>◆</span><strong id="streakCount">0</strong><small>heute</small></div>
     </header>
@@ -27,8 +29,8 @@
     <main class="workspace">
       <section class="board-column" aria-label="Schachbrett">
         <div class="player-strip opponent">
-          <div class="avatar dark">KI</div>
-          <div><strong id="opponentName">Trainingspartner</strong><small id="opponentDetail">Mittel · denkt positionell</small></div>
+          <div class="avatar dark" id="opponentAvatar">LE</div>
+          <div><strong id="opponentName">Lerneinheit</strong><small id="opponentDetail">Motiv erkennen · Zug berechnen</small></div>
           <div class="turn-indicator" id="blackTurn">am Zug</div>
         </div>
         <div class="board-wrap">
@@ -44,12 +46,12 @@
 
       <aside class="coach-panel">
         <div class="panel-head">
-          <span class="eyebrow" id="panelEyebrow">TRAININGSPARTIE</span>
-          <h1 id="panelTitle">Spiel mit Plan.</h1>
-          <p id="panelIntro">Nimm dir Zeit. Nach jedem Zug zeigt dir die Werkstatt, ob dein König sicher steht.</p>
+          <span class="eyebrow" id="panelEyebrow">DEIN TAGESPLAN</span>
+          <h1 id="panelTitle">Muster sehen. Besser spielen.</h1>
+          <p id="panelIntro">Verstehe das Motiv, berechne den Zug und wiederhole gezielt deine Fehler.</p>
         </div>
 
-        <section id="matchControls" class="control-section">
+        <section id="matchControls" class="control-section" hidden>
           <label for="difficulty">Spielstärke</label>
           <div class="segmented" id="difficulty" role="radiogroup" aria-label="Spielstärke">
             <button data-level="easy" role="radio" aria-checked="false">Leicht<small>locker</small></button>
@@ -57,13 +59,58 @@
             <button data-level="hard" role="radio" aria-checked="false">Stark<small>taktisch</small></button>
           </div>
           <button class="primary-button" id="newGame">Neue Partie</button>
+          <button class="secondary-button full-button" id="reviewGame">Coach-Review öffnen</button>
+          <div id="coachReview" class="coach-review" hidden></div>
         </section>
 
-        <section id="tacticsControls" class="control-section" hidden>
+        <section id="tacticsControls" class="control-section training-controls">
+          <div class="training-goal">
+            <div><span>HEUTIGES ZIEL</span><strong id="dailyProgressText">0 / 5 Aufgaben</strong></div>
+            <div class="goal-track" aria-hidden="true"><span id="dailyProgressBar"></span></div>
+          </div>
+          <label for="themeFilter">Trainingsfokus</label>
+          <select id="themeFilter">
+            <option value="all">Gemischt · empfohlen</option>
+            <option value="fork">Gabel</option>
+            <option value="pin">Fesselung</option>
+            <option value="skewer">Spieß</option>
+            <option value="discovered">Abzugsangriff</option>
+            <option value="review">Meine Fehler</option>
+          </select>
+          <div class="concept-card">
+            <span>MOTIV VERSTEHEN</span>
+            <h2 id="conceptTitle">Springergabel</h2>
+            <p id="conceptText">Ein Springer greift zwei wertvolle Figuren gleichzeitig an.</p>
+          </div>
+          <div class="calculation-routine" aria-label="Denkreihenfolge">
+            <span>1. Schachs</span><span>2. Schlagzüge</span><span>3. Drohungen</span>
+          </div>
           <div class="puzzle-meta"><span id="puzzleTheme">Gabel</span><span id="puzzleProgress">1 / 5</span></div>
           <h2 id="puzzlePrompt">Finde den besten Zug.</h2>
           <p id="puzzleDescription">Weiß zieht und gewinnt Material.</p>
           <div class="button-row"><button class="secondary-button" id="hintButton">Hinweis</button><button class="primary-button" id="nextPuzzle">Nächste Aufgabe</button></div>
+          <button class="solution-button" id="revealSolution" disabled>Lösung anzeigen · nach 3 Versuchen</button>
+        </section>
+
+        <section id="endgameControls" class="control-section" hidden>
+          <label for="endgameSelect">Lernziel</label>
+          <select id="endgameSelect">
+            <option value="ladder-mate">Treppenmatt mit zwei Türmen</option>
+            <option value="pawn-opposition">König + Bauer · Opposition</option>
+          </select>
+          <h2 id="endgameTitle">Treppenmatt</h2>
+          <p id="endgameGoal"></p>
+          <ol id="endgameTips" class="training-tips"></ol>
+          <button class="primary-button" id="restartEndgame">Übung neu starten</button>
+        </section>
+
+        <section id="strategyControls" class="control-section" hidden>
+          <div class="puzzle-meta"><span>INTERAKTIVE MASTERCLASS</span><span id="strategyProgress">1 / 3</span></div>
+          <h2 id="strategyTitle">Die offene Linie beherrschen</h2>
+          <p id="strategyQuestion"></p>
+          <div id="strategyChoices" class="strategy-choices"></div>
+          <p id="strategyFeedback" class="strategy-feedback" aria-live="polite"></p>
+          <button class="primary-button" id="nextStrategy" disabled>Nächste Stellung</button>
         </section>
 
         <section id="practiceControls" class="control-section" hidden>
@@ -76,6 +123,12 @@
         <section class="status-card" aria-live="polite">
           <span class="status-icon" id="statusIcon">●</span>
           <div><strong id="statusTitle">Du bist am Zug</strong><p id="statusText">Wähle eine Figur und danach ihr Zielfeld.</p></div>
+        </section>
+
+        <section id="trainingStats" class="training-stats" aria-label="Trainingsfortschritt">
+          <div><strong id="masteryScore">0%</strong><span>Trefferquote</span></div>
+          <div><strong id="solvedTotal">0</strong><span>gelöst</span></div>
+          <div><strong id="weakTheme">–</strong><span>Trainingsfokus</span></div>
         </section>
 
         <section class="moves-section">
@@ -102,6 +155,8 @@
   </dialog>
 
   <script src="chess-engine.js"></script>
+  <script src="training-core.js"></script>
+  <script src="training-data.generated.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

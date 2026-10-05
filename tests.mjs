@@ -3,10 +3,19 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 
 const source = fs.readFileSync(new URL("./chess-engine.js", import.meta.url), "utf8");
+const trainingSource = fs.readFileSync(new URL("./training-core.js", import.meta.url), "utf8");
+const trainingData = JSON.parse(fs.readFileSync(new URL("./training-data.json", import.meta.url), "utf8"));
+const generatedSource = fs.readFileSync(new URL("./training-data.generated.js", import.meta.url), "utf8");
 const context = { globalThis: {} };
 vm.createContext(context);
 vm.runInContext(source, context);
+vm.runInContext(trainingSource, context);
 const E = context.globalThis.ChessEngine;
+const T = context.globalThis.ChessTraining;
+const generatedContext = { window: {} };
+vm.createContext(generatedContext);
+vm.runInContext(generatedSource, generatedContext);
+assert.deepEqual(JSON.parse(JSON.stringify(generatedContext.window.CHESS_TRAINING_DATA)), trainingData, "Generierte Browserdaten entsprechen der JSON-Quelle");
 
 function play(state, uci) {
   const move = E.legalMoves(state).find((m) => m.from + m.to + (m.promotion || "") === uci);
@@ -53,13 +62,33 @@ let repetition = E.fromFEN();
 for (const uci of ["g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1", "f6g8"]) repetition = play(repetition, uci);
 assert.equal(E.gameStatus(repetition).type, "repetition");
 
-for (const [fen, uci] of [
-  ["3q3k/5ppp/8/4N3/8/8/6PP/6K1 w - - 0 1", "e5f7"],
-  ["6k1/6pp/7Q/8/8/2B5/8/6K1 w - - 0 1", "h6g7"],
-  ["6k1/5ppp/8/8/8/8/8/4R1K1 w - - 0 1", "e1e8"],
-  ["6k1/5ppp/8/7Q/2B5/8/6PP/6K1 w - - 0 1", "h5f7"],
-  ["7k/P7/8/8/8/8/6K1/8 w - - 0 1", "a7a8q"]
-]) assert.ok(E.legalMoves(E.fromFEN(fen)).some((m) => m.from + m.to + (m.promotion || "") === uci), `Taktikzug ${uci} ist legal`);
+for (const category of ["fork", "pin", "skewer", "discovered"]) {
+  assert.ok(trainingData.tactics.filter((task) => task.category === category).length >= 5, `${category} enthält mindestens fünf Aufgaben`);
+}
+for (const task of trainingData.tactics) {
+  const move = E.legalMoves(E.fromFEN(task.fen)).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === task.line[0]);
+  assert.ok(move, `Taktikzug ${task.id}/${task.line[0]} ist legal`);
+  assert.equal(T.validateTactic(task, move).correct, true, `Validator erkennt ${task.id}`);
+}
+for (const [index, step] of trainingData.masterclass.steps.entries()) {
+  const legal = E.legalMoves(E.fromFEN(step.fen));
+  for (const choice of step.choices) assert.ok(legal.some((move) => move.from + move.to + (move.promotion || "") === choice.move), `Strategieoption ${index + 1}/${choice.move} ist legal`);
+}
+
+const ladder = E.fromFEN(trainingData.endgames.find((item) => item.id === "ladder-mate").fen);
+const ladderMove = E.legalMoves(ladder)[0];
+const ladderReply = T.chooseEndgameDefense(E, E.applyMove(ladder, ladderMove), "ladder-mate");
+assert.ok(!ladderReply || E.legalMoves(E.applyMove(ladder, ladderMove)).some((move) => move.from === ladderReply.from && move.to === ladderReply.to), "Endspielverteidigung wählt legalen Zug");
+
+const opposition = E.fromFEN(trainingData.endgames.find((item) => item.id === "pawn-opposition").fen);
+const winningKingMove = E.legalMoves(opposition).find((move) => move.from === "e6" && move.to === "d6");
+const losingKingMove = E.legalMoves(opposition).find((move) => move.from === "e6" && move.to === "d5");
+assert.equal(T.canForcePawnWin(E, E.applyMove(opposition, winningKingMove)), true, "Oppositionsmodul erkennt den Gewinnweg");
+assert.equal(T.canForcePawnWin(E, E.applyMove(opposition, losingKingMove)), false, "Oppositionsmodul erkennt den Verlust des Gewinnwegs");
+
+const review = T.coachReview([{ color: "w", san: "e4", whiteMaterialBefore: 3900, whiteMaterialAfter: 3900 }]);
+assert.ok(review.improvements.some((text) => text.includes("Rochiere")), "Coach erkennt fehlende Rochade");
+assert.equal(T.toPgn([{ color: "w", san: "e4" }, { color: "b", san: "e5" }]), "1. e4 e5 *", "PGN wird aus dem Partieverlauf erzeugt");
 
 for (const level of ["easy", "medium", "hard"]) {
   const position = E.fromFEN();
