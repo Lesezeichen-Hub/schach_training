@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101411">
+  <meta name="description" content="Lokales Schachtraining mit Taktikaufgaben und Trainingspartien in drei Schwierigkeitsgraden.">
+  <title>Schachwerkstatt</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101411'/%3E%3Cpath d='M22 49h24v6H18v-3l4-3Zm5-27c-5-4-2-12 5-12 6 0 9 7 5 11 8 4 9 14 3 20H25c-6-7-4-15 2-19Z' fill='%23e7b65d'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Schachwerkstatt Startseite">
+        <span class="brand-mark" aria-hidden="true">♞</span>
+        <span><strong>Schachwerkstatt</strong><small>sehen · rechnen · spielen</small></span>
+      </a>
+      <nav class="mode-tabs" aria-label="Trainingsmodus">
+        <button class="mode-tab active" data-mode="match">Partie</button>
+        <button class="mode-tab" data-mode="tactics">Taktik</button>
+        <button class="mode-tab" data-mode="practice">Üben</button>
+      </nav>
+      <div class="streak" title="Heute gelöste Aufgaben"><span>◆</span><strong id="streakCount">0</strong><small>heute</small></div>
+    </header>
+
+    <main class="workspace">
+      <section class="board-column" aria-label="Schachbrett">
+        <div class="player-strip opponent">
+          <div class="avatar dark">KI</div>
+          <div><strong id="opponentName">Trainingspartner</strong><small id="opponentDetail">Mittel · denkt positionell</small></div>
+          <div class="turn-indicator" id="blackTurn">am Zug</div>
+        </div>
+        <div class="board-wrap">
+          <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
+          <div id="thinking" class="thinking" hidden><span></span><span></span><span></span> KI rechnet</div>
+        </div>
+        <div class="player-strip">
+          <div class="avatar light">DU</div>
+          <div><strong>Dein Training</strong><small id="playerDetail">Weiß · konzentriert</small></div>
+          <div class="turn-indicator active" id="whiteTurn">am Zug</div>
+        </div>
+      </section>
+
+      <aside class="coach-panel">
+        <div class="panel-head">
+          <span class="eyebrow" id="panelEyebrow">TRAININGSPARTIE</span>
+          <h1 id="panelTitle">Spiel mit Plan.</h1>
+          <p id="panelIntro">Nimm dir Zeit. Nach jedem Zug zeigt dir die Werkstatt, ob dein König sicher steht.</p>
+        </div>
+
+        <section id="matchControls" class="control-section">
+          <label for="difficulty">Spielstärke</label>
+          <div class="segmented" id="difficulty" role="radiogroup" aria-label="Spielstärke">
+            <button data-level="easy" role="radio" aria-checked="false">Leicht<small>locker</small></button>
+            <button class="active" data-level="medium" role="radio" aria-checked="true">Mittel<small>solide</small></button>
+            <button data-level="hard" role="radio" aria-checked="false">Stark<small>taktisch</small></button>
+          </div>
+          <button class="primary-button" id="newGame">Neue Partie</button>
+        </section>
+
+        <section id="tacticsControls" class="control-section" hidden>
+          <div class="puzzle-meta"><span id="puzzleTheme">Gabel</span><span id="puzzleProgress">1 / 5</span></div>
+          <h2 id="puzzlePrompt">Finde den besten Zug.</h2>
+          <p id="puzzleDescription">Weiß zieht und gewinnt Material.</p>
+          <div class="button-row"><button class="secondary-button" id="hintButton">Hinweis</button><button class="primary-button" id="nextPuzzle">Nächste Aufgabe</button></div>
+        </section>
+
+        <section id="practiceControls" class="control-section" hidden>
+          <label for="fenInput">Stellung (FEN)</label>
+          <textarea id="fenInput" rows="3" spellcheck="false" aria-describedby="fenHelp"></textarea>
+          <small id="fenHelp">FEN einfügen oder eine Beispielstellung laden.</small>
+          <div class="button-row"><button class="secondary-button" id="loadStart">Grundstellung</button><button class="primary-button" id="loadFen">Stellung laden</button></div>
+        </section>
+
+        <section class="status-card" aria-live="polite">
+          <span class="status-icon" id="statusIcon">●</span>
+          <div><strong id="statusTitle">Du bist am Zug</strong><p id="statusText">Wähle eine Figur und danach ihr Zielfeld.</p></div>
+        </section>
+
+        <section class="moves-section">
+          <div class="section-title"><h2>Zugliste</h2><button id="undoButton" class="text-button">Zug zurück</button></div>
+          <div id="moveList" class="move-list"><p class="empty-state">Noch keine Züge gespielt.</p></div>
+        </section>
+
+        <section class="lesson-card">
+          <span>MERKSATZ</span>
+          <p id="lessonText">Entwickle zuerst deine Figuren, bringe den König in Sicherheit und kämpfe dann um das Zentrum.</p>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <dialog id="promotionDialog">
+    <form method="dialog">
+      <h2>Bauern umwandeln</h2>
+      <p>Wähle eine neue Figur.</p>
+      <div class="promotion-options">
+        <button value="q" aria-label="Dame">♕</button><button value="r" aria-label="Turm">♖</button><button value="b" aria-label="Läufer">♗</button><button value="n" aria-label="Springer">♘</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="chess-engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
