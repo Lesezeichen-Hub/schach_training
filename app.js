@@ -3,11 +3,12 @@
 
   const E = window.ChessEngine;
   const T = window.ChessTraining;
+  const difficulties = E.DIFFICULTY_LEVELS;
   const glyph = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙", k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
   const boardEl = document.querySelector("#board");
   const statusCard = document.querySelector(".status-card");
   const state = {
-    game: E.fromFEN(), mode: "home", level: "medium", selected: null,
+    game: E.fromFEN(), mode: "home", level: "learner", selected: null,
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null,
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
@@ -218,7 +219,8 @@
     const expectedFen = E.toFEN(state.game);
     state.thinking = true;
     render();
-    const delay = state.level === "easy" ? 280 : state.level === "medium" ? 450 : 650;
+    const config = E.difficultyConfig(state.level);
+    const delay = 140 + Math.min(260, Math.round(config.timeMs / 4));
     window.setTimeout(() => {
       if (state.sessionId !== sessionId || state.mode !== "match" || E.toFEN(state.game) !== expectedFen) return;
       const move = E.chooseMove(state.game, state.level);
@@ -280,7 +282,7 @@
     document.querySelector(".lesson-card").hidden = ["home", "learn"].includes(mode);
     $("#opponentAvatar").textContent = mode === "match" ? "KI" : mode === "practice" ? "AN" : ["home", "learn"].includes(mode) ? "LOS" : "LE";
     $("#opponentName").textContent = mode === "match" ? "Trainingspartner" : mode === "practice" ? "Analysebrett" : ["home", "learn"].includes(mode) ? "Dein Lernbrett" : "Lerneinheit";
-    $("#opponentDetail").textContent = mode === "match" ? `${state.level === "easy" ? "Leicht" : state.level === "hard" ? "Stark" : "Mittel"} · Trainingspartie` : mode === "tactics" ? "Muster erkennen · Zug berechnen" : mode === "endgame" ? "Technik gegen beste Verteidigung" : mode === "strategy" ? "Verstehen, bevor du ziehst" : mode === "openings" ? "Zugfolge und Pläne lernen" : mode === "home" ? "Hier beginnt dein Training" : mode === "learn" ? "Wähle dein nächstes Lernziel" : "Varianten ohne Zeitdruck";
+    $("#opponentDetail").textContent = mode === "match" ? `${E.difficultyConfig(state.level).name} · Stufe ${difficulties.findIndex((item) => item.id === state.level) + 1}` : mode === "tactics" ? "Muster erkennen · Zug berechnen" : mode === "endgame" ? "Technik gegen beste Verteidigung" : mode === "strategy" ? "Verstehen, bevor du ziehst" : mode === "openings" ? "Zugfolge und Pläne lernen" : mode === "home" ? "Hier beginnt dein Training" : mode === "learn" ? "Wähle dein nächstes Lernziel" : "Varianten ohne Zeitdruck";
     $("#playerDetail").textContent = ["home", "learn"].includes(mode) ? "Dein Tempo · ohne Zeitdruck" : mode === "basics" ? "Erst verstehen, dann ziehen" : mode === "strategy" ? "Wähle eine Antwort im Lernpanel" : mode === "openings" ? `Du spielst ${trainingData.openings[state.openingIndex].side === "w" ? "Weiß" : "Schwarz"}` : "Weiß · konzentriert";
     const copy = {
       home: ["WILLKOMMEN", "Schach lernen – Schritt für Schritt.", "Du brauchst kein Vorwissen. Die Werkstatt zeigt dir immer, was als Nächstes sinnvoll ist."],
@@ -557,17 +559,24 @@
     $("#menuBasics").textContent = saved.basicsCompleted ? "Erledigt" : "Start";
   }
 
+  function setDifficulty(index, restart = false) {
+    const levelIndex = Math.max(0, Math.min(difficulties.length - 1, Number(index) - 1));
+    const config = difficulties[levelIndex]; state.level = config.id;
+    $("#difficulty").value = levelIndex + 1;
+    $("#difficultyName").textContent = `Stufe ${levelIndex + 1} · ${config.name}`;
+    $("#difficultyDepth").textContent = config.depth ? `bis ${config.depth} Halbzüge` : "lockeres Zufallsspiel";
+    $("#difficultyDescription").textContent = config.description;
+    if (state.mode === "match") $("#opponentDetail").textContent = `${config.name} · Stufe ${levelIndex + 1}`;
+    if (restart) resetGame();
+  }
+
   all(".mode-tab").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.mode)));
   all("[data-learning-mode]").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.learningMode)));
   $("#learningBack").addEventListener("click", () => switchMode("learn"));
   $("#continueLearning").addEventListener("click", (event) => switchMode(event.currentTarget.dataset.target || "tactics"));
   $("#nextBasics").addEventListener("click", advanceBasics);
-  all("[data-level]").forEach((button) => button.addEventListener("click", () => {
-    state.level = button.dataset.level;
-    all("[data-level]").forEach((b) => { const active = b === button; b.classList.toggle("active", active); b.setAttribute("aria-checked", String(active)); });
-    const labels = { easy: "Leicht · spielt locker", medium: "Mittel · denkt positionell", hard: "Stark · rechnet tiefer" };
-    $("#opponentDetail").textContent = labels[state.level]; resetGame();
-  }));
+  $("#difficulty").addEventListener("input", (event) => setDifficulty(event.target.value));
+  $("#difficulty").addEventListener("change", (event) => setDifficulty(event.target.value, true));
   $("#newGame").addEventListener("click", resetGame);
   $("#nextPuzzle").addEventListener("click", () => loadPuzzle(state.puzzlePosition + 1));
   $("#hintButton").addEventListener("click", () => { const p = puzzles[state.puzzleIndex]; state.messageOverride = { kind: "", title: "Hinweis", text: p.hint }; render(); });
@@ -614,5 +623,5 @@
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 
-  populateOpeningSelect(); updateTrainingProgress(); switchMode("home");
+  populateOpeningSelect(); setDifficulty(3); updateTrainingProgress(); switchMode("home");
 })();

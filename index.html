@@ -82,10 +82,11 @@
 
         <section id="matchControls" class="control-section" hidden>
           <label for="difficulty">Spielstärke</label>
-          <div class="segmented" id="difficulty" role="radiogroup" aria-label="Spielstärke">
-            <button data-level="easy" role="radio" aria-checked="false">Leicht<small>locker</small></button>
-            <button class="active" data-level="medium" role="radio" aria-checked="true">Mittel<small>solide</small></button>
-            <button data-level="hard" role="radio" aria-checked="false">Stark<small>taktisch</small></button>
+          <div class="difficulty-control">
+            <div class="difficulty-heading"><strong id="difficultyName">Stufe 3 · Lernpartner</strong><span id="difficultyDepth">2 Halbzüge</span></div>
+            <input id="difficulty" type="range" min="1" max="8" value="3" step="1" aria-describedby="difficultyDescription">
+            <div class="difficulty-scale" aria-hidden="true"><span>Einstieg</span><span>Lernend</span><span>Stark</span><span>Experte</span></div>
+            <p id="difficultyDescription">Prüft deinen nächsten direkten Gegenzug.</p>
           </div>
           <button class="primary-button" id="newGame">Neue Partie</button>
           <button class="secondary-button full-button" id="reviewGame">Coach-Review öffnen</button>

@@ -24,7 +24,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Tagesziel, Trefferquote, Gesamtfortschritt und persönlicher Trainingsfokus
 - Lokale Fehlerwiederholung für noch unsichere Motive
 - Erklärungen, Hinweise und konkrete Merksätze zu jeder Aufgabe
-- Trainingspartien gegen drei Computer-Spielstärken zum Transfer
+- Trainingspartien gegen acht fein abgestufte Computer-Spielstärken von „Einstieg“ bis „Experte“
+- Iterative Tiefensuche, begrenzte Bedenkzeit und taktische Ruhesuche für höhere Stufen
 - Freies Analysebrett mit FEN-Import
 - Vollständige Zugprüfung inklusive Rochade, en passant und Bauernumwandlung
 - Erkennung von Schach, Matt, Patt, dreifacher Stellungswiederholung, 50-Züge-Regel und unzureichendem Material

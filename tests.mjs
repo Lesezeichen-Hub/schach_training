@@ -110,10 +110,19 @@ const review = T.coachReview([{ color: "w", san: "e4", whiteMaterialBefore: 3900
 assert.ok(review.improvements.some((text) => text.includes("Rochiere")), "Coach erkennt fehlende Rochade");
 assert.equal(T.toPgn([{ color: "w", san: "e4" }, { color: "b", san: "e5" }]), "1. e4 e5 *", "PGN wird aus dem Partieverlauf erzeugt");
 
-for (const level of ["easy", "medium", "hard"]) {
-  const position = E.fromFEN();
-  const choice = E.chooseMove(position, level);
-  assert.ok(E.legalMoves(position).some((m) => m.from === choice.from && m.to === choice.to && m.promotion === choice.promotion), `KI-Zug (${level}) ist legal`);
+assert.equal(E.DIFFICULTY_LEVELS.length, 8, "Acht fein abgestufte Spielstärken sind verfügbar");
+for (let index = 1; index < E.DIFFICULTY_LEVELS.length; index++) {
+  assert.ok(E.DIFFICULTY_LEVELS[index].depth >= E.DIFFICULTY_LEVELS[index - 1].depth, "Suchtiefe steigt nicht rückwärts");
+  assert.ok(E.DIFFICULTY_LEVELS[index].timeMs >= E.DIFFICULTY_LEVELS[index - 1].timeMs, "Bedenkzeit steigt nicht rückwärts");
+  assert.ok(E.DIFFICULTY_LEVELS[index].tolerance <= E.DIFFICULTY_LEVELS[index - 1].tolerance, "Fehlertoleranz sinkt mit der Spielstärke");
 }
+for (const level of E.DIFFICULTY_LEVELS) {
+  const position = E.fromFEN("8/p7/8/3k4/8/4K3/7P/8 b - - 0 1");
+  const choice = E.chooseMove(position, level.id);
+  assert.ok(E.legalMoves(position).some((m) => m.from === choice.from && m.to === choice.to && m.promotion === choice.promotion), `KI-Zug (${level.id}) ist legal`);
+}
+const mateInOne = E.fromFEN("6k1/6pp/7Q/8/8/2B5/8/6K1 w - - 0 1");
+const expertMove = E.chooseMove(mateInOne, "expert");
+assert.equal(expertMove.from + expertMove.to, "h6g7", "Expertenstufe findet ein Matt in einem Zug");
 
 console.log("Alle Schachregeln-Tests bestanden.");

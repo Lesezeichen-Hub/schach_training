@@ -243,56 +243,145 @@
     return restored;
   }
 
+  const DIFFICULTY_LEVELS = [
+    { id: "first", name: "Einstieg", depth: 0, timeMs: 0, tolerance: Infinity, quiescence: 0, description: "Spielt fast zufällig und lässt viele Chancen zu." },
+    { id: "beginner", name: "Anfänger", depth: 1, timeMs: 40, tolerance: 350, quiescence: 0, description: "Erkennt direkte Schlagzüge, übersieht aber Antworten." },
+    { id: "learner", name: "Lernpartner", depth: 2, timeMs: 90, tolerance: 220, quiescence: 0, description: "Prüft deinen nächsten direkten Gegenzug." },
+    { id: "steady", name: "Solide", depth: 2, timeMs: 160, tolerance: 100, quiescence: 0, description: "Spielt zuverlässig, erlaubt aber noch taktische Chancen." },
+    { id: "club", name: "Verein", depth: 3, timeMs: 280, tolerance: 55, quiescence: 0, description: "Berechnet kurze Kombinationen über drei Halbzüge." },
+    { id: "advanced", name: "Fortgeschritten", depth: 4, timeMs: 500, tolerance: 30, quiescence: 1, description: "Rechnet tiefer und prüft Schlagfolgen am Suchende." },
+    { id: "strong", name: "Stark", depth: 5, timeMs: 800, tolerance: 12, quiescence: 2, description: "Findet mehrzügige Taktiken und vermeidet einfache Fallen." },
+    { id: "expert", name: "Experte", depth: 6, timeMs: 1200, tolerance: 0, quiescence: 3, description: "Nutzt die maximale lokale Suchtiefe und spielt den besten gefundenen Zug." }
+  ];
+
   function evaluate(state) {
     let score = 0;
     const center = [[3,3],[3,4],[4,3],[4,4]];
+    let whiteBishops = 0, blackBishops = 0;
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
       const p = state.board[r][c];
       if (!p) continue;
       const sign = colorOf(p) === "w" ? 1 : -1;
-      score += sign * PIECE_VALUE[typeOf(p)];
+      const type = typeOf(p);
+      score += sign * PIECE_VALUE[type];
       if (center.some(([rr, cc]) => rr === r && cc === c)) score += sign * 18;
-      if (typeOf(p) === "p") score += sign * (colorOf(p) === "w" ? (6 - r) : (r - 1)) * 5;
+      if (type === "p") {
+        const advance = colorOf(p) === "w" ? (6 - r) : (r - 1);
+        score += sign * advance * 5;
+        if (state.fullmove <= 10 && [0, 1, 6, 7].includes(c)) score -= sign * advance * 12;
+        if (state.fullmove <= 10 && c === 5) score -= sign * advance * 7;
+      }
+      if (type === "b") colorOf(p) === "w" ? whiteBishops++ : blackBishops++;
+      if (["n", "b"].includes(type)) {
+        const undeveloped = colorOf(p) === "w" ? r === 7 : r === 0;
+        if (!undeveloped) score += sign * 12;
+      }
+      if (type === "n") {
+        const centerDistance = Math.abs(r - 3.5) + Math.abs(c - 3.5);
+        score += sign * Math.round(18 - centerDistance * 5);
+      }
+      if (type === "k" && (c === 2 || c === 6)) score += sign * 32;
     }
+    if (whiteBishops >= 2) score += 24;
+    if (blackBishops >= 2) score -= 24;
     return score;
   }
 
-  function chooseMove(state, level = "easy") {
+  function difficultyConfig(level) {
+    const aliases = { easy: "first", medium: "learner", hard: "club" };
+    const id = aliases[level] || level;
+    return DIFFICULTY_LEVELS.find((item) => item.id === id) || DIFFICULTY_LEVELS[2];
+  }
+
+  function chooseMove(state, level = "learner") {
     const moves = legalMoves(state);
     if (!moves.length) return null;
-    if (level === "easy") {
+    const config = difficultyConfig(level);
+    if (config.depth === 0) {
       const pool = moves.flatMap((m) => Array(m.capture ? 3 : 1).fill(m));
       return pool[Math.floor(Math.random() * pool.length)];
     }
-    const depth = level === "medium" ? 2 : 3;
-    const maximize = state.turn === "w";
-    let best = maximize ? -Infinity : Infinity, choices = [];
-    for (const move of orderMoves(moves)) {
-      const score = minimax(applyMove(state, move, false), depth - 1, -Infinity, Infinity);
-      if ((maximize && score > best) || (!maximize && score < best)) { best = score; choices = [move]; }
-      else if (score === best) choices.push(move);
+
+    const context = { deadline: Date.now() + config.timeMs, nodes: 0, table: new Map(), quiescence: config.quiescence };
+    let completedScores = moves.map((move) => ({ move, score: evaluate(applyMove(state, move, false)) }));
+    for (let depth = 1; depth <= config.depth; depth++) {
+      try {
+        const iteration = [];
+        for (const move of orderMoves(moves)) {
+          checkSearchTime(context);
+          iteration.push({ move, score: minimax(applyMove(state, move, false), depth - 1, -Infinity, Infinity, context) });
+        }
+        completedScores = iteration;
+      } catch (error) {
+        if (error !== SEARCH_TIMEOUT) throw error;
+        break;
+      }
     }
-    return choices[Math.floor(Math.random() * choices.length)];
+    return chooseWithinTolerance(completedScores, state.turn === "w", config.tolerance);
   }
 
-  function orderMoves(moves) { return moves.slice().sort((a, b) => Number(Boolean(b.capture)) - Number(Boolean(a.capture))); }
+  const SEARCH_TIMEOUT = Symbol("search-timeout");
 
-  function minimax(state, depth, alpha, beta) {
+  function checkSearchTime(context) {
+    context.nodes += 1;
+    if ((context.nodes & 127) === 0 && Date.now() >= context.deadline) throw SEARCH_TIMEOUT;
+  }
+
+  function chooseWithinTolerance(scored, maximize, tolerance) {
+    const best = maximize ? Math.max(...scored.map((item) => item.score)) : Math.min(...scored.map((item) => item.score));
+    const candidates = scored.filter((item) => maximize ? best - item.score <= tolerance : item.score - best <= tolerance);
+    return candidates[Math.floor(Math.random() * candidates.length)].move;
+  }
+
+  function orderMoves(moves) {
+    return moves.slice().sort((a, b) => (Number(Boolean(b.promotion)) * 2 + Number(Boolean(b.capture))) - (Number(Boolean(a.promotion)) * 2 + Number(Boolean(a.capture))));
+  }
+
+  function minimax(state, depth, alpha, beta, context) {
+    checkSearchTime(context);
     const status = gameStatus(state);
     if (status.over) {
       if (status.type === "checkmate") return status.winner === "w" ? 100000 + depth : -100000 - depth;
       return 0;
     }
-    if (depth === 0) return evaluate(state);
+    if (depth === 0) return context.quiescence ? quiescence(state, alpha, beta, context.quiescence, context) : evaluate(state);
+    const key = `${toFEN(state).split(" ").slice(0, 4).join(" ")}|${depth}`;
+    if (context.table.has(key)) return context.table.get(key);
+    let result, cutoff = false;
     if (state.turn === "w") {
       let value = -Infinity;
-      for (const move of orderMoves(legalMoves(state))) { value = Math.max(value, minimax(applyMove(state, move, false), depth - 1, alpha, beta)); alpha = Math.max(alpha, value); if (alpha >= beta) break; }
+      for (const move of orderMoves(legalMoves(state))) { value = Math.max(value, minimax(applyMove(state, move, false), depth - 1, alpha, beta, context)); alpha = Math.max(alpha, value); if (alpha >= beta) { cutoff = true; break; } }
+      result = value;
+    } else {
+      let value = Infinity;
+      for (const move of orderMoves(legalMoves(state))) { value = Math.min(value, minimax(applyMove(state, move, false), depth - 1, alpha, beta, context)); beta = Math.min(beta, value); if (alpha >= beta) { cutoff = true; break; } }
+      result = value;
+    }
+    if (!cutoff) context.table.set(key, result);
+    return result;
+  }
+
+  function quiescence(state, alpha, beta, depth, context) {
+    checkSearchTime(context);
+    const status = gameStatus(state);
+    if (status.over) {
+      if (status.type === "checkmate") return status.winner === "w" ? 100000 + depth : -100000 - depth;
+      return 0;
+    }
+    const standPat = evaluate(state);
+    if (depth <= 0) return standPat;
+    const inCheckNow = inCheck(state, state.turn);
+    const tacticalMoves = orderMoves(legalMoves(state).filter((move) => inCheckNow || move.capture || move.promotion));
+    if (!tacticalMoves.length) return standPat;
+    if (state.turn === "w") {
+      let value = inCheckNow ? -Infinity : standPat;
+      for (const move of tacticalMoves) { value = Math.max(value, quiescence(applyMove(state, move, false), alpha, beta, depth - 1, context)); alpha = Math.max(alpha, value); if (alpha >= beta) break; }
       return value;
     }
-    let value = Infinity;
-    for (const move of orderMoves(legalMoves(state))) { value = Math.min(value, minimax(applyMove(state, move, false), depth - 1, alpha, beta)); beta = Math.min(beta, value); if (alpha >= beta) break; }
+    let value = inCheckNow ? Infinity : standPat;
+    for (const move of tacticalMoves) { value = Math.min(value, quiescence(applyMove(state, move, false), alpha, beta, depth - 1, context)); beta = Math.min(beta, value); if (alpha >= beta) break; }
     return value;
   }
 
-  root.ChessEngine = { START_FEN, fromFEN, toFEN, cloneState, legalMoves, applyMove, gameStatus, notation, undo, chooseMove, inCheck, coords, sq, colorOf, typeOf, evaluate };
+  root.ChessEngine = { START_FEN, DIFFICULTY_LEVELS, fromFEN, toFEN, cloneState, legalMoves, applyMove, gameStatus, notation, undo, chooseMove, difficultyConfig, inCheck, coords, sq, colorOf, typeOf, evaluate };
 })(typeof window !== "undefined" ? window : globalThis);
