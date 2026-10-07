@@ -14,8 +14,12 @@
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
     openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
     matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null,
-    lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set()
+    lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
+    analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null,
+    activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, focusedSquare: "e2", markedSquares: new Set()
   };
+  let analysisWorker = null, analysisJobId = 0;
+  const analysisJobs = new Map();
 
   const trainingData = window.CHESS_TRAINING_DATA;
   const puzzles = trainingData.tactics;
@@ -34,6 +38,33 @@
 
   function $(selector) { return document.querySelector(selector); }
   function all(selector) { return [...document.querySelectorAll(selector)]; }
+  function analyzeInBackground(position, options) {
+    const fen = E.toFEN(position);
+    if (typeof Worker !== "undefined" && !analysisWorker) {
+      try {
+        analysisWorker = new Worker("analysis-worker.js");
+        analysisWorker.addEventListener("message", (event) => {
+          const job = analysisJobs.get(event.data.id);
+          if (!job) return;
+          analysisJobs.delete(event.data.id);
+          if (event.data.error) job.reject(new Error(event.data.error)); else job.resolve(event.data.analysis);
+        });
+        analysisWorker.addEventListener("error", () => {
+          analysisWorker?.terminate(); analysisWorker = null;
+          for (const [id, job] of analysisJobs) {
+            analysisJobs.delete(id);
+            window.setTimeout(() => job.resolve(E.analyzePosition(E.fromFEN(job.fen), job.options)), 0);
+          }
+        });
+      } catch { analysisWorker = null; }
+    }
+    if (!analysisWorker) return new Promise((resolve) => window.setTimeout(() => resolve(E.analyzePosition(E.fromFEN(fen), options)), 20));
+    return new Promise((resolve, reject) => {
+      const id = ++analysisJobId;
+      analysisJobs.set(id, { resolve, reject, fen, options });
+      analysisWorker.postMessage({ id, fen, options });
+    });
+  }
   function clearMatchHint() {
     state.hintRequest += 1;
     state.matchHint = null;
@@ -45,9 +76,19 @@
     window.clearTimeout(state.lessonTimer); state.lessonTimer = null;
     state.lessonPlaying = false; state.thinking = false;
   }
+  function cancelGameAnalysis() {
+    state.analysisRequest += 1;
+    state.analysisRunning = false;
+    state.gameAnalysis = [];
+    state.reviewPosition = null;
+    state.reviewMove = null;
+    const button = $("#reviewGame");
+    if (button) { button.disabled = false; button.textContent = "Partie analysieren"; }
+  }
   function beginPositionSession() {
     if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
-    cancelLessonTimer(); clearMatchHint(); state.sessionId += 1; state.thinking = false; state.lesson = null;
+    cancelLessonTimer(); clearMatchHint(); cancelGameAnalysis(); state.sessionId += 1; state.thinking = false; state.lesson = null;
+    state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
     const dialog = $("#promotionDialog");
     if (dialog.open) dialog.close("cancel");
   }
@@ -209,64 +250,108 @@
     $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && !hasOwnMatchMove);
     renderMatchHintControls();
     renderMatchRating();
-    if (state.mode === "match" && currentStatus.over) renderCoachReview();
+    if (state.mode === "match" && currentStatus.over) showCoachReviewSummary();
   }
 
   function renderBoard() {
+    const restoreBoardFocus = boardEl.contains(document.activeElement);
     boardEl.innerHTML = "";
-    const checkColor = E.inCheck(state.game, state.game.turn) ? state.game.turn : null;
+    const boardState = state.reviewPosition || state.game;
+    const checkColor = E.inCheck(boardState, boardState.turn) ? boardState.turn : null;
     const flipped = isLessonMode() ? state.lesson.learnerSide === 'b' : state.mode === "match" && state.playerColor === "b";
     boardEl.setAttribute('aria-label', `Schachbrett, ${flipped ? 'Schwarz' : 'Weiß'} unten`);
     for (let viewRow = 0; viewRow < 8; viewRow++) for (let viewCol = 0; viewCol < 8; viewCol++) {
       const r = flipped ? 7 - viewRow : viewRow;
       const c = flipped ? 7 - viewCol : viewCol;
       const squareName = E.sq(r, c);
-      const piece = state.game.board[r][c];
+      const piece = boardState.board[r][c];
       const button = document.createElement("button");
       button.type = "button";
       button.className = "square" + ((r + c) % 2 ? " dark-square" : "");
       button.dataset.square = squareName;
       button.setAttribute("role", "gridcell");
       button.setAttribute("aria-label", `${squareName}${piece ? ", " + pieceName(piece) : ", leer"}`);
-      if (state.selected === squareName) button.classList.add("selected");
-      const candidate = state.legal.find((move) => move.to === squareName);
+      button.tabIndex = squareName === state.focusedSquare ? 0 : -1;
+      if (!state.reviewPosition && state.selected === squareName) button.classList.add("selected");
+      const candidate = state.reviewPosition ? null : state.legal.find((move) => move.to === squareName);
       if (candidate) button.classList.add("legal", candidate.capture ? "capture" : "quiet");
-      if (state.mode !== "match" && state.lastMove && (state.lastMove.from === squareName || state.lastMove.to === squareName)) button.classList.add("last-move");
-      if (state.mode === "match" && state.opponentLastMove) {
+      if (!state.reviewPosition && state.mode !== "match" && state.lastMove && (state.lastMove.from === squareName || state.lastMove.to === squareName)) button.classList.add("last-move");
+      if (!state.reviewPosition && state.mode === "match" && state.opponentLastMove) {
         if (state.opponentLastMove.from === squareName) button.classList.add("opponent-last-from");
         if (state.opponentLastMove.to === squareName) button.classList.add("opponent-last-to");
       }
       if (state.mode === "match" && state.matchHint?.move) {
-        if (state.matchHint.move.from === squareName) button.classList.add("hint-from");
-        if (state.matchHint.move.to === squareName) button.classList.add("hint-to");
+        if (state.matchHint.stage >= 2 && state.matchHint.move.from === squareName) button.classList.add("hint-from");
+        if (state.matchHint.stage >= 3 && state.matchHint.move.to === squareName) button.classList.add("hint-to");
       }
+      if (state.reviewMove) {
+        if (state.reviewMove.played.to === squareName) button.classList.add("review-played");
+        if (state.reviewMove.best.from === squareName) button.classList.add("review-best-from");
+        if (state.reviewMove.best.to === squareName) button.classList.add("review-best-to");
+      }
+      if (state.markedSquares.has(squareName)) button.classList.add("user-marked");
       if (state.mode === "tactics" && (!isLessonMode() || state.lesson.phase !== 'practice' || state.lessonHint)) {
         const anchors = puzzles[state.puzzleIndex]?.anchors;
         if (anchors?.pieces.includes(squareName)) button.classList.add("training-piece");
         if (state.solutionFrom === squareName) button.classList.add("solution-from");
         if (state.solutionTo === squareName) button.classList.add("solution-to", "training-target");
       }
+      if (state.mode === "mistakes" && state.activeMistake && state.mistakeHintStage >= 2 && state.activeMistake.best.slice(0, 2) === squareName) button.classList.add("hint-from");
+      if (state.mode === "mistakes" && state.activeMistake && state.mistakeHintStage >= 3 && state.activeMistake.best.slice(2, 4) === squareName) button.classList.add("hint-to");
       if (piece && E.typeOf(piece) === "k" && E.colorOf(piece) === checkColor) button.classList.add("in-check");
       if (piece) button.innerHTML = `<span class="piece" aria-hidden="true">${glyph[piece]}</span>`;
       if (viewCol === 0) button.insertAdjacentHTML("beforeend", `<span class="coord rank" aria-hidden="true">${8 - r}</span>`);
       if (viewRow === 7) button.insertAdjacentHTML("beforeend", `<span class="coord file" aria-hidden="true">${"abcdefgh"[c]}</span>`);
       button.addEventListener("click", () => selectSquare(squareName));
+      button.addEventListener("keydown", (event) => handleBoardKey(event, squareName, flipped));
+      button.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        if (state.markedSquares.has(squareName)) state.markedSquares.delete(squareName); else state.markedSquares.add(squareName);
+        button.classList.toggle("user-marked", state.markedSquares.has(squareName));
+      });
+      if (piece && E.colorOf(piece) === boardState.turn && boardInputAllowed()) {
+        button.draggable = true;
+        button.addEventListener("dragstart", (event) => {
+          if (state.thinking || E.gameStatus(state.game).over) { event.preventDefault(); return; }
+          state.selected = squareName; state.legal = E.legalMoves(state.game, squareName);
+          event.dataTransfer.setData("text/plain", squareName); event.dataTransfer.effectAllowed = "move";
+          button.classList.add("dragging");
+          for (const move of state.legal) boardEl.querySelector(`[data-square="${move.to}"]`)?.classList.add("drag-target");
+        });
+        button.addEventListener("dragend", () => renderBoard());
+      }
+      button.addEventListener("dragover", (event) => { if (state.legal.some((move) => move.to === squareName)) event.preventDefault(); });
+      button.addEventListener("drop", async (event) => {
+        event.preventDefault();
+        const from = event.dataTransfer.getData("text/plain");
+        if (!from) return;
+        state.selected = from; state.legal = E.legalMoves(state.game, from);
+        await selectSquare(squareName);
+      });
       boardEl.appendChild(button);
     }
+    if (restoreBoardFocus) boardEl.querySelector(`[data-square="${state.focusedSquare}"]`)?.focus();
+  }
+
+  function handleBoardKey(event, square, flipped) {
+    if (event.key === "Escape") { state.markedSquares.clear(); state.selected = null; state.legal = []; renderBoard(); return; }
+    if (["Enter", " "].includes(event.key)) { event.preventDefault(); selectSquare(square); return; }
+    const directions = { ArrowUp: [flipped ? 1 : -1, 0], ArrowDown: [flipped ? -1 : 1, 0], ArrowLeft: [0, flipped ? 1 : -1], ArrowRight: [0, flipped ? -1 : 1] };
+    if (!directions[event.key]) return;
+    event.preventDefault();
+    const [r, c] = E.coords(square), [dr, dc] = directions[event.key];
+    const nr = Math.max(0, Math.min(7, r + dr)), nc = Math.max(0, Math.min(7, c + dc));
+    state.focusedSquare = E.sq(nr, nc);
+    boardEl.querySelector(`[data-square="${state.focusedSquare}"]`)?.focus();
   }
 
   function pieceName(piece) {
-    const names = { k: "König", q: "Dame", r: "Turm", b: "Läufer", n: "Springer", p: "Bauer" };
-    return `${E.colorOf(piece) === "w" ? "weißer" : "schwarzer"} ${names[E.typeOf(piece)]}`;
+    const names = { K: "weißer König", Q: "weiße Dame", R: "weißer Turm", B: "weißer Läufer", N: "weißer Springer", P: "weißer Bauer", k: "schwarzer König", q: "schwarze Dame", r: "schwarzer Turm", b: "schwarzer Läufer", n: "schwarzer Springer", p: "schwarzer Bauer" };
+    return names[piece];
   }
 
   async function selectSquare(square) {
-    if (state.thinking || E.gameStatus(state.game).over) return;
-    if (["home", "learn", "basics"].includes(state.mode)) return;
-    if (state.mode === "tactics" && state.puzzleSolved) return;
-    if (state.mode === "strategy" || (state.mode === "endgame" && (state.endgameFailed || state.game.turn === "b"))) return;
-    if (isLessonMode() && T.getLessonView(state.lesson).status !== 'awaiting-user') return;
-    if (state.mode === "match" && state.game.turn !== state.playerColor) return;
+    if (!boardInputAllowed()) return;
     const [r, c] = E.coords(square);
     const piece = state.game.board[r][c];
     const targetMoves = state.legal.filter((move) => move.to === square);
@@ -292,6 +377,16 @@
     render();
   }
 
+  function boardInputAllowed() {
+    if (state.reviewPosition || state.thinking || E.gameStatus(state.game).over) return false;
+    if (["home", "learn", "basics", "strategy"].includes(state.mode)) return false;
+    if (state.mode === "tactics" && state.puzzleSolved) return false;
+    if (state.mode === "mistakes" && (state.mistakeSolved || !state.activeMistake)) return false;
+    if (state.mode === "endgame" && (state.endgameFailed || state.game.turn === "b")) return false;
+    if (isLessonMode() && T.getLessonView(state.lesson).status !== "awaiting-user") return false;
+    return state.mode !== "match" || state.game.turn === state.playerColor;
+  }
+
   function choosePromotion() {
     return new Promise((resolve) => {
       const dialog = $("#promotionDialog");
@@ -303,7 +398,7 @@
   }
 
   function makeMove(move, actor) {
-    clearMatchHint();
+    clearMatchHint(); state.markedSquares.clear();
     if (isLessonMode()) {
       const result = T.submitLessonMove(state.lesson, move);
       state.selected = null; state.legal = [];
@@ -324,6 +419,22 @@
       }
       state.messageOverride = null; state.lessonHint = false;
       syncLesson(); finishLesson(result); render(); scheduleLesson(); return;
+    }
+    if (state.mode === "mistakes" && actor === "human" && state.activeMistake) {
+      const played = move.from + move.to + (move.promotion || "");
+      state.selected = null; state.legal = [];
+      if (played !== state.activeMistake.best) {
+        recordGameMistakeAttempt(false);
+        state.messageOverride = { kind: "error", title: "Noch nicht die beste Fortsetzung", text: "Der Zug ist legal, löst aber den kritischen Punkt der Stellung nicht. Prüfe Schachs, Schlagzüge und direkte Drohungen." };
+        animateBoard("wrong-shake"); render(); return;
+      }
+      const before = state.game;
+      state.game = E.applyMove(before, move); state.lastMove = move; state.moves = [{ color: before.turn, san: E.notation(before, move) }];
+      const assisted = state.mistakeHintStage > 0;
+      state.mistakeSolved = true; recordGameMistakeAttempt(true, assisted);
+      state.messageOverride = { kind: "success", title: assisted ? "Mit Hinweis gelöst" : "Fehler selbstständig korrigiert", text: `Richtig: ${E.notation(before, move)}. ${state.activeMistake.explanation}${assisted ? " Löse die Stellung später ohne Hinweis, damit sie als beherrscht gilt." : ""}` };
+      $("#mistakeExplanation").hidden = false; $("#mistakeExplanation").textContent = state.activeMistake.explanation;
+      $("#nextMistake").disabled = false; animateBoard("correct-flash"); render(); return;
     }
     const before = state.game;
     const san = E.notation(before, move);
@@ -402,13 +513,17 @@
     const status = E.gameStatus(state.game);
     const available = state.mode === "match" && state.game.turn === state.playerColor && !state.thinking && !status.over;
     button.disabled = !available || state.hintThinking;
-    button.querySelector("strong").textContent = state.hintThinking ? "Stellung wird analysiert …" : state.matchHint ? "Neuen Hinweis berechnen" : "Zughilfe anfordern";
-    button.querySelector("small").textContent = state.hintThinking ? "Der Coach prüft legale Kandidaten" : "Analysiert deine aktuelle Stellung";
+    button.querySelector("strong").textContent = state.hintThinking ? "Stellung wird analysiert …" : state.matchHint?.stage < 3 ? "Konkreteren Hinweis zeigen" : state.matchHint ? "Analyse erneut anzeigen" : "Zughilfe anfordern";
+    button.querySelector("small").textContent = state.hintThinking ? "Die Berechnung läuft im Hintergrund" : state.matchHint ? `Hilfestufe ${state.matchHint.stage} von 3` : "Erst Idee, dann Figur, zuletzt genauer Zug";
   }
 
-  function requestMatchHint() {
+  async function requestMatchHint() {
     if (state.mode !== "match" || state.thinking || state.hintThinking || state.game.turn !== state.playerColor || E.gameStatus(state.game).over) return;
     const expectedFen = E.toFEN(state.game);
+    if (state.matchHint?.fen === expectedFen) {
+      state.matchHint.stage = Math.min(3, state.matchHint.stage + 1);
+      showMatchHint(); render(); return;
+    }
     const sessionId = state.sessionId;
     const requestId = ++state.hintRequest;
     state.hintThinking = true;
@@ -416,24 +531,56 @@
     $("#matchHint").hidden = false;
     $("#matchHintMove").textContent = "…";
     $("#matchHintText").textContent = "Ich vergleiche die legalen Züge und ihre besten Antworten.";
-    $("#matchHintMeta").textContent = "Die Berechnung läuft vollständig lokal im Browser.";
+    $("#matchHintMeta").textContent = "Stärkere Suche im Hintergrund · vollständig lokal.";
     render();
 
-    window.setTimeout(() => {
+    try {
+      const analysis = await analyzeInBackground(state.game, { depth: 7, timeMs: 1800, quiescence: 3, multiPv: 3 });
       if (requestId !== state.hintRequest || sessionId !== state.sessionId || state.mode !== "match" || E.toFEN(state.game) !== expectedFen) return;
-      const analysis = E.analyzePosition(state.game, { depth: 6, timeMs: 1400, quiescence: 3, multiPv: 3 });
-      if (requestId !== state.hintRequest || E.toFEN(state.game) !== expectedFen) return;
       state.hintThinking = false;
       if (!analysis.move) { clearMatchHint(); render(); return; }
       const notation = E.notation(state.game, analysis.move);
-      state.matchHint = { move: analysis.move, notation };
-      $("#matchHintMove").textContent = `${notation} · ${analysis.move.from} → ${analysis.move.to}`;
-      $("#matchHintText").textContent = explainHintMove(state.game, analysis.move);
-      const alternatives = analysis.alternatives.slice(1).map((item) => E.notation(state.game, item.move));
-      const evaluation = describeEvaluation(analysis.score, state.game.turn);
-      $("#matchHintMeta").textContent = `${evaluation} · Tiefe ${analysis.depth || 1}${alternatives.length ? ` · Ebenfalls geprüft: ${alternatives.join(", ")}` : ""}`;
+      state.matchHint = { move: analysis.move, notation, analysis, fen: expectedFen, stage: 1 };
+      showMatchHint(); render();
+    } catch {
+      if (requestId !== state.hintRequest) return;
+      state.hintThinking = false;
+      $("#matchHintMove").textContent = "Analyse nicht verfügbar";
+      $("#matchHintText").textContent = "Die Hintergrundanalyse konnte nicht abgeschlossen werden. Versuche es erneut.";
       render();
-    }, 30);
+    }
+  }
+
+  function showMatchHint() {
+    const hint = state.matchHint;
+    if (!hint) return;
+    const position = E.fromFEN(hint.fen);
+    const [r, c] = E.coords(hint.move.from), piece = position.board[r][c];
+    if (hint.stage === 1) {
+      $("#matchHintMove").textContent = "1 · Idee";
+      $("#matchHintText").textContent = explainHintPlan(position, hint.move);
+      $("#matchHintMeta").textContent = "Denke selbst weiter. Der nächste Hinweis zeigt die Figur.";
+    } else if (hint.stage === 2) {
+      $("#matchHintMove").textContent = `2 · ${pieceName(piece)} auf ${hint.move.from}`;
+      $("#matchHintText").textContent = `${explainHintPlan(position, hint.move)} Prüfe alle legalen Zielfelder dieser Figur und die stärkste gegnerische Antwort.`;
+      $("#matchHintMeta").textContent = "Das Startfeld ist blau markiert. Der nächste Hinweis zeigt den ganzen Zug.";
+    } else {
+      const alternatives = hint.analysis.alternatives.slice(1).map((item) => E.notation(position, item.move));
+      $("#matchHintMove").textContent = `3 · ${hint.notation} · ${hint.move.from} → ${hint.move.to}`;
+      $("#matchHintText").textContent = explainHintMove(position, hint.move);
+      $("#matchHintMeta").textContent = `${describeEvaluation(hint.analysis.score, position.turn)} · Tiefe ${hint.analysis.depth || 1}${alternatives.length ? ` · Alternativen: ${alternatives.join(", ")}` : ""}`;
+    }
+  }
+
+  function explainHintPlan(position, move) {
+    const after = E.applyMove(position, move, false);
+    if (E.gameStatus(after).type === "checkmate") return "Suche zuerst nach einem unmittelbaren Matt: Schachgebot, Fluchtfelder und mögliche Abwehrzüge.";
+    if (E.inCheck(position, position.turn)) return "Dein König steht im Schach. Vergleiche Königszug, Schlagen des Angreifers und Blockieren der Angriffslinie.";
+    if (move.capture && E.inCheck(after, after.turn)) return "Ein zwingender Schlagzug mit Schach verbindet Materialgewinn und Initiative.";
+    if (move.capture) return "Prüfe die Schlagzüge: Einer verbessert die Materialbilanz, ohne eine stärkere gegnerische Antwort zuzulassen.";
+    if (move.castle) return "Königssicherheit und Figurenaktivität lassen sich hier mit einem einzigen Zug verbessern.";
+    if (["d4", "d5", "e4", "e5"].includes(move.to)) return "Ein aktiver Zug ins Zentrum verbessert Raum, Kontrolle und die Zusammenarbeit deiner Figuren.";
+    return "Verbessere zuerst die Aktivität deiner am wenigsten wirksamen Figur und prüfe danach gegnerische Schachs, Schläge und Drohungen.";
   }
 
   function explainHintMove(position, move) {
@@ -493,6 +640,7 @@
     else if (state.thinking) { title = "Die KI rechnet"; text = "Sie prüft legale Antworten auf deinen letzten Zug."; }
     else if (status.check) { title = "Schach!"; text = state.mode === "match" ? `${state.game.turn === state.playerColor ? "Dein König" : "Der gegnerische König"} ist angegriffen.` : `${state.game.turn === "w" ? "Der weiße" : "Der schwarze"} König ist angegriffen.`; kind = "error"; }
     else if (state.mode === "tactics" && state.puzzleSolved) { title = "Aufgabe gelöst"; text = "Sehr gut erkannt. Nimm das Motiv mit in deine nächste Partie."; kind = "success"; }
+    else if (state.mode === "mistakes") { title = state.mistakeSolved ? "Stellung gelöst" : "Du bist am Zug"; text = state.mistakeSolved ? "Der bessere Zug ist jetzt in deinem persönlichen Fehlerspeicher verankert." : "Finde den stärksten Zug aus deiner früheren Partie."; kind = state.mistakeSolved ? "success" : ""; }
     else if (state.mode === "match") { title = state.game.turn === state.playerColor ? "Du bist am Zug" : "KI ist am Zug"; text = state.game.turn === state.playerColor ? "Wähle eine Figur und danach eines der markierten Zielfelder." : "Dein Trainingspartner berechnet seinen Zug."; }
     else { title = state.game.turn === "w" ? "Weiß ist am Zug" : "Schwarz ist am Zug"; text = "Wähle eine Figur und danach eines der markierten Zielfelder."; }
     if (state.mode === "match" && status.over && state.matchResult) {
@@ -522,7 +670,7 @@
 
   function switchMode(mode) {
     state.mode = mode;
-    const learningModes = ["basics", "tactics", "endgame", "strategy", "openings"];
+    const learningModes = ["basics", "tactics", "endgame", "strategy", "openings", "mistakes"];
     const navigationMode = learningModes.includes(mode) ? "learn" : mode;
     all(".mode-tab").forEach((button) => button.classList.toggle("active", button.dataset.mode === navigationMode));
     $("#homeControls").hidden = mode !== "home";
@@ -533,13 +681,14 @@
     $("#endgameControls").hidden = mode !== "endgame";
     $("#strategyControls").hidden = mode !== "strategy";
     $("#openingControls").hidden = mode !== "openings";
+    $("#mistakeControls").hidden = mode !== "mistakes";
     $("#practiceControls").hidden = mode !== "practice";
     $("#trainingStats").hidden = mode !== "tactics";
     $("#learningBack").hidden = !learningModes.includes(mode);
     document.querySelector(".moves-section").hidden = ["home", "learn", "basics"].includes(mode);
     document.querySelector(".lesson-card").hidden = ["home", "learn"].includes(mode);
-    $("#opponentAvatar").textContent = mode === "match" ? "KI" : mode === "practice" ? "AN" : ["home", "learn"].includes(mode) ? "LOS" : "LE";
-    $("#opponentName").textContent = mode === "match" ? "Trainingspartner" : mode === "practice" ? "Analysebrett" : ["home", "learn"].includes(mode) ? "Dein Lernbrett" : "Lerneinheit";
+    $("#opponentAvatar").textContent = mode === "match" ? "KI" : mode === "practice" ? "AN" : mode === "mistakes" ? "FE" : ["home", "learn"].includes(mode) ? "LOS" : "LE";
+    $("#opponentName").textContent = mode === "match" ? "Trainingspartner" : mode === "practice" ? "Analysebrett" : mode === "mistakes" ? "Fehlertrainer" : ["home", "learn"].includes(mode) ? "Dein Lernbrett" : "Lerneinheit";
     $("#opponentDetail").textContent = mode === "match" ? `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating}` : mode === "tactics" ? "Muster erkennen · Zug berechnen" : mode === "endgame" ? "Technik gegen beste Verteidigung" : mode === "strategy" ? "Verstehen, bevor du ziehst" : mode === "openings" ? "Zugfolge und Pläne lernen" : mode === "home" ? "Hier beginnt dein Training" : mode === "learn" ? "Wähle dein nächstes Lernziel" : "Varianten ohne Zeitdruck";
     $("#playerDetail").textContent = ["home", "learn"].includes(mode) ? "Dein Tempo · ohne Zeitdruck" : mode === "basics" ? "Erst verstehen, dann ziehen" : mode === "strategy" ? "Wähle eine Antwort im Lernpanel" : mode === "openings" ? `Du spielst ${trainingData.openings[state.openingIndex].side === "w" ? "Weiß" : "Schwarz"}` : mode === "match" ? `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}` : "Weiß · konzentriert";
     const copy = {
@@ -551,6 +700,7 @@
       endgame: ["ENDSPIEL-FUNDAMENTE", "Gewinnen mit Technik.", "Übe elementare Gewinnstellungen gegen eine regelbasierte Verteidigung."],
       strategy: ["DIE WARUM-EBENE", "Plane wie ein Meister.", "Entscheide an kritischen Stellen und verstehe Aktivität, Initiative und offene Linien."],
       openings: ["ERÖFFNUNGS-REPERTOIRE", "Verstehe den Aufbau.", "Lerne nicht nur Züge: Verbinde jede Variante mit ihren Plänen und typischen Fehlern."],
+      mistakes: ["AUS DEINEN PARTIEN", "Fehler werden zu Training.", "Löse die kritischen Stellungen erneut, bis du den besseren Zug selbstständig findest."],
       practice: ["ANALYSETRAINING", "Stellungen verstehen.", "Prüfe Material, Königssicherheit und Bauernstruktur, bevor du Varianten ziehst."]
     }[mode];
     $("#panelEyebrow").textContent = copy[0]; $("#panelTitle").textContent = copy[1]; $("#panelIntro").textContent = copy[2];
@@ -559,6 +709,7 @@
     else if (mode === "endgame") loadEndgame($("#endgameSelect").value);
     else if (mode === "strategy") loadStrategyStep(state.strategyStep);
     else if (mode === "openings") loadOpening($("#openingSelect").value || trainingData.openings[0].id);
+    else if (mode === "mistakes") loadGameMistake(0);
     else if (["home", "learn"].includes(mode)) {
       beginPositionSession();
       state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.thinking = false;
@@ -718,6 +869,78 @@
     return stats;
   }
 
+  function getGameMistakes(saved = getProgress()) {
+    if (!Array.isArray(saved.gameMistakes)) saved.gameMistakes = [];
+    return saved.gameMistakes.filter((item) => item && typeof item.fen === "string" && typeof item.best === "string");
+  }
+
+  function saveGameMistakes(results) {
+    const critical = results.filter((item) => ["mistake", "blunder"].includes(item.classification.id));
+    if (!critical.length) return;
+    const saved = getProgress(), mistakes = getGameMistakes(saved);
+    for (const item of critical) {
+      const key = `${item.fen.split(" ").slice(0, 4).join(" ")}|${item.best.from}${item.best.to}${item.best.promotion || ""}`;
+      const existing = mistakes.find((entry) => entry.key === key);
+      const data = {
+        key, fen: item.fen, best: item.best.from + item.best.to + (item.best.promotion || ""), played: item.playedSan,
+        bestSan: item.bestSan, loss: item.loss, classification: item.classification.id,
+        explanation: explainAnalysisMove(item), lastSeen: localDate()
+      };
+      if (existing) Object.assign(existing, data, { loss: Math.max(existing.loss || 0, item.loss), mastered: false });
+      else mistakes.push({ id: `game-${Date.now()}-${item.ply}`, attempts: 0, successes: 0, mastered: false, ...data });
+    }
+    saved.gameMistakes = mistakes.slice(-50); saveProgress(saved); renderMatchRating();
+  }
+
+  function loadGameMistake(index) {
+    beginPositionSession();
+    const pool = getGameMistakes().filter((item) => !item.mastered);
+    state.mistakeIndex = pool.length ? (index + pool.length) % pool.length : 0;
+    state.activeMistake = pool[state.mistakeIndex] || null; state.mistakeSolved = false; state.mistakeHintStage = 0;
+    state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.messageOverride = null;
+    $("#mistakeExplanation").hidden = true; $("#nextMistake").disabled = true;
+    if (!state.activeMistake) {
+      state.game = E.fromFEN();
+      $("#mistakeProgress").textContent = "0 / 0";
+      $("#mistakeTitle").textContent = "Keine offenen Fehler";
+      $("#mistakePrompt").textContent = "Spiele Computerpartien. Kritische Stellungen werden nach der automatischen Analyse hier gesammelt.";
+      $("#mistakeHint").disabled = true; $("#removeMistake").disabled = true; render(); return;
+    }
+    state.game = E.fromFEN(state.activeMistake.fen); state.playerColor = state.game.turn;
+    $("#mistakeProgress").textContent = `${state.mistakeIndex + 1} / ${pool.length}`;
+    $("#mistakeTitle").textContent = `${state.activeMistake.classification === "blunder" ? "Groben Fehler" : "Fehler"} korrigieren`;
+    $("#mistakePrompt").textContent = `In der Partie spieltest du ${state.activeMistake.played}. Finde jetzt den besseren Zug.`;
+    $("#mistakeHint").disabled = false; $("#mistakeHint").textContent = "Gestufter Hinweis"; $("#removeMistake").disabled = false;
+    $("#playerDetail").textContent = `Du trainierst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
+    $("#opponentDetail").textContent = "Gespeicherte Stellung aus deiner Partie"; render();
+  }
+
+  function recordGameMistakeAttempt(success, assisted = false) {
+    if (!state.activeMistake) return;
+    const saved = getProgress(), mistakes = getGameMistakes(saved), item = mistakes.find((entry) => entry.id === state.activeMistake.id);
+    if (!item) return;
+    item.attempts = (item.attempts || 0) + 1;
+    if (success && !assisted) item.successes = (item.successes || 0) + 1;
+    item.mastered = item.successes >= 2; item.lastTrained = localDate();
+    saved.gameMistakes = mistakes; saveProgress(saved); renderMatchRating();
+  }
+
+  function showMistakeHint() {
+    if (!state.activeMistake || state.mistakeSolved) return;
+    const move = E.legalMoves(state.game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === state.activeMistake.best);
+    if (!move) return;
+    state.mistakeHintStage = Math.min(3, state.mistakeHintStage + 1);
+    const text = state.mistakeHintStage === 1 ? explainHintPlan(state.game, move) : state.mistakeHintStage === 2 ? `Nutze die Figur auf ${move.from}. ${explainHintPlan(state.game, move)}` : `Spiele ${state.activeMistake.bestSan}: ${move.from} → ${move.to}. ${explainHintMove(state.game, move)}`;
+    state.messageOverride = { kind: "", title: `Hinweis ${state.mistakeHintStage} von 3`, text };
+    $("#mistakeHint").textContent = state.mistakeHintStage < 3 ? "Konkreteren Hinweis" : "Ganzer Zug angezeigt"; render();
+  }
+
+  function removeActiveMistake() {
+    if (!state.activeMistake) return;
+    const saved = getProgress(); saved.gameMistakes = getGameMistakes(saved).filter((item) => item.id !== state.activeMistake.id); saveProgress(saved);
+    loadGameMistake(state.mistakeIndex);
+  }
+
   function recordMatchResult(status) {
     if (state.matchRated || !status.over) return;
     const score = status.winner === state.playerColor ? 1 : status.winner ? 0 : .5;
@@ -739,6 +962,10 @@
     saveProgress(saved);
     state.matchRated = true;
     state.matchResult = { score, change: result.change, rating: result.rating, opponent: opponent.rating };
+    const completedSession = state.sessionId;
+    window.setTimeout(() => {
+      if (state.mode === "match" && state.sessionId === completedSession && E.gameStatus(state.game).over && !state.analysisRunning && !state.gameAnalysis.length) startGameAnalysis();
+    }, 700);
   }
 
   function recommendedDifficultyIndex(rating) {
@@ -756,6 +983,7 @@
     $("#matchWins").textContent = stats.wins;
     $("#matchDraws").textContent = stats.draws;
     $("#matchLosses").textContent = stats.losses;
+    $("#gameMistakeCount").textContent = getGameMistakes().filter((item) => !item.mastered).length;
     const trend = state.matchResult?.change ?? stats.lastChange;
     $("#matchEloTrend").textContent = stats.games ? `${trend > 0 ? "+" : ""}${trend} zuletzt · Bestwert ${stats.best}` : "Noch keine gewertete Partie";
 
@@ -927,17 +1155,140 @@
   $("#nextStrategy").addEventListener("click", () => loadStrategyStep(state.strategyStep + 1));
   $("#openingSelect").addEventListener("change", (event) => loadOpening(event.target.value));
   $("#restartOpening").addEventListener("click", () => loadOpening(trainingData.openings[state.openingIndex].id));
-  function renderCoachReview() {
-    const review = T.coachReview(state.moves, T.toPgn(state.moves), state.playerColor); const box = $("#coachReview"); box.hidden = false; box.innerHTML = "";
+  function showCoachReviewSummary() {
+    const box = $("#coachReview");
+    if (state.analysisRunning || state.gameAnalysis.length || !box.hidden) return;
+    const review = T.coachReview(state.moves, T.toPgn(state.moves), state.playerColor);
+    box.hidden = false; box.innerHTML = "";
     const title = document.createElement("strong"); title.textContent = review.title;
-    const summary = document.createElement("p"); summary.textContent = review.summary;
+    const summary = document.createElement("p"); summary.textContent = `${review.summary} Starte die Zug-für-Zug-Analyse für konkrete Alternativen.`;
     box.append(title, summary);
   }
-  $("#reviewGame").addEventListener("click", renderCoachReview);
+
+  function startGameAnalysis() {
+    if (state.analysisRunning) return;
+    const positions = state.game.history.map((entry, ply) => ({ entry, ply })).filter(({ entry }) => E.fromFEN(entry.fen).turn === state.playerColor);
+    const box = $("#coachReview");
+    if (!positions.length) {
+      box.hidden = false; box.innerHTML = '<strong>Noch keine eigenen Züge</strong><p>Spiele mindestens einen Zug, damit die Partieanalyse beginnen kann.</p>';
+      return;
+    }
+    const requestId = ++state.analysisRequest;
+    state.analysisRunning = true; state.gameAnalysis = []; state.reviewPosition = null; state.reviewMove = null;
+    $("#reviewGame").disabled = true;
+    renderAnalysisProgress(0, positions.length);
+
+    const analyzeNext = (index) => {
+      if (requestId !== state.analysisRequest || !state.analysisRunning) return;
+      if (index >= positions.length) {
+        state.analysisRunning = false;
+        $("#reviewGame").disabled = false;
+        $("#reviewGame").textContent = "Analyse neu berechnen";
+        saveGameMistakes(state.gameAnalysis);
+        renderGameAnalysis();
+        return;
+      }
+      window.setTimeout(async () => {
+        if (requestId !== state.analysisRequest || !state.analysisRunning) return;
+        const { entry, ply } = positions[index];
+        const position = E.fromFEN(entry.fen);
+        const played = E.legalMoves(position).find((move) => sameMove(move, entry.move));
+        if (played) {
+          let analysis;
+          try { analysis = await analyzeInBackground(position, { depth: 6, timeMs: 900, quiescence: 3, multiPv: 5 }); }
+          catch {
+            state.analysisRunning = false; $("#reviewGame").disabled = false;
+            $("#coachReview").innerHTML = '<strong>Analyse unterbrochen</strong><p>Die Hintergrundanalyse konnte diese Stellung nicht verarbeiten. Du kannst die Analyse erneut starten.</p>';
+            return;
+          }
+          if (requestId !== state.analysisRequest || !state.analysisRunning) return;
+          const playedResult = analysis.scoredMoves.find((item) => sameMove(item.move, played));
+          const bestResult = analysis.scoredMoves[0];
+          const loss = position.turn === "w" ? bestResult.score - playedResult.score : playedResult.score - bestResult.score;
+          const classification = T.classifyMoveLoss(Math.max(0, loss));
+          state.gameAnalysis.push({
+            ply, fen: entry.fen, played, best: bestResult.move,
+            playedSan: E.notation(position, played), bestSan: E.notation(position, bestResult.move),
+            loss: Math.max(0, loss), classification, depth: analysis.depth,
+            evaluation: (state.playerColor === "w" ? playedResult.score : -playedResult.score) / 100
+          });
+        }
+        renderAnalysisProgress(index + 1, positions.length);
+        analyzeNext(index + 1);
+      }, 25);
+    };
+    analyzeNext(0);
+  }
+
+  function sameMove(a, b) {
+    return a.from === b.from && a.to === b.to && (a.promotion || "") === (b.promotion || "");
+  }
+
+  function renderAnalysisProgress(done, total) {
+    const box = $("#coachReview"); box.hidden = false;
+    const percent = Math.round(done / total * 100);
+    box.innerHTML = `<strong>Partie wird Zug für Zug analysiert</strong><p>${done} von ${total} eigenen Zügen geprüft. Die lokale Engine vergleicht jeden Zug mit allen legalen Kandidaten.</p><div class="analysis-progress" aria-label="${percent} Prozent"><span style="width:${percent}%"></span></div>`;
+  }
+
+  function renderGameAnalysis() {
+    const box = $("#coachReview"); box.hidden = false; box.innerHTML = "";
+    const results = state.gameAnalysis;
+    if (!results.length) { box.innerHTML = '<strong>Keine auswertbaren Züge</strong><p>Für diese Partie konnten keine eigenen legalen Züge rekonstruiert werden.</p>'; return; }
+    const averageQuality = Math.round(results.reduce((sum, item) => sum + item.classification.quality, 0) / results.length);
+    const problems = results.filter((item) => ["inaccuracy", "mistake", "blunder"].includes(item.classification.id)).length;
+    const heading = document.createElement("div"); heading.className = "analysis-summary";
+    heading.innerHTML = `<span>ZUGQUALITÄT</span><strong>${averageQuality}%</strong><small>${problems ? (problems === 1 ? "1 kritischer Moment" : `${problems} kritische Momente`) : "Keine deutlichen Fehler gefunden"}</small>`;
+    const note = document.createElement("p"); note.textContent = "Bewertet wird der Verlust gegenüber dem stärksten lokal gefundenen Zug. Wähle einen Zug, um Stellung und Alternative zu sehen.";
+    const list = document.createElement("div"); list.className = "analysis-list";
+    results.forEach((item, index) => {
+      const button = document.createElement("button"); button.type = "button"; button.className = `analysis-row ${item.classification.id}`;
+      const moveNumber = `${Math.floor(item.ply / 2) + 1}.${item.ply % 2 ? "…" : ""}`;
+      button.innerHTML = `<span>${moveNumber} ${item.playedSan}</span><strong>${item.classification.label}</strong><small>${item.loss <= 15 ? "stärkster Kandidat" : `${formatAnalysisLoss(item.loss)} · besser ${item.bestSan}`}</small>`;
+      button.addEventListener("click", () => showAnalysisPosition(index)); list.appendChild(button);
+    });
+    const detail = document.createElement("div"); detail.id = "analysisDetail"; detail.className = "analysis-detail"; detail.textContent = "Wähle einen Zug aus der Liste.";
+    const finalButton = document.createElement("button"); finalButton.type = "button"; finalButton.className = "text-button analysis-final"; finalButton.textContent = "Endstellung auf dem Brett zeigen";
+    finalButton.addEventListener("click", () => { state.reviewPosition = null; state.reviewMove = null; renderBoard(); all(".analysis-row").forEach((row) => row.classList.remove("active")); detail.textContent = "Endstellung der Partie."; });
+    box.append(heading, note, list, detail, finalButton);
+    const firstCritical = results.findIndex((item) => ["mistake", "blunder"].includes(item.classification.id));
+    showAnalysisPosition(firstCritical >= 0 ? firstCritical : 0);
+  }
+
+  function showAnalysisPosition(index) {
+    const item = state.gameAnalysis[index];
+    if (!item) return;
+    state.reviewPosition = E.fromFEN(item.fen);
+    state.reviewMove = { played: item.played, best: item.best };
+    renderBoard();
+    all(".analysis-row").forEach((row, rowIndex) => row.classList.toggle("active", rowIndex === index));
+    const detail = $("#analysisDetail");
+    if (detail) detail.innerHTML = `<strong>${item.playedSan}: ${item.classification.label}</strong><p>${explainAnalysisMove(item)}</p><small>Bewertung danach: ${formatPlayerEvaluation(item.evaluation)} · Rot: gespielt · Gold: stärkste Alternative · Suchtiefe ${item.depth || 1}</small>`;
+  }
+
+  function explainAnalysisMove(item) {
+    if (item.loss <= 15) return `${item.playedSan} gehört zu den stärksten gefundenen Zügen. ${explainHintMove(E.fromFEN(item.fen), item.played)}`;
+    const lossText = item.loss > 90000 ? "eine entscheidende Wendung" : `${(item.loss / 100).toFixed(2)} Bauerneinheiten`;
+    return `${item.playedSan} kostet nach lokaler Berechnung ungefähr ${lossText}. Besser war ${item.bestSan}: ${explainHintMove(E.fromFEN(item.fen), item.best)}`;
+  }
+
+  function formatAnalysisLoss(loss) {
+    return loss > 90000 ? "entscheidende Wendung" : `−${(loss / 100).toFixed(2)}`;
+  }
+
+  function formatPlayerEvaluation(value) {
+    if (Math.abs(value) > 900) return value > 0 ? "entscheidender Vorteil" : "entscheidender Nachteil";
+    return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
+  }
+
+  $("#reviewGame").addEventListener("click", startGameAnalysis);
+  $("#trainGameMistakes").addEventListener("click", () => switchMode("mistakes"));
+  $("#mistakeHint").addEventListener("click", showMistakeHint);
+  $("#nextMistake").addEventListener("click", () => loadGameMistake(state.mistakeIndex + 1));
+  $("#removeMistake").addEventListener("click", removeActiveMistake);
   $("#loadStart").addEventListener("click", () => { $("#fenInput").value = E.START_FEN; loadFen(); });
   $("#loadFen").addEventListener("click", loadFen);
   $("#undoButton").addEventListener("click", () => {
-    clearMatchHint();
+    clearMatchHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
     if (state.mode === "match") {
       let removedOwnMove = false;
       while (state.game.history.length && !removedOwnMove) {

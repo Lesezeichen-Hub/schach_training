@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101411">
-  <meta name="description" content="Lokales Schachtraining mit Taktikaufgaben und Trainingspartien in drei Schwierigkeitsgraden.">
+  <meta name="description" content="Lokales Schachtraining mit Partieanalyse, persönlichem Fehlertrainer und acht Computer-Spielstärken.">
   <title>Schachwerkstatt</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101411'/%3E%3Cpath d='M22 49h24v6H18v-3l4-3Zm5-27c-5-4-2-12 5-12 6 0 9 7 5 11 8 4 9 14 3 20H25c-6-7-4-15 2-19Z' fill='%23e7b65d'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
@@ -39,6 +39,7 @@
           </div>
           <div id="thinking" class="thinking" hidden><span></span><span></span><span></span> KI rechnet</div>
         </div>
+        <small class="board-help">Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen</small>
         <div class="player-strip">
           <div class="avatar light">DU</div>
           <div><strong>Dein Training</strong><small id="playerDetail">Weiß · konzentriert</small></div>
@@ -118,7 +119,8 @@
             <small id="matchHintMeta"></small>
           </div>
           <button class="primary-button" id="newGame">Neue Partie</button>
-          <button class="secondary-button full-button" id="reviewGame">Coach-Review öffnen</button>
+          <button class="secondary-button full-button" id="reviewGame">Partie analysieren</button>
+          <button class="secondary-button full-button" id="trainGameMistakes">Fehler aus Partien trainieren · <span id="gameMistakeCount">0</span></button>
           <div id="coachReview" class="coach-review" hidden></div>
         </section>
 
@@ -210,6 +212,15 @@
           <p id="arrowLegend" class="arrow-legend">→ Gold: Zug · ⇢ Rot: Angriff · ⇢ Blau: Abwehr · ⇢ Violett: Konter. Die Nummern auf dem Brett gehören zur folgenden Legende.</p>
           <p id="arrowDescriptions" class="arrow-legend"></p>
           <p class="coverage-note">45 Lektionen · 135 kuratierte Abläufe. Konter in Taktiken sind ausdrücklich verwandte Vergleichsstellungen, keine erzwungenen Antworten aus jeder Hauptstellung.</p>
+        </section>
+
+        <section id="mistakeControls" class="control-section" hidden>
+          <div class="puzzle-meta"><span>FEHLER AUS DEINEN PARTIEN</span><span id="mistakeProgress">0 / 0</span></div>
+          <h2 id="mistakeTitle">Dein kritischer Moment</h2>
+          <p id="mistakePrompt">Finde den besseren Zug, den du in der Partie übersehen hast.</p>
+          <div id="mistakeExplanation" class="step-explanation" hidden></div>
+          <div class="button-row"><button class="secondary-button" id="mistakeHint">Gestufter Hinweis</button><button class="primary-button" id="nextMistake" disabled>Nächster Fehler</button></div>
+          <button class="solution-button" id="removeMistake">Stellung aus dem Training entfernen</button>
         </section>
 
         <section id="practiceControls" class="control-section" hidden>

@@ -31,6 +31,11 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Trainingspartien gegen acht fein abgestufte Computer-Spielstärken von „Einstieg“ bis „Experte“
 - Stellungsspezifische Zughilfe während Computerpartien mit Brettmarkierung, Erklärung, Bewertung und Alternativen
 - Persistente Spiel-Elo nach klassischer Erwartungswertformel mit Bilanz, Bestwert und passender Gegnerempfehlung
+- Zug-für-Zug-Partieanalyse mit Bewertungsverlust, Zugklassifikation, bester Alternative und Brettnavigation
+- Automatischer persönlicher Fehlertrainer aus kritischen Stellungen gespielter Partien
+- Hintergrundanalyse per Web Worker mit stärkerer Suchtiefe und Rückfallmodus für lokale Dateien
+- Gestufte Hinweise von der strategischen Idee bis zum konkreten Zug
+- Drag-and-drop, vollständige Tastatursteuerung und eigene Brettmarkierungen
 - Freie Farbwahl: mit Weiß, Schwarz oder bei jeder neuen Partie zufällig spielen
 - Iterative Tiefensuche, begrenzte Bedenkzeit und taktische Ruhesuche für höhere Stufen
 - Freies Analysebrett mit FEN-Import

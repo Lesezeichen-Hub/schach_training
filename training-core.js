@@ -41,6 +41,15 @@
     };
   }
 
+  function classifyMoveLoss(centipawnLoss) {
+    const loss = Math.max(0, Number.isFinite(centipawnLoss) ? centipawnLoss : 0);
+    if (loss <= 15) return { id: "best", label: "Bester Zug", quality: 100 };
+    if (loss <= 40) return { id: "good", label: "Guter Zug", quality: 90 };
+    if (loss <= 90) return { id: "inaccuracy", label: "Ungenauigkeit", quality: 70 };
+    if (loss <= 180) return { id: "mistake", label: "Fehler", quality: 40 };
+    return { id: "blunder", label: "Grober Fehler", quality: 10 };
+  }
+
   function ratingStage(rating) {
     let index = 0;
     for (let i = 0; i < RATING_STAGES.length; i++) if (rating >= RATING_STAGES[i].min) index = i;
@@ -328,7 +337,14 @@
       if (!Number.isFinite(item.errors) || item.errors < 0) item.errors = 0;
       item.openError = Boolean(item.openError);
     }
+    if (!Array.isArray(saved.gameMistakes)) saved.gameMistakes = [];
+    saved.gameMistakes = saved.gameMistakes.filter((item) => item && typeof item === "object" && typeof item.fen === "string" && typeof item.best === "string").slice(-50);
+    for (const item of saved.gameMistakes) {
+      item.attempts = Number.isFinite(item.attempts) && item.attempts >= 0 ? item.attempts : 0;
+      item.successes = Number.isFinite(item.successes) && item.successes >= 0 ? item.successes : 0;
+      item.mastered = Boolean(item.mastered);
+    }
     return saved;
   }
-  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows };
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows };
 })(typeof window !== "undefined" ? window : globalThis);

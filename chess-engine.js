@@ -354,6 +354,7 @@
       move: alternatives[0].move,
       score: alternatives[0].score,
       alternatives,
+      scoredMoves: completedScores,
       depth: completedDepth,
       nodes: context.nodes
     };

@@ -104,6 +104,9 @@ assert.equal(T.calculateMatchElo(800, 800, 1, 0).change, 20, "Sieg gegen gleich 
 assert.equal(T.calculateMatchElo(800, 800, .5, 0).change, 0, "Remis gegen gleich starke KI hält die Elo");
 assert.equal(T.calculateMatchElo(800, 800, 0, 0).change, -20, "Niederlage gegen gleich starke KI senkt die Start-Elo um 20");
 assert.ok(T.calculateMatchElo(800, 1200, 1, 0).change > T.calculateMatchElo(800, 800, 1, 0).change, "Überraschungssieg gegen stärkere KI wird höher bewertet");
+assert.equal(T.classifyMoveLoss(0).id, "best", "Verlustfreier Zug gilt als bester Zug");
+assert.equal(T.classifyMoveLoss(60).id, "inaccuracy", "Moderater Bewertungsverlust gilt als Ungenauigkeit");
+assert.equal(T.classifyMoveLoss(250).id, "blunder", "Großer Bewertungsverlust gilt als grober Fehler");
 
 const ladder = E.fromFEN(trainingData.endgames.find((item) => item.id === "ladder-mate").fen);
 const ladderMove = E.legalMoves(ladder)[0];
@@ -147,6 +150,7 @@ assert.ok(openingHint.move, "Analyse liefert aus der Grundstellung einen Hinweis
 assert.ok(E.legalMoves(E.fromFEN()).some((move) => move.from === openingHint.move.from && move.to === openingHint.move.to), "Hinweiszug ist legal");
 assert.ok(openingHint.alternatives.length >= 1 && openingHint.alternatives.length <= 3, "Analyse liefert begrenzte Alternativen");
 assert.ok(Number.isFinite(openingHint.score), "Analyse liefert eine Stellungsbewertung");
+assert.equal(openingHint.scoredMoves.length, E.legalMoves(E.fromFEN()).length, "Analyse bewertet jeden legalen Kandidaten");
 
 const mateHint = E.analyzePosition(mateInOne, { depth: 2, timeMs: 250 });
 assert.equal(mateHint.move.from + mateHint.move.to, "h6g7", "Zughilfe erkennt Matt in einem Zug");
@@ -254,6 +258,7 @@ assert.equal(blackRows[1].number, 8); assert.equal(blackRows[1].white, 'Nxf7+');
 const legacy = T.normalizeProgress({totalSolved:7,puzzles:{old:{errors:2,attempts:3,successes:1}}, ratings:{tactics:912}});
 assert.equal(legacy.totalSolved,7); assert.equal(legacy.ratings.tactics,912);
 assert.equal(legacy.puzzles.old.openError,true); assert.equal(Object.keys(legacy.lessons).length,0);
+assert.equal(T.normalizeProgress({gameMistakes:"kaputt"}).gameMistakes.length, 0, "Beschädigter Partiefehlerspeicher wird repariert");
 for (const corrupt of [null, [], 1, 'bad', {ratings:[],puzzles:{bad:null},themes:{bad:3},count:'x'}]) {
   const safe = T.normalizeProgress(corrupt);
   assert.equal(Number.isFinite(safe.count),true); assert.equal(Number.isFinite(safe.ratings.openings),true);
