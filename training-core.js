@@ -26,6 +26,21 @@
     return Math.max(400, Math.min(2000, Math.round(current + 32 * (score - expected))));
   }
 
+  function calculateMatchElo(current, opponent, score, games = 0) {
+    const rating = Number.isFinite(current) ? current : 800;
+    const opponentRating = Number.isFinite(opponent) ? opponent : 800;
+    const result = Math.max(0, Math.min(1, Number(score)));
+    const expected = 1 / (1 + 10 ** ((opponentRating - rating) / 400));
+    const k = games < 10 ? 40 : games < 30 ? 32 : 24;
+    const change = Math.round(k * (result - expected));
+    return {
+      rating: Math.max(300, Math.min(2400, rating + change)),
+      change,
+      expected,
+      k
+    };
+  }
+
   function ratingStage(rating) {
     let index = 0;
     for (let i = 0; i < RATING_STAGES.length; i++) if (rating >= RATING_STAGES[i].min) index = i;
@@ -160,5 +175,5 @@
     };
   }
 
-  root.ChessTraining = { validateTactic, updateRating, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview };
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview };
 })(typeof window !== "undefined" ? window : globalThis);

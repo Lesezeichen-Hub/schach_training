@@ -244,14 +244,14 @@
   }
 
   const DIFFICULTY_LEVELS = [
-    { id: "first", name: "Einstieg", depth: 0, timeMs: 0, tolerance: Infinity, quiescence: 0, description: "Spielt fast zufällig und lässt viele Chancen zu." },
-    { id: "beginner", name: "Anfänger", depth: 1, timeMs: 40, tolerance: 350, quiescence: 0, description: "Erkennt direkte Schlagzüge, übersieht aber Antworten." },
-    { id: "learner", name: "Lernpartner", depth: 2, timeMs: 90, tolerance: 220, quiescence: 0, description: "Prüft deinen nächsten direkten Gegenzug." },
-    { id: "steady", name: "Solide", depth: 2, timeMs: 160, tolerance: 100, quiescence: 0, description: "Spielt zuverlässig, erlaubt aber noch taktische Chancen." },
-    { id: "club", name: "Verein", depth: 3, timeMs: 280, tolerance: 55, quiescence: 0, description: "Berechnet kurze Kombinationen über drei Halbzüge." },
-    { id: "advanced", name: "Fortgeschritten", depth: 4, timeMs: 500, tolerance: 30, quiescence: 1, description: "Rechnet tiefer und prüft Schlagfolgen am Suchende." },
-    { id: "strong", name: "Stark", depth: 5, timeMs: 800, tolerance: 12, quiescence: 2, description: "Findet mehrzügige Taktiken und vermeidet einfache Fallen." },
-    { id: "expert", name: "Experte", depth: 6, timeMs: 1200, tolerance: 0, quiescence: 3, description: "Nutzt die maximale lokale Suchtiefe und spielt den besten gefundenen Zug." }
+    { id: "first", name: "Einstieg", rating: 450, depth: 0, timeMs: 0, tolerance: Infinity, quiescence: 0, description: "Spielt fast zufällig und lässt viele Chancen zu." },
+    { id: "beginner", name: "Anfänger", rating: 600, depth: 1, timeMs: 40, tolerance: 350, quiescence: 0, description: "Erkennt direkte Schlagzüge, übersieht aber Antworten." },
+    { id: "learner", name: "Lernpartner", rating: 800, depth: 2, timeMs: 90, tolerance: 220, quiescence: 0, description: "Prüft deinen nächsten direkten Gegenzug." },
+    { id: "steady", name: "Solide", rating: 950, depth: 2, timeMs: 160, tolerance: 100, quiescence: 0, description: "Spielt zuverlässig, erlaubt aber noch taktische Chancen." },
+    { id: "club", name: "Verein", rating: 1150, depth: 3, timeMs: 280, tolerance: 55, quiescence: 0, description: "Berechnet kurze Kombinationen über drei Halbzüge." },
+    { id: "advanced", name: "Fortgeschritten", rating: 1350, depth: 4, timeMs: 500, tolerance: 30, quiescence: 1, description: "Rechnet tiefer und prüft Schlagfolgen am Suchende." },
+    { id: "strong", name: "Stark", rating: 1550, depth: 5, timeMs: 800, tolerance: 12, quiescence: 2, description: "Findet mehrzügige Taktiken und vermeidet einfache Fallen." },
+    { id: "expert", name: "Experte", rating: 1800, depth: 6, timeMs: 1200, tolerance: 0, quiescence: 3, description: "Nutzt die maximale lokale Suchtiefe und spielt den besten gefundenen Zug." }
   ];
 
   function evaluate(state) {
@@ -320,6 +320,45 @@
     return chooseWithinTolerance(completedScores, state.turn === "w", config.tolerance);
   }
 
+  function analyzePosition(state, options = {}) {
+    const moves = legalMoves(state);
+    const status = gameStatus(state);
+    if (!moves.length || status.over) return { move: null, alternatives: [], depth: 0, nodes: 0, score: null };
+
+    const maxDepth = Math.max(1, Math.min(8, Number(options.depth) || 5));
+    const timeMs = Math.max(50, Math.min(5000, Number(options.timeMs) || 1000));
+    const quiescenceDepth = Math.max(0, Math.min(4, Number(options.quiescence) || 2));
+    const context = { deadline: Date.now() + timeMs, nodes: 0, table: new Map(), quiescence: quiescenceDepth };
+    let completedDepth = 0;
+    let completedScores = moves.map((move) => ({ move, score: evaluate(applyMove(state, move, false)) }));
+
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      try {
+        const iteration = [];
+        for (const move of orderMoves(moves)) {
+          checkSearchTime(context);
+          iteration.push({ move, score: minimax(applyMove(state, move, false), depth - 1, -Infinity, Infinity, context) });
+        }
+        completedScores = iteration;
+        completedDepth = depth;
+      } catch (error) {
+        if (error !== SEARCH_TIMEOUT) throw error;
+        break;
+      }
+    }
+
+    const direction = state.turn === "w" ? -1 : 1;
+    completedScores.sort((a, b) => direction * (a.score - b.score));
+    const alternatives = completedScores.slice(0, Math.max(1, Math.min(5, Number(options.multiPv) || 3)));
+    return {
+      move: alternatives[0].move,
+      score: alternatives[0].score,
+      alternatives,
+      depth: completedDepth,
+      nodes: context.nodes
+    };
+  }
+
   const SEARCH_TIMEOUT = Symbol("search-timeout");
 
   function checkSearchTime(context) {
@@ -383,5 +422,5 @@
     return value;
   }
 
-  root.ChessEngine = { START_FEN, DIFFICULTY_LEVELS, fromFEN, toFEN, cloneState, legalMoves, applyMove, gameStatus, notation, undo, chooseMove, difficultyConfig, inCheck, coords, sq, colorOf, typeOf, evaluate };
+  root.ChessEngine = { START_FEN, DIFFICULTY_LEVELS, fromFEN, toFEN, cloneState, legalMoves, applyMove, gameStatus, notation, undo, chooseMove, analyzePosition, difficultyConfig, inCheck, coords, sq, colorOf, typeOf, evaluate };
 })(typeof window !== "undefined" ? window : globalThis);

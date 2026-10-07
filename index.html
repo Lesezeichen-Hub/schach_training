@@ -81,6 +81,15 @@
         </section>
 
         <section id="matchControls" class="control-section" hidden>
+          <div class="match-rating-card" aria-label="Deine Spiel-Elo">
+            <div class="match-rating-main"><span>DEINE SPIEL-ELO</span><strong id="matchElo">800</strong><small id="matchEloTrend">Noch keine gewertete Partie</small></div>
+            <div class="match-record">
+              <span><strong id="matchGames">0</strong> Partien</span>
+              <span><strong id="matchWins">0</strong> Siege</span>
+              <span><strong id="matchDraws">0</strong> Remis</span>
+              <span><strong id="matchLosses">0</strong> Niederlagen</span>
+            </div>
+          </div>
           <label>Deine Farbe</label>
           <div class="segmented color-choice" id="colorChoice" role="radiogroup" aria-label="Deine Spielfarbe">
             <button class="active" type="button" data-color="w" role="radio" aria-checked="true">Weiß<small>du beginnst</small></button>
@@ -89,10 +98,21 @@
           </div>
           <label for="difficulty">Spielstärke</label>
           <div class="difficulty-control">
-            <div class="difficulty-heading"><strong id="difficultyName">Stufe 3 · Lernpartner</strong><span id="difficultyDepth">2 Halbzüge</span></div>
+            <div class="difficulty-heading"><strong id="difficultyName">Stufe 3 · Lernpartner</strong><span id="difficultyDepth">Computer-Elo 800</span></div>
             <input id="difficulty" type="range" min="1" max="8" value="3" step="1" aria-describedby="difficultyDescription">
-            <div class="difficulty-scale" aria-hidden="true"><span>Einstieg</span><span>Lernend</span><span>Stark</span><span>Experte</span></div>
+            <div class="difficulty-scale" aria-hidden="true"><span>450</span><span>800</span><span>1.350</span><span>1.800</span></div>
             <p id="difficultyDescription">Prüft deinen nächsten direkten Gegenzug.</p>
+            <button class="difficulty-recommendation" id="recommendedDifficulty" type="button"></button>
+          </div>
+          <button class="hint-action" id="matchHintButton" type="button">
+            <span aria-hidden="true">✦</span>
+            <strong>Zughilfe anfordern</strong>
+            <small>Analysiert deine aktuelle Stellung</small>
+          </button>
+          <div id="matchHint" class="match-hint" aria-live="polite" hidden>
+            <div class="match-hint-head"><span>COACH-HINWEIS</span><strong id="matchHintMove"></strong></div>
+            <p id="matchHintText"></p>
+            <small id="matchHintMeta"></small>
           </div>
           <button class="primary-button" id="newGame">Neue Partie</button>
           <button class="secondary-button full-button" id="reviewGame">Coach-Review öffnen</button>

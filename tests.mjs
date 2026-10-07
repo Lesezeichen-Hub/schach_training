@@ -94,6 +94,10 @@ for (const opening of trainingData.openings) {
 assert.ok(T.updateRating(800, 1, 800) > 800, "Lern-Elo steigt nach erfolgreicher Aufgabe");
 assert.ok(T.updateRating(800, 0, 800) < 800, "Lern-Elo sinkt nach Fehler");
 assert.equal(T.ratingStage(800).name, "Springer", "Aufbaustufe wird korrekt bestimmt");
+assert.equal(T.calculateMatchElo(800, 800, 1, 0).change, 20, "Sieg gegen gleich starke KI erhöht die Start-Elo um 20");
+assert.equal(T.calculateMatchElo(800, 800, .5, 0).change, 0, "Remis gegen gleich starke KI hält die Elo");
+assert.equal(T.calculateMatchElo(800, 800, 0, 0).change, -20, "Niederlage gegen gleich starke KI senkt die Start-Elo um 20");
+assert.ok(T.calculateMatchElo(800, 1200, 1, 0).change > T.calculateMatchElo(800, 800, 1, 0).change, "Überraschungssieg gegen stärkere KI wird höher bewertet");
 
 const ladder = E.fromFEN(trainingData.endgames.find((item) => item.id === "ladder-mate").fen);
 const ladderMove = E.legalMoves(ladder)[0];
@@ -118,6 +122,7 @@ assert.equal(T.toPgn([{ color: "w", san: "e4" }, { color: "b", san: "e5" }]), "1
 
 assert.equal(E.DIFFICULTY_LEVELS.length, 8, "Acht fein abgestufte Spielstärken sind verfügbar");
 for (let index = 1; index < E.DIFFICULTY_LEVELS.length; index++) {
+  assert.ok(E.DIFFICULTY_LEVELS[index].rating > E.DIFFICULTY_LEVELS[index - 1].rating, "Computer-Elo steigt mit der Spielstärke");
   assert.ok(E.DIFFICULTY_LEVELS[index].depth >= E.DIFFICULTY_LEVELS[index - 1].depth, "Suchtiefe steigt nicht rückwärts");
   assert.ok(E.DIFFICULTY_LEVELS[index].timeMs >= E.DIFFICULTY_LEVELS[index - 1].timeMs, "Bedenkzeit steigt nicht rückwärts");
   assert.ok(E.DIFFICULTY_LEVELS[index].tolerance <= E.DIFFICULTY_LEVELS[index - 1].tolerance, "Fehlertoleranz sinkt mit der Spielstärke");
@@ -130,5 +135,16 @@ for (const level of E.DIFFICULTY_LEVELS) {
 const mateInOne = E.fromFEN("6k1/6pp/7Q/8/8/2B5/8/6K1 w - - 0 1");
 const expertMove = E.chooseMove(mateInOne, "expert");
 assert.equal(expertMove.from + expertMove.to, "h6g7", "Expertenstufe findet ein Matt in einem Zug");
+
+const openingHint = E.analyzePosition(E.fromFEN(), { depth: 2, timeMs: 250, multiPv: 3 });
+assert.ok(openingHint.move, "Analyse liefert aus der Grundstellung einen Hinweis");
+assert.ok(E.legalMoves(E.fromFEN()).some((move) => move.from === openingHint.move.from && move.to === openingHint.move.to), "Hinweiszug ist legal");
+assert.ok(openingHint.alternatives.length >= 1 && openingHint.alternatives.length <= 3, "Analyse liefert begrenzte Alternativen");
+assert.ok(Number.isFinite(openingHint.score), "Analyse liefert eine Stellungsbewertung");
+
+const mateHint = E.analyzePosition(mateInOne, { depth: 2, timeMs: 250 });
+assert.equal(mateHint.move.from + mateHint.move.to, "h6g7", "Zughilfe erkennt Matt in einem Zug");
+const finishedHint = E.analyzePosition(cleanMate, { depth: 2, timeMs: 100 });
+assert.equal(finishedHint.move, null, "Beendete Stellungen erzeugen keinen Hinweiszug");
 
 console.log("Alle Schachregeln-Tests bestanden.");

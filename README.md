@@ -25,6 +25,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Lokale Fehlerwiederholung für noch unsichere Motive
 - Erklärungen, Hinweise und konkrete Merksätze zu jeder Aufgabe
 - Trainingspartien gegen acht fein abgestufte Computer-Spielstärken von „Einstieg“ bis „Experte“
+- Stellungsspezifische Zughilfe während Computerpartien mit Brettmarkierung, Erklärung, Bewertung und Alternativen
+- Persistente Spiel-Elo nach klassischer Erwartungswertformel mit Bilanz, Bestwert und passender Gegnerempfehlung
 - Freie Farbwahl: mit Weiß, Schwarz oder bei jeder neuen Partie zufällig spielen
 - Iterative Tiefensuche, begrenzte Bedenkzeit und taktische Ruhesuche für höhere Stufen
 - Freies Analysebrett mit FEN-Import
