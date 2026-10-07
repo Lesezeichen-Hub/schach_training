@@ -175,5 +175,160 @@
     };
   }
 
-  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview };
+  const PHASES = ["explain", "demo", "guided", "practice"];
+  let lessonRun = 0;
+  const legalUci = (engine, game, code) => engine.legalMoves(game).find((move) => uci(move) === code);
+  function arrowPoint(engine, square, flipped = false) {
+    const [r, c] = engine.coords(square);
+    return { x: (flipped ? 7 - c : c) + .5, y: (flipped ? 7 - r : r) + .5 };
+  }
+  function normalizeLesson(record) {
+    return record.lesson || { revision: 0, goal: record.prompt || record.name, intro: record.explanation || (record.ideas || []).join(" · "), scenarios: [{ id: "main", title: "Hauptlinie", learnerSide: record.side || "w", startFen: record.fen, line: record.line, steps: record.line.map((code) => ({ before: `Lehrzug ${code}`, after: "Diese ältere Lektion enthält noch keine Detailerklärung.", hint: code, visual: { arrows: [{ from: code.slice(0, 2), to: code.slice(2, 4), kind: "move", label: "Zug" }] } })), outcome: "Lehrfolge abgeschlossen." }] };
+  }
+  function scenarioStart(engine, record, scenario) {
+    if (scenario.startFen) return engine.fromFEN(scenario.startFen);
+    let game = engine.fromFEN(record.fen || engine.START_FEN);
+    for (const code of record.line.slice(0, scenario.startPly || 0)) {
+      const move = legalUci(engine, game, code);
+      if (!move) throw new Error(`Ungültiger Hauptlinienzug ${code}`);
+      game = engine.applyMove(game, move);
+    }
+    game.history = [];
+    return game;
+  }
+  function validateLesson(engine, record) {
+    const errors = [];
+    const lesson = normalizeLesson(record);
+    const ids = new Set();
+    for (const scenario of lesson.scenarios) {
+      try {
+        if (ids.has(scenario.id)) throw new Error("Doppelte Szenario-ID");
+        ids.add(scenario.id);
+        if (scenario.startFen && scenario.startPly != null) throw new Error("startFen und startPly sind exklusiv");
+        if (!['w', 'b'].includes(scenario.learnerSide) || !scenario.line.length || scenario.steps.length !== scenario.line.length) throw new Error("Unvollständiges Szenario");
+        let game = scenarioStart(engine, record, scenario);
+        if (game.board.flat().filter((p) => p === 'K').length !== 1 || game.board.flat().filter((p) => p === 'k').length !== 1 || engine.inCheck(game, game.turn === 'w' ? 'b' : 'w')) throw new Error("Illegaler Ausgangszustand");
+        for (const [index, code] of scenario.line.entries()) {
+          const move = legalUci(engine, game, code);
+          if (!move || engine.gameStatus(game).over) throw new Error(`Illegaler Zug ${code}`);
+          const step = scenario.steps[index];
+          if (!step.before || !step.after || !step.hint) throw new Error(`Erklärung fehlt bei ${code}`);
+          for (const arrow of step.visual?.arrows || []) if (!/^[a-h][1-8]$/.test(arrow.from) || !/^[a-h][1-8]$/.test(arrow.to)) throw new Error("Ungültiger Pfeil");
+          for (const mistake of step.mistakes || []) {
+            let alternative = game;
+            for (const wrong of [mistake.move, ...(mistake.reply || [])]) {
+              const legal = legalUci(engine, alternative, wrong);
+              if (!legal) throw new Error(`Illegaler Vergleichszug ${wrong}`);
+              alternative = engine.applyMove(alternative, legal);
+            }
+          }
+          game = engine.applyMove(game, move);
+        }
+      } catch (error) { errors.push(`${record.id}/${scenario.id}: ${error.message}`); }
+    }
+    return errors;
+  }
+  function createLessonSession(engine, record, options = {}) {
+    const lesson = normalizeLesson(record);
+    const scenario = lesson.scenarios.find((s) => s.id === options.scenario) || lesson.scenarios[0];
+    const session = { engine, record, lesson, scenario, phase: PHASES.includes(options.phase) ? options.phase : "explain", learnerSide: scenario.learnerSide, ply: 0, game: scenarioStart(engine, record, scenario), runId: ++lessonRun, mistakes: 0, assisted: false, completionEmitted: false, completion: null };
+    session.errors = validateLesson(engine, record);
+    return session;
+  }
+  function getLessonView(session) {
+    const { scenario, ply, phase, game, engine } = session;
+    const status = session.errors.length ? "invalid-data" : ply === scenario.line.length ? "complete" : phase === "explain" ? "explaining" : phase === "demo" || game.turn !== session.learnerSide ? "awaiting-auto" : "awaiting-user";
+    return { status, ply, total: scenario.line.length, step: scenario.steps[ply] || null, previous: scenario.steps[ply - 1] || null, expected: scenario.line[ply], flipped: session.learnerSide === "b", fen: engine.toFEN(game) };
+  }
+  function finishLesson(session) {
+    if (session.ply !== session.scenario.line.length || session.completionEmitted) return null;
+    session.completionEmitted = true;
+    session.completion = { runId: session.runId, phase: session.phase, scenario: session.scenario.id, revision: session.lesson.revision, assisted: session.assisted, mistakes: session.mistakes, scored: session.phase === "practice" && !session.assisted };
+    return session.completion;
+  }
+  function advanceLesson(session, assistance = false) {
+    const view = getLessonView(session);
+    if (["invalid-data", "complete", "explaining"].includes(view.status)) return { correct: false };
+    if (view.status === "awaiting-user" && !assistance) return { correct: false, needsHelp: true };
+    if (assistance && session.phase !== "demo") session.assisted = true;
+    const move = legalUci(session.engine, session.game, view.expected);
+    session.game = session.engine.applyMove(session.game, move);
+    session.ply++;
+    return { correct: true, move, completion: finishLesson(session) };
+  }
+  function submitLessonMove(session, candidate) {
+    const view = getLessonView(session);
+    if (view.status !== "awaiting-user") return { correct: false, blocked: true };
+    const code = typeof candidate === "string" ? candidate : uci(candidate);
+    const move = legalUci(session.engine, session.game, code);
+    if (!move) return { correct: false, illegal: true, feedback: "Dieser Zug ist nicht legal." };
+    if (code !== view.expected) {
+      session.mistakes++;
+      const example = view.step.mistakes?.find((m) => m.move === code);
+      return { correct: false, feedback: example?.text || `${code.slice(0, 2)} → ${code.slice(2, 4)} ist legal, aber nicht Teil dieser Lehrfolge. Das ist keine Bewertung als schlechter Zug. Welche Antwort passt zum Szenarioziel?`, example };
+    }
+    session.game = session.engine.applyMove(session.game, move);
+    session.ply++;
+    return { correct: true, move, completion: finishLesson(session) };
+  }
+  function seekLesson(session, ply) {
+    const target = Math.max(0, Math.min(session.scenario.line.length, ply));
+    if (session.phase !== "demo" && session.phase !== "explain") session.assisted = true;
+    session.game = scenarioStart(session.engine, session.record, session.scenario);
+    session.ply = 0;
+    for (const code of session.scenario.line.slice(0, target)) {
+      session.game = session.engine.applyMove(session.game, legalUci(session.engine, session.game, code)); session.ply++;
+    }
+    return getLessonView(session);
+  }
+  function restartLesson(session) {
+    // A new attempt after seeing the line is assisted, even after restarting.
+    const next = createLessonSession(session.engine, session.record, { phase: session.phase, scenario: session.scenario.id });
+    next.assisted = session.assisted || session.ply > 0;
+    return next;
+  }
+  function setLessonReviewState(entry, scenario, needsReview) {
+    if (!entry.scenarioErrors || typeof entry.scenarioErrors !== 'object' || Array.isArray(entry.scenarioErrors)) {
+      entry.scenarioErrors = { main: Boolean(entry.openError) };
+    }
+    entry.scenarioErrors[scenario] = Boolean(needsReview);
+    entry.openError = Object.values(entry.scenarioErrors).some(Boolean);
+    return entry;
+  }
+  function moveRows(moves, initialFullmove = 1) {
+    const rows = [];
+    let number = initialFullmove;
+    for (const move of moves) {
+      if (move.color === 'w' || !rows.length || rows.at(-1).black) rows.push({ number, white: '', black: '' });
+      rows.at(-1)[move.color === 'b' ? 'black' : 'white'] = move.san;
+      if (move.color === 'b') number++;
+    }
+    return rows;
+  }
+  function normalizeProgress(value) {
+    const saved = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
+    for (const key of ["puzzles", "themes", "ratings", "lessons"]) {
+      if (!saved[key] || typeof saved[key] !== "object" || Array.isArray(saved[key])) saved[key] = {};
+    }
+    for (const key of ["count", "totalAttempts", "totalSolved"]) if (!Number.isFinite(saved[key]) || saved[key] < 0) saved[key] = 0;
+    for (const area of ["tactics", "endgame", "strategy", "openings"]) if (!Number.isFinite(saved.ratings[area])) saved.ratings[area] = 800;
+    for (const [id, item] of Object.entries(saved.puzzles)) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) { delete saved.puzzles[id]; continue; }
+      for (const key of ["attempts", "successes", "errors"]) if (!Number.isFinite(item[key]) || item[key] < 0) item[key] = 0;
+      if (typeof item.openError !== "boolean") item.openError = item.errors > 0;
+    }
+    for (const [id, item] of Object.entries(saved.themes)) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) { delete saved.themes[id]; continue; }
+      for (const key of ["attempts", "successes"]) if (!Number.isFinite(item[key]) || item[key] < 0) item[key] = 0;
+    }
+    for (const [id, item] of Object.entries(saved.lessons)) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) { delete saved.lessons[id]; continue; }
+      if (!item.completions || typeof item.completions !== 'object' || Array.isArray(item.completions)) item.completions = {};
+      for (const [key, count] of Object.entries(item.completions)) if (!Number.isFinite(count) || count < 0) delete item.completions[key];
+      if (!Number.isFinite(item.errors) || item.errors < 0) item.errors = 0;
+      item.openError = Boolean(item.openError);
+    }
+    return saved;
+  }
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows };
 })(typeof window !== "undefined" ? window : globalThis);

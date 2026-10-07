@@ -33,7 +33,10 @@
           <div class="turn-indicator" id="blackTurn">am Zug</div>
         </div>
         <div class="board-wrap">
-          <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
+          <div class="board-stage">
+            <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
+            <svg id="lessonArrows" class="lesson-arrows" viewBox="0 0 8 8" role="img" aria-label="Zug- und Angriffspfeile" hidden></svg>
+          </div>
           <div id="thinking" class="thinking" hidden><span></span><span></span><span></span> KI rechnet</div>
         </div>
         <div class="player-strip">
@@ -145,7 +148,7 @@
           <h2 id="puzzlePrompt">Finde den besten Zug.</h2>
           <p id="puzzleDescription">Weiß zieht und gewinnt Material.</p>
           <div class="button-row"><button class="secondary-button" id="hintButton">Hinweis</button><button class="primary-button" id="nextPuzzle">Nächste Aufgabe</button></div>
-          <button class="solution-button" id="revealSolution" disabled>Lösung anzeigen · nach 3 Versuchen</button>
+          <button class="solution-button" id="revealSolution">Nächsten Zug zeigen · unterstützt</button>
         </section>
 
         <section id="endgameControls" class="control-section" hidden>
@@ -181,6 +184,34 @@
           <button class="primary-button" id="restartOpening">Variante neu starten</button>
         </section>
 
+        <section id="lessonControls" class="control-section lesson-controls" hidden aria-label="Lektion steuern">
+          <label for="lessonPhase">Lernphase · frei wählbar</label>
+          <select id="lessonPhase">
+            <option value="explain">Erklären · Konzept und Ausgangsstellung</option>
+            <option value="demo">Vorführen · Zugweise ansehen</option>
+            <option value="guided">Geführt · Mit Erklärungen ziehen</option>
+            <option value="practice">Selbst üben · Ohne Lösungshinweise</option>
+          </select>
+          <label for="lessonScenario">Szenario</label>
+          <select id="lessonScenario"></select>
+          <p id="lessonGoal"></p>
+          <p id="lessonIntro"></p>
+          <div class="opening-line"><span id="lessonState">ERKLÄREN</span><strong id="lessonProgress">0 / 0</strong></div>
+          <div id="lessonExplanation" class="step-explanation" aria-live="polite"></div>
+          <p id="lessonAssistance"></p>
+          <p id="lessonSaved"></p>
+          <div class="lesson-navigation">
+            <button type="button" id="lessonPrevious" class="secondary-button">← Zurück</button>
+            <button type="button" id="lessonNext" class="secondary-button">Weiter →</button>
+            <button type="button" id="lessonRestart" class="secondary-button">Neustart</button>
+            <button type="button" id="lessonPlay" class="secondary-button" aria-pressed="false">Abspielen</button>
+          </div>
+          <button type="button" id="lessonHelp" class="solution-button">Hinweis und Pfeil · unterstützt</button>
+          <p id="arrowLegend" class="arrow-legend">→ Gold: Zug · ⇢ Rot: Angriff · ⇢ Blau: Abwehr · ⇢ Violett: Konter. Die Nummern auf dem Brett gehören zur folgenden Legende.</p>
+          <p id="arrowDescriptions" class="arrow-legend"></p>
+          <p class="coverage-note">45 Lektionen · 135 kuratierte Abläufe. Konter in Taktiken sind ausdrücklich verwandte Vergleichsstellungen, keine erzwungenen Antworten aus jeder Hauptstellung.</p>
+        </section>
+
         <section id="practiceControls" class="control-section" hidden>
           <label for="fenInput">Stellung (FEN)</label>
           <textarea id="fenInput" rows="3" spellcheck="false" aria-describedby="fenHelp"></textarea>
@@ -192,6 +223,7 @@
           <span class="status-icon" id="statusIcon">●</span>
           <div><strong id="statusTitle">Du bist am Zug</strong><p id="statusText">Wähle eine Figur und danach ihr Zielfeld.</p></div>
         </section>
+        <p id="storageWarning" role="status" hidden>Fortschritt kann hier nicht dauerhaft gespeichert werden. Das Training funktioniert weiter; bis zum Neuladen bleibt er im Arbeitsspeicher.</p>
 
         <section id="ratingCard" class="rating-card" aria-label="Lernfortschritt">
           <div class="rating-main"><span id="ratingStage">Aufbaustufe Springer</span><strong id="ratingOverall">800</strong><small>Lern-Elo · lokal</small></div>

@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import vm from "node:vm";
 import assert from "node:assert/strict";
+import { execFileSync } from 'node:child_process';
 
 const source = fs.readFileSync(new URL("./chess-engine.js", import.meta.url), "utf8");
 const trainingSource = fs.readFileSync(new URL("./training-core.js", import.meta.url), "utf8");
-const trainingData = JSON.parse(fs.readFileSync(new URL("./training-data.json", import.meta.url), "utf8"));
+const authoredData = JSON.parse(fs.readFileSync(new URL("./training-data.json", import.meta.url), "utf8"));
 const generatedSource = fs.readFileSync(new URL("./training-data.generated.js", import.meta.url), "utf8");
 const context = { globalThis: {} };
 vm.createContext(context);
@@ -15,7 +16,12 @@ const T = context.globalThis.ChessTraining;
 const generatedContext = { window: {} };
 vm.createContext(generatedContext);
 vm.runInContext(generatedSource, generatedContext);
-assert.deepEqual(JSON.parse(JSON.stringify(generatedContext.window.CHESS_TRAINING_DATA)), trainingData, "Generierte Browserdaten entsprechen der JSON-Quelle");
+const trainingData = JSON.parse(JSON.stringify(generatedContext.window.CHESS_TRAINING_DATA));
+execFileSync(process.execPath, [new URL('./build-training-data.mjs', import.meta.url).pathname.replace(/^\/(\w:)/, '$1')]);
+assert.equal(fs.readFileSync(new URL('./training-data.generated.js', import.meta.url), 'utf8'), generatedSource, 'Generator ist deterministisch und Browserdaten sind aktuell');
+assert.deepEqual(trainingData.lessonContent, authoredData.lessonContent, 'Redaktionelle Quelle wird unverändert eingebunden');
+assert.deepEqual(trainingData.endgames, authoredData.endgames);
+assert.deepEqual(trainingData.masterclass, authoredData.masterclass);
 
 function play(state, uci) {
   const move = E.legalMoves(state).find((m) => m.from + m.to + (m.promotion || "") === uci);
@@ -147,4 +153,125 @@ assert.equal(mateHint.move.from + mateHint.move.to, "h6g7", "Zughilfe erkennt Ma
 const finishedHint = E.analyzePosition(cleanMate, { depth: 2, timeMs: 100 });
 assert.equal(finishedHint.move, null, "Beendete Stellungen erzeugen keinen Hinweiszug");
 
-console.log("Alle Schachregeln-Tests bestanden.");
+const expectedOpenings = ['italian','ruy-lopez','scotch','four-knights','vienna','kings-gambit','sicilian-open','sicilian-alapin','french','caro-kann','scandinavian','pirc','queens-gambit','qgd','qga','london','colle','catalan','slav','kings-indian','nimzo-indian','dutch','english','reti','modern'];
+assert.deepEqual(trainingData.openings.map((r) => r.id), expectedOpenings, 'Genau die 25 bisherigen Eröffnungs-IDs');
+assert.equal(trainingData.tactics.length, 20);
+for (const category of ['fork','pin','skewer','discovered']) {
+  assert.deepEqual(trainingData.tactics.filter((r) => r.category === category).map((r) => r.id), Array.from({length: 5}, (_, i) => `${category}-0${i + 1}`));
+  assert.ok(trainingData.lessonContent.motifs[category].includes('Konter:'));
+}
+let scenarioCount = 0, stepCount = 0, completions = 0;
+for (const record of [...trainingData.tactics, ...trainingData.openings]) {
+  assert.equal(T.validateLesson(E, record).length, 0, `Alle Schritte und Vergleiche von ${record.id} gültig`);
+  assert.deepEqual(record.lesson.scenarios.map((s) => s.id), ['main', 'defense', 'counter']);
+  assert.deepEqual(record.lesson.scenarios[0].line, record.line);
+  for (const scenario of record.lesson.scenarios) {
+    scenarioCount++; stepCount += scenario.line.length;
+    assert.ok(scenario.steps.some((step) => step.mistakes?.length), `${record.id}/${scenario.id}: geprüftes Vergleichsbeispiel`);
+    for (const phase of ['demo', 'guided', 'practice']) {
+      const session = T.createLessonSession(E, record, { scenario: scenario.id, phase });
+      let emitted = 0;
+      while (session.ply < scenario.line.length) {
+        const view = T.getLessonView(session);
+        if (view.status === 'awaiting-user') {
+          const fen = E.toFEN(session.game);
+          const bad = E.legalMoves(session.game).find((m) => m.from + m.to + (m.promotion || '') !== view.expected);
+          if (bad) {
+            assert.equal(T.submitLessonMove(session, bad).correct, false);
+            assert.equal(E.toFEN(session.game), fen, 'Falscher legaler Zug verändert die Stellung nicht');
+          }
+          assert.equal(T.advanceLesson(session).needsHelp, true, 'Weiter überspringt keinen eigenen Zug');
+        }
+        const result = view.status === 'awaiting-user' ? T.submitLessonMove(session, view.expected) : T.advanceLesson(session);
+        assert.equal(result.correct, true, `${record.id}/${scenario.id}/${phase}/${session.ply}`);
+        if (session.ply < scenario.line.length) assert.equal(result.completion, null, 'Kein vorzeitiger Abschluss');
+        if (result.completion) { emitted++; assert.equal(result.completion.scored, phase === 'practice'); }
+      }
+      assert.equal(emitted, 1); completions++;
+      assert.equal(T.advanceLesson(session).completion, undefined, 'Kein zweites Abschlussereignis');
+      const endFen = E.toFEN(session.game);
+      T.seekLesson(session, 0);
+      assert.equal(session.game.history.length, 0);
+      T.seekLesson(session, scenario.line.length);
+      assert.equal(E.toFEN(session.game), endFen, 'Seek rekonstruiert exakt');
+      const replay = T.restartLesson(session);
+      assert.equal(replay.ply, 0);
+      assert.equal(replay.assisted, true, 'Neustart nach gesehener Linie ist unterstützt');
+    }
+    const explanation = T.createLessonSession(E, record, { scenario: scenario.id, phase: 'explain' });
+    assert.equal(T.getLessonView(explanation).status, 'explaining');
+    const fen = E.toFEN(explanation.game);
+    assert.equal(T.advanceLesson(explanation).correct, false);
+    assert.equal(E.toFEN(explanation.game), fen);
+  }
+}
+assert.equal(scenarioCount, 135);
+assert.equal(completions, 405);
+for (const record of trainingData.tactics) {
+  const main = record.lesson.scenarios[0];
+  let before = T.scenarioStart(E, record, main), after = before;
+  for (const code of main.line) after = play(after, code);
+  const gain = T.materialFor(E, after, 'w') - T.materialFor(E, after, 'b') - (T.materialFor(E, before, 'w') - T.materialFor(E, before, 'b'));
+  const expected = record.id === 'fork-01' ? 1000 : record.id === 'fork-02' ? 500 : record.category === 'fork' ? 900 : record.category === 'pin' ? 400 : record.id === 'skewer-01' ? 900 : ['skewer-02','skewer-03'].includes(record.id) ? 570 : record.category === 'skewer' ? 400 : record.id === 'discovered-01' ? 500 : ['discovered-02','discovered-03'].includes(record.id) ? 670 : 580;
+  assert.equal(gain, expected, `${record.id}: Materialbilanz inklusive Rückschlägen`);
+  assert.ok(E.gameStatus(after).over || !E.legalMoves(after).some((m) => m.capture && ['n','b','r','q'].includes(E.typeOf(m.capture))), `${record.id}: Hauptlinie endet nicht vor einem unmittelbaren Figurenrückschlag (außer die Partie ist schon Remis)`);
+  if (record.category === 'pin' || ['discovered-04','discovered-05'].includes(record.id) || (record.category === 'fork' && record.id !== 'fork-01')) assert.equal(E.gameStatus(after).type, 'insufficient', 'Materialgewinn nicht als Partiegewinn ausgeben');
+  if (record.category === 'skewer') {
+    const first = play(before, main.line[0]);
+    assert.ok(!E.legalMoves(first).some((m) => m.to === main.line[0].slice(2,4) && m.capture && E.typeOf(m.capture) !== 'p'), 'Gedeckter Spießangreifer nicht vom König schlagbar');
+  }
+}
+for (const record of trainingData.tactics) {
+  const defense = record.lesson.scenarios[1];
+  let position = T.scenarioStart(E, record, defense);
+  for (const code of defense.line) position = play(position, code);
+  assert.ok(!E.legalMoves(position).some((m) => m.capture === 'q' || (record.id === 'fork-02' && m.capture === 'r')), `${record.id}: Abwehr rettet das ursprünglich zweite Ziel wirklich`);
+}
+for (const [category, expected] of [['fork',220],['pin',180],['skewer',330],['discovered',230]]) {
+  const scenario = trainingData.tactics.find((r) => r.category === category).lesson.scenarios[2];
+  let start = E.fromFEN(scenario.startFen), end = start;
+  for (const code of scenario.line) end = play(end, code);
+  assert.equal((T.materialFor(E,end,'b')-T.materialFor(E,end,'w')) - (T.materialFor(E,start,'b')-T.materialFor(E,start,'w')), expected);
+}
+for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+  const square = E.sq(r,c), a = T.arrowPoint(E,square), b = T.arrowPoint(E,square,true);
+  assert.equal(a.x,c+.5); assert.equal(a.y,r+.5);
+  assert.equal(b.x,7-c+.5); assert.equal(b.y,7-r+.5);
+  assert.equal(a.x+b.x,8); assert.equal(a.y+b.y,8);
+}
+const lessonReview = { openError: true, errors: 3 };
+T.setLessonReviewState(lessonReview, 'counter', false);
+assert.equal(lessonReview.openError, true, 'Ein Kontererfolg schließt keinen offenen Hauptlinienfehler');
+T.setLessonReviewState(lessonReview, 'main', false);
+assert.equal(lessonReview.openError, false, 'Auch eine unterstützte fehlerfreie Wiederholung schließt den Wiederholungsbedarf');
+T.setLessonReviewState(lessonReview, 'defense', true);
+T.setLessonReviewState(lessonReview, 'main', false);
+assert.equal(lessonReview.openError, true, 'Offener Abwehrfehler bleibt unabhängig von der Hauptlinie erhalten');
+assert.equal(lessonReview.errors, 3, 'Die Fehlerhistorie bleibt erhalten');
+const blackRows = T.moveRows([{ color: 'b', san: 'Qe8' }, { color: 'w', san: 'Nxf7+' }, { color: 'b', san: 'Kf8' }], 7);
+assert.equal(blackRows[0].number, 7); assert.equal(blackRows[0].white, ''); assert.equal(blackRows[0].black, 'Qe8');
+assert.equal(blackRows[1].number, 8); assert.equal(blackRows[1].white, 'Nxf7+'); assert.equal(blackRows[1].black, 'Kf8');
+const legacy = T.normalizeProgress({totalSolved:7,puzzles:{old:{errors:2,attempts:3,successes:1}}, ratings:{tactics:912}});
+assert.equal(legacy.totalSolved,7); assert.equal(legacy.ratings.tactics,912);
+assert.equal(legacy.puzzles.old.openError,true); assert.equal(Object.keys(legacy.lessons).length,0);
+for (const corrupt of [null, [], 1, 'bad', {ratings:[],puzzles:{bad:null},themes:{bad:3},count:'x'}]) {
+  const safe = T.normalizeProgress(corrupt);
+  assert.equal(Number.isFinite(safe.count),true); assert.equal(Number.isFinite(safe.ratings.openings),true);
+}
+// Special move metadata is recovered from legalMoves, never trusted from input.
+for (const [fen, line] of [
+  ['r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1',['e1g1','e8c8']],
+  ['7k/8/8/3pP3/8/8/6K1/8 w - d6 0 1',['e5d6','h8g8']],
+  ['7k/P7/8/8/8/8/6K1/8 w - - 0 1',['a7a8n']]
+]) {
+  const record = {id:'special',fen,line};
+  const session = T.createLessonSession(E,record,{phase:'practice'});
+  for (const code of line) {
+    const view = T.getLessonView(session);
+    const result = view.status === 'awaiting-user' ? T.submitLessonMove(session,{from:code.slice(0,2),to:code.slice(2,4),promotion:code[4]}) : T.advanceLesson(session);
+    assert.equal(result.correct,true);
+  }
+  const fenEnd = E.toFEN(session.game);
+  T.seekLesson(session,0); T.seekLesson(session,line.length); assert.equal(E.toFEN(session.game),fenEnd);
+}
+console.log(`Alle Tests bestanden: 45 Lektionen, ${scenarioCount} Szenarien, ${stepCount} annotierte Halbzüge, ${completions} Phasenabschlüsse; Regeln, Material, Vergleiche, Navigation, Orientierung und Legacy-Fortschritt.`);
