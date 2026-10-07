@@ -14,9 +14,11 @@
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
     openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
     matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null,
+    personalMatchMistake: null, personalMatchPending: false, personalMatchCursor: 0, matchLearningId: "", liveAnalysisRequest: 0, liveAnalysisPending: 0,
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
     analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null,
-    activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, focusedSquare: "e2", markedSquares: new Set()
+    activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
+    mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, focusedSquare: "e2", markedSquares: new Set()
   };
   let analysisWorker = null, analysisJobId = 0;
   const analysisJobs = new Map();
@@ -87,7 +89,8 @@
   }
   function beginPositionSession() {
     if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
-    cancelLessonTimer(); clearMatchHint(); cancelGameAnalysis(); state.sessionId += 1; state.thinking = false; state.lesson = null;
+    cancelLessonTimer(); clearMatchHint(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null;
+    state.personalMatchMistake = null; state.personalMatchPending = false;
     state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
     const dialog = $("#promotionDialog");
     if (dialog.open) dialog.close("cancel");
@@ -158,6 +161,16 @@
     if (event.scored) {
       if (state.mode === "tactics") recordPuzzleAttempt(event.mistakes === 0);
       else updateLearningRating("openings", event.mistakes === 0 ? 1 : 0, state.lesson.record.rating);
+    }
+    else if (state.mode === "tactics" && event.phase === "practice") {
+      const progress = getProgress();
+      const review = progress.puzzles[state.lesson.record.id] ||= { attempts: 0, successes: 0, errors: 0 };
+      T.scheduleReview(review, event.mistakes > 0 ? "failure" : "assisted", localDate());
+      saveProgress(progress);
+    }
+    if (state.mixed.active && state.mixed.queue[state.mixed.index]?.type === "tactic" && event.phase === "practice") {
+      if (event.mistakes > 0 || event.assisted) queueMixedRetry("tactic", state.lesson.record.id);
+      $("#nextPuzzle").textContent = state.mixed.index + 1 < state.mixed.queue.length ? "Weiter in der Einheit" : "Einheit abschließen";
     }
     cancelLessonTimer();
   }
@@ -247,7 +260,7 @@
     $("#blackTurn").classList.toggle("active", interactiveBoard && state.game.turn === "b");
     $("#thinking").hidden = !state.thinking;
     const hasOwnMatchMove = state.moves.some((move) => move.color === state.playerColor);
-    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && !hasOwnMatchMove);
+    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && (!hasOwnMatchMove || state.personalMatchMistake));
     renderMatchHintControls();
     renderMatchRating();
     if (state.mode === "match" && currentStatus.over) showCoachReviewSummary();
@@ -398,6 +411,8 @@
   }
 
   function makeMove(move, actor) {
+    const usedMatchHint = Boolean(state.matchHint?.stage >= 2);
+    let personalFeedback = null;
     clearMatchHint(); state.markedSquares.clear();
     if (isLessonMode()) {
       const result = T.submitLessonMove(state.lesson, move);
@@ -414,6 +429,12 @@
             item.errors++; item.openError = true;
           }
           saveProgress(saved);
+          if (state.lesson.phase === "practice") {
+            const correction = T.getLessonView(state.lesson).step;
+            state.lesson.assisted = true; state.lessonHint = true; state.seenLessons.add(exposureKey());
+            if (state.mixed.active && state.mode === "tactics") queueMixedRetry("tactic", state.lesson.record.id);
+            state.messageOverride = { kind: "error", title: "Sofort korrigieren", text: `${result.feedback || "Der Zug gehört nicht zur trainierten Folge."} ${correction ? `Korrektur: ${correction.before} ${correction.after} Spiele jetzt den markierten Zug.` : "Führe jetzt die richtige Fortsetzung aus."}` };
+          }
         }
         render(); return;
       }
@@ -425,16 +446,39 @@
       state.selected = null; state.legal = [];
       if (played !== state.activeMistake.best) {
         recordGameMistakeAttempt(false);
-        state.messageOverride = { kind: "error", title: "Noch nicht die beste Fortsetzung", text: "Der Zug ist legal, löst aber den kritischen Punkt der Stellung nicht. Prüfe Schachs, Schlagzüge und direkte Drohungen." };
+        state.mistakeHadError = true; state.mistakeHintStage = 3;
+        queueMixedRetry("mistake", state.activeMistake.id);
+        const correction = E.legalMoves(state.game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === state.activeMistake.best);
+        state.messageOverride = { kind: "error", title: "Sofort korrigieren", text: `Der Zug löst den kritischen Punkt nicht. Spiele jetzt ${state.activeMistake.bestSan} (${correction?.from || state.activeMistake.best.slice(0, 2)} → ${correction?.to || state.activeMistake.best.slice(2, 4)}), damit sich das richtige Muster einprägt.${state.mixed.active ? " Die Stellung kommt am Ende der Einheit erneut." : " Sie bleibt heute zur Wiederholung fällig."}` };
+        $("#mistakeHint").textContent = "Korrekturzug ist markiert";
         animateBoard("wrong-shake"); render(); return;
       }
       const before = state.game;
       state.game = E.applyMove(before, move); state.lastMove = move; state.moves = [{ color: before.turn, san: E.notation(before, move) }];
-      const assisted = state.mistakeHintStage > 0;
+      const assisted = state.mistakeHintStage > 0 || state.mistakeHadError;
       state.mistakeSolved = true; recordGameMistakeAttempt(true, assisted);
       state.messageOverride = { kind: "success", title: assisted ? "Mit Hinweis gelöst" : "Fehler selbstständig korrigiert", text: `Richtig: ${E.notation(before, move)}. ${state.activeMistake.explanation}${assisted ? " Löse die Stellung später ohne Hinweis, damit sie als beherrscht gilt." : ""}` };
+      $("#mistakeSchedule").textContent = assisted ? "Heute erneut fällig · erst ein selbstständiger Abruf vergrößert den Abstand." : `Nächste Wiederholung: ${T.reviewDueLabel(state.activeMistake, localDate())} · Stufe ${state.activeMistake.reviewStage}`;
       $("#mistakeExplanation").hidden = false; $("#mistakeExplanation").textContent = state.activeMistake.explanation;
-      $("#nextMistake").disabled = false; animateBoard("correct-flash"); render(); return;
+      $("#nextMistake").disabled = false; $("#nextMistake").textContent = state.mixed.active ? "Weiter in der Einheit" : "Nächster Fehler"; animateBoard("correct-flash"); render(); return;
+    }
+    if (state.mode === "match" && actor === "human" && state.personalMatchPending && state.personalMatchMistake) {
+      const expected = state.personalMatchMistake.best;
+      const played = move.from + move.to + (move.promotion || "");
+      if (played !== expected) {
+        updateStoredMistakeReview(state.personalMatchMistake.id, "failure");
+        const bestMove = E.legalMoves(state.game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === expected);
+        if (bestMove) {
+          state.matchHint = { move: bestMove, notation: state.personalMatchMistake.bestSan, analysis: { alternatives: [], score: E.evaluate(E.applyMove(state.game, bestMove, false)), depth: 0 }, fen: E.toFEN(state.game), stage: 3, sourceMistake: true };
+          showMatchHint();
+        }
+        state.selected = null; state.legal = [];
+        state.messageOverride = { kind: "error", title: "Dein alter Fehler ist wieder aufgetaucht", text: `Dieser Zug wiederholt das gespeicherte Problem. Führe jetzt ${state.personalMatchMistake.bestSan} aus; danach spielt der Trainingspartner die Partie weiter.` };
+        animateBoard("wrong-shake"); render(); return;
+      }
+      updateStoredMistakeReview(state.personalMatchMistake.id, usedMatchHint ? "assisted" : "success");
+      state.personalMatchPending = false;
+      personalFeedback = { kind: "success", title: usedMatchHint ? "Mit Coach korrigiert" : "Alten Fehler selbstständig vermieden", text: `${state.personalMatchMistake.bestSan} ist richtig. Jetzt geht die Stellung als Übungspartie gegen den Computer weiter.` };
     }
     const before = state.game;
     const san = E.notation(before, move);
@@ -451,7 +495,9 @@
     if (state.mode === "match" && actor === "ai") state.opponentLastMove = move;
     state.selected = null;
     state.legal = [];
-    state.messageOverride = null;
+    state.messageOverride = personalFeedback;
+
+    if (state.mode === "match" && actor === "human" && !personalFeedback) learnFromMatchMove(before, move, san);
 
     if (state.mode === "endgame") {
       if (actor === "human") {
@@ -507,6 +553,31 @@
     }, delay);
   }
 
+  async function learnFromMatchMove(position, played, playedSan) {
+    const request = state.liveAnalysisRequest, fen = E.toFEN(position);
+    state.liveAnalysisPending += 1; updatePersonalCoachStatus();
+    try {
+      const analysis = await analyzeInBackground(position, { depth: 5, timeMs: 650, quiescence: 3, multiPv: 5 });
+      if (request !== state.liveAnalysisRequest || !analysis.move) return;
+      const playedResult = analysis.scoredMoves?.find((item) => sameMove(item.move, played));
+      const bestResult = analysis.scoredMoves?.[0];
+      if (!playedResult || !bestResult) return;
+      const loss = position.turn === "w" ? bestResult.score - playedResult.score : playedResult.score - bestResult.score;
+      const classification = T.classifyMoveLoss(Math.max(0, loss));
+      if (!["mistake", "blunder"].includes(classification.id)) return;
+      saveGameMistakes([{
+        ply: position.history.length, fen, played, best: bestResult.move, playedSan,
+        bestSan: E.notation(position, bestResult.move), loss: Math.max(0, loss), classification,
+        depth: analysis.depth, evaluation: (state.playerColor === "w" ? playedResult.score : -playedResult.score) / 100
+      }]);
+    } catch {
+      // Die Partie läuft weiter; die vollständige Abschlussanalyse bleibt als Rückfall erhalten.
+    } finally {
+      if (request === state.liveAnalysisRequest) state.liveAnalysisPending = Math.max(0, state.liveAnalysisPending - 1);
+      updatePersonalCoachStatus();
+    }
+  }
+
   function renderMatchHintControls() {
     const button = $("#matchHintButton");
     if (!button) return;
@@ -517,9 +588,23 @@
     button.querySelector("small").textContent = state.hintThinking ? "Die Berechnung läuft im Hintergrund" : state.matchHint ? `Hilfestufe ${state.matchHint.stage} von 3` : "Erst Idee, dann Figur, zuletzt genauer Zug";
   }
 
+  function preparePersonalMatchHint(stage = 1) {
+    if (!state.personalMatchPending || !state.personalMatchMistake) return false;
+    const move = E.legalMoves(state.game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === state.personalMatchMistake.best);
+    if (!move) return false;
+    state.matchHint = {
+      move, notation: state.personalMatchMistake.bestSan || E.notation(state.game, move),
+      analysis: { alternatives: [], score: E.evaluate(E.applyMove(state.game, move, false)), depth: 0 },
+      fen: E.toFEN(state.game), stage, sourceMistake: true, automatic: stage === 1
+    };
+    $("#matchHint").hidden = false; showMatchHint(); renderMatchHintControls(); renderBoard();
+    return true;
+  }
+
   async function requestMatchHint() {
     if (state.mode !== "match" || state.thinking || state.hintThinking || state.game.turn !== state.playerColor || E.gameStatus(state.game).over) return;
     const expectedFen = E.toFEN(state.game);
+    if (state.personalMatchPending && !state.matchHint && preparePersonalMatchHint(1)) { render(); return; }
     if (state.matchHint?.fen === expectedFen) {
       state.matchHint.stage = Math.min(3, state.matchHint.stage + 1);
       showMatchHint(); render(); return;
@@ -569,6 +654,10 @@
       $("#matchHintMove").textContent = `3 · ${hint.notation} · ${hint.move.from} → ${hint.move.to}`;
       $("#matchHintText").textContent = explainHintMove(position, hint.move);
       $("#matchHintMeta").textContent = `${describeEvaluation(hint.analysis.score, position.turn)} · Tiefe ${hint.analysis.depth || 1}${alternatives.length ? ` · Alternativen: ${alternatives.join(", ")}` : ""}`;
+    }
+    if (hint.sourceMistake) {
+      if (hint.stage === 1) $("#matchHintText").textContent = `Du hast diese Stellung früher falsch behandelt. ${$("#matchHintText").textContent}`;
+      $("#matchHintMeta").textContent += hint.stage === 1 ? " · Dieser erste Denkanstoß zählt noch als selbstständiger Versuch." : " · Persönlicher Hinweis aus deinem Fehlerspeicher.";
     }
   }
 
@@ -717,19 +806,35 @@
       updateHomeRecommendation(); render();
     }
     else resetGame();
+    renderMixedSession();
   }
 
   function resetGame() {
     beginPositionSession();
+    if (state.mode === "match") state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     if (state.mode === "match") state.playerColor = state.colorChoice === "random" ? (Math.random() < .5 ? "w" : "b") : state.colorChoice;
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.puzzleSolved = false; state.thinking = false; state.matchRated = false; state.matchResult = null;
+    if (state.mode === "match" && $("#personalizedMatch").checked) {
+      const due = dueGameMistakes();
+      for (let offset = 0; offset < due.length; offset++) {
+        const candidate = due[(state.personalMatchCursor + offset) % due.length];
+        let position;
+        try { position = E.fromFEN(candidate.fen); } catch { continue; }
+        if (!E.legalMoves(position).some((move) => move.from + move.to + (move.promotion || "") === candidate.best)) continue;
+        state.personalMatchCursor += offset + 1; state.personalMatchMistake = candidate;
+        state.personalMatchPending = true; state.game = position; state.playerColor = state.game.turn;
+        state.messageOverride = { kind: "", title: "Persönliche Fehlerstellung", text: `Du hattest hier ${state.personalMatchMistake.played} gespielt. Finde den besseren Zug; anschließend setzt der Computer die Partie gegen dich fort.` };
+        break;
+      }
+    }
     $("#lessonText").textContent = state.mode === "practice" ? "Prüfe zuerst Material, Königssicherheit und Bauernstruktur – erst danach einzelne Varianten." : "Entwickle zuerst deine Figuren, bringe den König in Sicherheit und kämpfe dann um das Zentrum.";
     $("#fenInput").value = E.START_FEN;
     $("#coachReview").hidden = true;
     render();
     if (state.mode === "match") {
       $("#playerDetail").textContent = `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
-      $("#opponentDetail").textContent = `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
+      $("#opponentDetail").textContent = state.personalMatchMistake ? "Persönlicher Lerngegner · startet aus deinem gespeicherten Fehler" : `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
+      if (state.personalMatchPending && $("#automaticCoach").checked) preparePersonalMatchHint(1);
       if (state.game.turn !== state.playerColor) requestAiMove();
     }
   }
@@ -884,45 +989,67 @@
       const data = {
         key, fen: item.fen, best: item.best.from + item.best.to + (item.best.promotion || ""), played: item.playedSan,
         bestSan: item.bestSan, loss: item.loss, classification: item.classification.id,
-        explanation: explainAnalysisMove(item), lastSeen: localDate()
+        explanation: explainAnalysisMove(item), lastSeen: localDate(), lastSeenAt: Date.now()
       };
-      if (existing) Object.assign(existing, data, { loss: Math.max(existing.loss || 0, item.loss), mastered: false });
-      else mistakes.push({ id: `game-${Date.now()}-${item.ply}`, attempts: 0, successes: 0, mastered: false, ...data });
+      if (existing) {
+        const newOccurrence = existing.lastSession !== state.matchLearningId;
+        Object.assign(existing, data, { loss: Math.max(existing.loss || 0, item.loss), lastSession: state.matchLearningId });
+        if (newOccurrence) Object.assign(existing, { seenCount: (existing.seenCount || 1) + 1, reviewStage: 0, nextReview: localDate(), mastered: false });
+      }
+      else mistakes.push({ id: `game-${Date.now()}-${item.ply}`, attempts: 0, successes: 0, seenCount: 1, lastSession: state.matchLearningId, reviewStage: 0, nextReview: localDate(), mastered: false, ...data });
     }
-    saved.gameMistakes = mistakes.slice(-50); saveProgress(saved); renderMatchRating();
+    saved.gameMistakes = mistakes.sort((a, b) => (a.lastSeenAt || 0) - (b.lastSeenAt || 0)).slice(-50); saveProgress(saved); renderMatchRating(); updateMixedDueCount();
   }
 
-  function loadGameMistake(index) {
+  function dueGameMistakes(saved = getProgress()) {
+    return getGameMistakes(saved).filter((item) => T.isReviewDue(item, localDate())).sort((a, b) => (b.lapses || 0) - (a.lapses || 0) || (b.seenCount || 1) - (a.seenCount || 1) || (b.loss || 0) - (a.loss || 0));
+  }
+
+  function loadGameMistake(index, requestedId = null) {
     beginPositionSession();
-    const pool = getGameMistakes().filter((item) => !item.mastered);
+    const allMistakes = getGameMistakes();
+    const pool = dueGameMistakes();
+    if (requestedId && !pool.some((item) => item.id === requestedId)) {
+      const requested = allMistakes.find((item) => item.id === requestedId);
+      if (requested) pool.unshift(requested);
+    }
+    if (requestedId) index = Math.max(0, pool.findIndex((item) => item.id === requestedId));
     state.mistakeIndex = pool.length ? (index + pool.length) % pool.length : 0;
-    state.activeMistake = pool[state.mistakeIndex] || null; state.mistakeSolved = false; state.mistakeHintStage = 0;
+    state.activeMistake = pool[state.mistakeIndex] || null; state.mistakeSolved = false; state.mistakeHintStage = 0; state.mistakeHadError = false;
     state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.messageOverride = null;
-    $("#mistakeExplanation").hidden = true; $("#nextMistake").disabled = true;
+    $("#mistakeExplanation").hidden = true; $("#nextMistake").disabled = true; $("#nextMistake").textContent = "Nächster Fehler";
     if (!state.activeMistake) {
       state.game = E.fromFEN();
       $("#mistakeProgress").textContent = "0 / 0";
-      $("#mistakeTitle").textContent = "Keine offenen Fehler";
-      $("#mistakePrompt").textContent = "Spiele Computerpartien. Kritische Stellungen werden nach der automatischen Analyse hier gesammelt.";
+      $("#mistakeTitle").textContent = allMistakes.length ? "Heute ist nichts fällig" : "Noch keine Partiefehler gespeichert";
+      $("#mistakePrompt").textContent = allMistakes.length ? "Deine nächsten Wiederholungen sind bereits geplant. So bleibt der Abstand groß genug, damit du wirklich aus dem Gedächtnis abrufst." : "Spiele Computerpartien. Kritische Stellungen werden nach der automatischen Analyse hier gesammelt.";
+      $("#mistakeSchedule").textContent = allMistakes.length ? T.reviewDueLabel([...allMistakes].sort((a, b) => (a.nextReview || "").localeCompare(b.nextReview || ""))[0], localDate()) : "Neue Partiefehler sind sofort fällig.";
       $("#mistakeHint").disabled = true; $("#removeMistake").disabled = true; render(); return;
     }
     state.game = E.fromFEN(state.activeMistake.fen); state.playerColor = state.game.turn;
     $("#mistakeProgress").textContent = `${state.mistakeIndex + 1} / ${pool.length}`;
     $("#mistakeTitle").textContent = `${state.activeMistake.classification === "blunder" ? "Groben Fehler" : "Fehler"} korrigieren`;
     $("#mistakePrompt").textContent = `In der Partie spieltest du ${state.activeMistake.played}. Finde jetzt den besseren Zug.`;
-    $("#mistakeHint").disabled = false; $("#mistakeHint").textContent = "Gestufter Hinweis"; $("#removeMistake").disabled = false;
+    $("#mistakeSchedule").textContent = `Wiederholungsstufe ${state.activeMistake.reviewStage || 0} von ${T.REVIEW_INTERVALS.length - 1} · ${T.reviewDueLabel(state.activeMistake, localDate())}`;
+    $("#mistakeHint").disabled = false; $("#mistakeHint").textContent = "Gestufter Hinweis"; $("#removeMistake").disabled = state.mixed.active;
     $("#playerDetail").textContent = `Du trainierst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
     $("#opponentDetail").textContent = "Gespeicherte Stellung aus deiner Partie"; render();
   }
 
   function recordGameMistakeAttempt(success, assisted = false) {
     if (!state.activeMistake) return;
-    const saved = getProgress(), mistakes = getGameMistakes(saved), item = mistakes.find((entry) => entry.id === state.activeMistake.id);
-    if (!item) return;
+    const item = updateStoredMistakeReview(state.activeMistake.id, success ? (assisted ? "assisted" : "success") : "failure");
+    if (item) Object.assign(state.activeMistake, item);
+  }
+
+  function updateStoredMistakeReview(id, outcome) {
+    const saved = getProgress(), mistakes = getGameMistakes(saved), item = mistakes.find((entry) => entry.id === id);
+    if (!item) return null;
     item.attempts = (item.attempts || 0) + 1;
-    if (success && !assisted) item.successes = (item.successes || 0) + 1;
-    item.mastered = item.successes >= 2; item.lastTrained = localDate();
-    saved.gameMistakes = mistakes; saveProgress(saved); renderMatchRating();
+    if (outcome === "success") item.successes = (item.successes || 0) + 1;
+    T.scheduleReview(item, outcome, localDate()); item.lastTrained = localDate();
+    saved.gameMistakes = mistakes; saveProgress(saved); renderMatchRating(); updateMixedDueCount(); updatePersonalCoachStatus();
+    return item;
   }
 
   function showMistakeHint() {
@@ -930,6 +1057,7 @@
     const move = E.legalMoves(state.game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === state.activeMistake.best);
     if (!move) return;
     state.mistakeHintStage = Math.min(3, state.mistakeHintStage + 1);
+    queueMixedRetry("mistake", state.activeMistake.id);
     const text = state.mistakeHintStage === 1 ? explainHintPlan(state.game, move) : state.mistakeHintStage === 2 ? `Nutze die Figur auf ${move.from}. ${explainHintPlan(state.game, move)}` : `Spiele ${state.activeMistake.bestSan}: ${move.from} → ${move.to}. ${explainHintMove(state.game, move)}`;
     state.messageOverride = { kind: "", title: `Hinweis ${state.mistakeHintStage} von 3`, text };
     $("#mistakeHint").textContent = state.mistakeHintStage < 3 ? "Konkreteren Hinweis" : "Ganzer Zug angezeigt"; render();
@@ -941,8 +1069,99 @@
     loadGameMistake(state.mistakeIndex);
   }
 
+  function queueMixedRetry(type, id) {
+    if (!state.mixed.active) return;
+    const key = `${type}:${id}`;
+    if (state.mixed.retryKeys.has(key)) return;
+    state.mixed.retryKeys.add(key);
+    state.mixed.queue.push({ type, id, retry: true });
+    renderMixedSession();
+  }
+
+  function buildMixedQueue() {
+    const saved = getProgress();
+    const mistakes = dueGameMistakes(saved).slice(0, 5).map((item) => ({ type: "mistake", id: item.id }));
+    const rotation = Number(localDate().replaceAll("-", "")) % puzzles.length;
+    const orderedPuzzles = [...puzzles.slice(rotation), ...puzzles.slice(0, rotation)]
+      .filter((item) => T.isReviewDue(saved.puzzles[item.id], localDate()))
+      .sort((a, b) => {
+        const left = saved.puzzles[a.id], right = saved.puzzles[b.id];
+        const leftDue = T.isReviewDue(left, localDate()) ? 0 : 1, rightDue = T.isReviewDue(right, localDate()) ? 0 : 1;
+        return leftDue - rightDue || (left?.successes || 0) - (right?.successes || 0);
+      })
+      .slice(0, mistakes.length ? 5 : 10).map((item) => ({ type: "tactic", id: item.id }));
+    const queue = [];
+    while (mistakes.length || orderedPuzzles.length) {
+      if (mistakes.length) queue.push(mistakes.shift());
+      if (orderedPuzzles.length) queue.push(orderedPuzzles.shift());
+    }
+    return queue;
+  }
+
+  function startMixedTraining() {
+    state.mixed = { active: true, queue: buildMixedQueue(), index: 0, retryKeys: new Set() };
+    loadMixedItem();
+  }
+
+  function renderMixedSession() {
+    const box = $("#mixedSessionBar");
+    box.hidden = !state.mixed.active;
+    if (!state.mixed.active) return;
+    const total = state.mixed.queue.length, current = state.mixed.queue[state.mixed.index];
+    $("#mixedSessionProgress").textContent = `${Math.min(state.mixed.index + 1, total)} / ${total}`;
+    $("#mixedSessionType").textContent = current?.type === "mistake" ? `${current.retry ? "Sofort-Wiederholung" : "Partiefehler"}: aus dem Gedächtnis den besseren Zug finden.` : `${current?.retry ? "Sofort-Wiederholung" : "Taktik"}: eine vollständige Folge selbst lösen.`;
+    $("#mixedSessionProgressBar").style.width = `${total ? state.mixed.index / total * 100 : 100}%`;
+  }
+
+  function loadMixedItem() {
+    const item = state.mixed.queue[state.mixed.index];
+    if (!item) { finishMixedTraining(); return; }
+    if (item.retry) state.mixed.retryKeys.delete(`${item.type}:${item.id}`);
+    if (item.type === "mistake") {
+      switchMode("mistakes");
+      loadGameMistake(0, item.id);
+    } else {
+      $("#themeFilter").value = "all"; $("#lessonPhase").value = "practice";
+      switchMode("tactics");
+      const puzzle = puzzles.find((candidate) => candidate.id === item.id) || puzzles[0];
+      loadPuzzle(puzzles.indexOf(puzzle));
+      startLesson(puzzle, { phase: "practice", scenario: "main" });
+    }
+    renderMixedSession();
+  }
+
+  function advanceMixedTraining() {
+    state.mixed.index += 1;
+    loadMixedItem();
+  }
+
+  function finishMixedTraining(cancelled = false) {
+    const completed = state.mixed.index, total = state.mixed.queue.length;
+    state.mixed = { active: false, queue: [], index: 0, retryKeys: new Set() };
+    switchMode("learn");
+    state.messageOverride = { kind: cancelled ? "" : "success", title: cancelled ? "Einheit beendet" : "Gemischte Einheit abgeschlossen", text: cancelled ? `${completed} Aufgaben bearbeitet. Deine Wiederholungsstände wurden gespeichert.` : `${total} Abrufe geschafft. Fehlerhafte Aufgaben kamen innerhalb der Einheit erneut; weitere Wiederholungen sind automatisch terminiert.` };
+    renderMixedSession(); updateMixedDueCount(); render();
+  }
+
+  function updateMixedDueCount() {
+    const dueMistakes = dueGameMistakes().length;
+    const saved = getProgress();
+    const dueTactics = puzzles.filter((item) => T.isReviewDue(saved.puzzles[item.id], localDate())).length;
+    const due = Math.min(10, dueMistakes + dueTactics);
+    $("#mixedDueCount").textContent = due ? `${due} fällig` : "nichts fällig";
+    $("#startMixedTraining").disabled = due === 0;
+  }
+
   function recordMatchResult(status) {
     if (state.matchRated || !status.over) return;
+    if (state.personalMatchMistake) {
+      state.matchRated = true;
+      const completedSession = state.sessionId;
+      window.setTimeout(() => {
+        if (state.mode === "match" && state.sessionId === completedSession && E.gameStatus(state.game).over && !state.analysisRunning && !state.gameAnalysis.length) startGameAnalysis();
+      }, 700);
+      return;
+    }
     const score = status.winner === state.playerColor ? 1 : status.winner ? 0 : .5;
     const saved = getProgress();
     const stats = getMatchStats(saved);
@@ -983,7 +1202,7 @@
     $("#matchWins").textContent = stats.wins;
     $("#matchDraws").textContent = stats.draws;
     $("#matchLosses").textContent = stats.losses;
-    $("#gameMistakeCount").textContent = getGameMistakes().filter((item) => !item.mastered).length;
+    $("#gameMistakeCount").textContent = dueGameMistakes().length;
     const trend = state.matchResult?.change ?? stats.lastChange;
     $("#matchEloTrend").textContent = stats.games ? `${trend > 0 ? "+" : ""}${trend} zuletzt · Bestwert ${stats.best}` : "Noch keine gewertete Partie";
 
@@ -994,6 +1213,14 @@
     button.dataset.index = recommendation + 1;
     button.disabled = selected.id === recommended.id;
     button.textContent = button.disabled ? `✓ Passend zu deiner Elo: ${recommended.name} (${recommended.rating})` : `Empfohlen: ${recommended.name} · Elo ${recommended.rating}`;
+    updatePersonalCoachStatus();
+  }
+
+  function updatePersonalCoachStatus() {
+    const target = $("#personalCoachStatus");
+    if (!target) return;
+    const allMistakes = getGameMistakes(), due = dueGameMistakes().length;
+    target.textContent = state.liveAnalysisPending ? `${state.liveAnalysisPending} Zug${state.liveAnalysisPending === 1 ? " wird" : "e werden"} geprüft` : allMistakes.length ? `${due} fällig · ${allMistakes.length} gespeichert` : "Noch keine gespeicherten Fehler";
   }
 
   function currentPuzzlePool() {
@@ -1020,12 +1247,14 @@
     const item = saved.puzzles[puzzle.id] ||= { attempts: 0, successes: 0, errors: 0 };
     item.attempts += 1; item.successes += success ? 1 : 0; item.lastSeen = today;
     item.openError = saved.lessons[`tactics:${puzzle.id}`]?.openError ?? !success;
+    T.scheduleReview(item, success ? "success" : "failure", today);
     const theme = saved.themes[puzzle.category] ||= { attempts: 0, successes: 0 };
     theme.attempts += 1; theme.successes += success ? 1 : 0;
     saveProgress(saved);
     const challenge = { fork: 650, pin: 750, skewer: 850, discovered: 900 }[puzzle.category];
     updateLearningRating("tactics", success ? 1 : 0, challenge);
     updateTrainingProgress();
+    updateMixedDueCount();
   }
 
   function updateTrainingProgress() {
@@ -1115,18 +1344,31 @@
     resetGame();
   }
 
-  all(".mode-tab").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.mode)));
+  all(".mode-tab").forEach((button) => button.addEventListener("click", () => {
+    if (state.mixed.active) state.mixed = { active: false, queue: [], index: 0, retryKeys: new Set() };
+    switchMode(button.dataset.mode);
+  }));
   all("[data-learning-mode]").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.learningMode)));
-  $("#learningBack").addEventListener("click", () => switchMode("learn"));
+  $("#learningBack").addEventListener("click", () => state.mixed.active ? finishMixedTraining(true) : switchMode("learn"));
   $("#continueLearning").addEventListener("click", (event) => switchMode(event.currentTarget.dataset.target || "tactics"));
+  $("#startMixedTraining").addEventListener("click", startMixedTraining);
+  $("#stopMixedTraining").addEventListener("click", () => finishMixedTraining(true));
   $("#nextBasics").addEventListener("click", advanceBasics);
   $("#difficulty").addEventListener("input", (event) => setDifficulty(event.target.value));
   $("#difficulty").addEventListener("change", (event) => setDifficulty(event.target.value, true));
   all("[data-color]").forEach((button) => button.addEventListener("click", () => setColorChoice(button.dataset.color)));
   $("#recommendedDifficulty").addEventListener("click", (event) => setDifficulty(event.currentTarget.dataset.index, true));
   $("#newGame").addEventListener("click", resetGame);
+  $("#personalizedMatch").addEventListener("change", updatePersonalCoachStatus);
+  $("#automaticCoach").addEventListener("change", (event) => { if (event.target.checked && state.mode === "match" && state.personalMatchPending) preparePersonalMatchHint(1); });
   $("#matchHintButton").addEventListener("click", requestMatchHint);
-  $("#nextPuzzle").addEventListener("click", () => loadPuzzle(state.puzzlePosition + 1));
+  $("#nextPuzzle").addEventListener("click", () => {
+    if (!state.mixed.active) { loadPuzzle(state.puzzlePosition + 1); return; }
+    if (!state.puzzleSolved) {
+      state.messageOverride = { kind: "", title: "Erst vollständig lösen", text: "Spiele die trainierte Folge zu Ende. Danach geht die gemischte Einheit weiter." }; render(); return;
+    }
+    advanceMixedTraining();
+  });
   $("#hintButton").addEventListener("click", lessonHelp);
   $("#revealSolution").addEventListener("click", lessonHelp);
   $("#lessonHelp").addEventListener("click", lessonHelp);
@@ -1283,7 +1525,7 @@
   $("#reviewGame").addEventListener("click", startGameAnalysis);
   $("#trainGameMistakes").addEventListener("click", () => switchMode("mistakes"));
   $("#mistakeHint").addEventListener("click", showMistakeHint);
-  $("#nextMistake").addEventListener("click", () => loadGameMistake(state.mistakeIndex + 1));
+  $("#nextMistake").addEventListener("click", () => state.mixed.active ? advanceMixedTraining() : loadGameMistake(0));
   $("#removeMistake").addEventListener("click", removeActiveMistake);
   $("#loadStart").addEventListener("click", () => { $("#fenInput").value = E.START_FEN; loadFen(); });
   $("#loadFen").addEventListener("click", loadFen);
@@ -1318,5 +1560,5 @@
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 
-  populateOpeningSelect(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); switchMode("home");
+  populateOpeningSelect(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); switchMode("home");
 })();

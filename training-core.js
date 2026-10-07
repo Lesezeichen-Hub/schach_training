@@ -314,6 +314,51 @@
     }
     return rows;
   }
+  const REVIEW_INTERVALS = [0, 1, 3, 7, 21, 45];
+  function validReviewDate(value) { return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value); }
+  function addReviewDays(date, days) {
+    const parsed = new Date(`${date}T12:00:00Z`);
+    if (Number.isNaN(parsed.getTime())) return date;
+    parsed.setUTCDate(parsed.getUTCDate() + days);
+    return parsed.toISOString().slice(0, 10);
+  }
+  function scheduleReview(item, outcome, today) {
+    const target = item && typeof item === "object" ? item : {};
+    const date = validReviewDate(today) ? today : new Date().toISOString().slice(0, 10);
+    const previous = Number.isInteger(target.reviewStage) ? Math.max(0, Math.min(REVIEW_INTERVALS.length - 1, target.reviewStage)) : 0;
+    if (outcome === "success") {
+      target.reviewStage = Math.min(REVIEW_INTERVALS.length - 1, previous + 1);
+      target.reviewStreak = (Number.isFinite(target.reviewStreak) ? target.reviewStreak : 0) + 1;
+    } else if (outcome === "failure") {
+      target.reviewStage = 0;
+      target.reviewStreak = 0;
+      target.lapses = (Number.isFinite(target.lapses) ? target.lapses : 0) + 1;
+    } else {
+      target.reviewStage = previous;
+      target.reviewStreak = 0;
+    }
+    target.lastReview = date;
+    target.nextReview = addReviewDays(date, outcome === "failure" || outcome === "assisted" ? 0 : REVIEW_INTERVALS[target.reviewStage]);
+    return target;
+  }
+  function isReviewDue(item, today) {
+    const date = validReviewDate(today) ? today : new Date().toISOString().slice(0, 10);
+    return !validReviewDate(item?.nextReview) || item.nextReview <= date;
+  }
+  function reviewDueLabel(item, today) {
+    const date = validReviewDate(today) ? today : new Date().toISOString().slice(0, 10);
+    if (!validReviewDate(item?.nextReview) || item.nextReview <= date) return "heute fällig";
+    const oneDay = addReviewDays(date, 1);
+    return item.nextReview === oneDay ? "morgen fällig" : `fällig am ${item.nextReview.split("-").reverse().join(".")}`;
+  }
+  function normalizeReviewItem(item) {
+    item.reviewStage = Number.isInteger(item.reviewStage) ? Math.max(0, Math.min(REVIEW_INTERVALS.length - 1, item.reviewStage)) : (item.mastered ? 3 : 0);
+    item.reviewStreak = Number.isFinite(item.reviewStreak) && item.reviewStreak >= 0 ? item.reviewStreak : 0;
+    item.lapses = Number.isFinite(item.lapses) && item.lapses >= 0 ? item.lapses : 0;
+    if (!validReviewDate(item.nextReview)) delete item.nextReview;
+    if (!validReviewDate(item.lastReview)) delete item.lastReview;
+    item.mastered = item.reviewStage >= 4;
+  }
   function normalizeProgress(value) {
     const saved = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
     for (const key of ["puzzles", "themes", "ratings", "lessons"]) {
@@ -325,6 +370,7 @@
       if (!item || typeof item !== "object" || Array.isArray(item)) { delete saved.puzzles[id]; continue; }
       for (const key of ["attempts", "successes", "errors"]) if (!Number.isFinite(item[key]) || item[key] < 0) item[key] = 0;
       if (typeof item.openError !== "boolean") item.openError = item.errors > 0;
+      normalizeReviewItem(item);
     }
     for (const [id, item] of Object.entries(saved.themes)) {
       if (!item || typeof item !== "object" || Array.isArray(item)) { delete saved.themes[id]; continue; }
@@ -342,9 +388,11 @@
     for (const item of saved.gameMistakes) {
       item.attempts = Number.isFinite(item.attempts) && item.attempts >= 0 ? item.attempts : 0;
       item.successes = Number.isFinite(item.successes) && item.successes >= 0 ? item.successes : 0;
-      item.mastered = Boolean(item.mastered);
+      item.seenCount = Number.isFinite(item.seenCount) && item.seenCount >= 1 ? item.seenCount : 1;
+      item.lastSeenAt = Number.isFinite(item.lastSeenAt) && item.lastSeenAt >= 0 ? item.lastSeenAt : 0;
+      normalizeReviewItem(item);
     }
     return saved;
   }
-  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows };
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel };
 })(typeof window !== "undefined" ? window : globalThis);

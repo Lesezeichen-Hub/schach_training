@@ -33,6 +33,12 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Persistente Spiel-Elo nach klassischer Erwartungswertformel mit Bilanz, Bestwert und passender Gegnerempfehlung
 - Zug-für-Zug-Partieanalyse mit Bewertungsverlust, Zugklassifikation, bester Alternative und Brettnavigation
 - Automatischer persönlicher Fehlertrainer aus kritischen Stellungen gespielter Partien
+- Verteilte Wiederholung mit wachsenden Abständen von 1, 3, 7, 21 und 45 Tagen für Partiefehler und Taktiken
+- Sofortige Fehlerkorrektur: Der richtige Zug muss direkt ausgeführt werden und erscheint in gemischten Einheiten später erneut
+- Gemischte Einheiten mit bis zu zehn fälligen Partiefehlern und Taktikfolgen
+- Selbstlernender Trainingspartner: Eigene Züge werden bereits während der Partie lokal bewertet und neue Fehler sofort gespeichert
+- Ungerankte persönliche Übungspartien starten aus fälligen Fehlerstellungen, verlangen zunächst den Korrekturzug und laufen danach gegen den Computer weiter
+- Optionaler automatischer Denkanstoß sowie die vorhandenen drei Hinweisstufen für persönliche Fehlerstellungen
 - Hintergrundanalyse per Web Worker mit stärkerer Suchtiefe und Rückfallmodus für lokale Dateien
 - Gestufte Hinweise von der strategischen Idee bis zum konkreten Zug
 - Drag-and-drop, vollständige Tastatursteuerung und eigene Brettmarkierungen
@@ -60,6 +66,8 @@ Die Abdeckung ist bewusst begrenzt: **genau die bisherigen 25 Eröffnungs-IDs un
 ## Fortschritt
 
 Der bisherige Schlüssel `schachwerkstatt-progress` bleibt erhalten: alte Zähler, Motivstatistiken, Grundlagenabschluss und Bereichsratings werden übernommen, aber alte Einzugerfolge nicht als neue vollständige Lektionsmeisterung ausgegeben. `lessons` speichert additiv Revision, Szenario-/Phasenabschlüsse, unterstützt/selbstständig und die letzte abgeschlossene Auswahl. Fehlerhistorie bleibt erhalten; `openError` unterscheidet offene Wiederholungen von jemals gemachten Fehlern. „Meine Fehler“ zeigt offene Taktikfehler. Der Wiederholungsbedarf wird je Szenario geführt: Ein fehlerfreier vollständiger Übungsdurchlauf schließt ihn auch ohne Elo-Berechtigung; ein Kontererfolg schließt keinen offenen Hauptlinienfehler. Eine neue Inhaltsrevision behält die Altstatistik, verlangt aber neue vollständige Abschlüsse.
+
+`reviewStage`, `nextReview`, `reviewStreak` und `lapses` bilden die verteilte Wiederholung ab. Selbstständige richtige Abrufe vergrößern den Abstand; Fehler setzen ihn zurück und unterstützte Korrekturen bleiben am selben Tag fällig. Bestehende Fortschritte ohne Wiederholungstermin werden als sofort fällig übernommen.
 
 Beschädigte Werte werden normalisiert. Bei verweigertem Speicher erscheint eine Warnung; bis zum Neuladen arbeitet die App mit einer Speicherkopie weiter. Kein Server, keine Hub-Speicherung und keine automatische Auslieferung an eine installierte Modulkopie.
 

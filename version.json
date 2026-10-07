@@ -1,5 +1,5 @@
 {
-  "version": "3.1.0",
+  "version": "3.3.0",
   "name": "Schachwerkstatt",
-  "description": "Lokale Schach-Lernplattform mit Hintergrundanalyse, persönlichem Fehlertrainer, gestuften Hinweisen, Spiel-Elo und moderner Brettbedienung."
+  "description": "Lokale Schach-Lernplattform mit selbstlernendem Trainingspartner, persönlichen Übungspartien, verteilter Wiederholung und Spiel-Elo."
 }

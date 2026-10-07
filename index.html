@@ -55,6 +55,13 @@
           <p id="panelIntro">Du brauchst kein Vorwissen. Die Werkstatt zeigt dir immer, was als Nächstes sinnvoll ist.</p>
         </div>
 
+        <section id="mixedSessionBar" class="mixed-session-bar" aria-live="polite" hidden>
+          <div><span>GEMISCHTE EINHEIT</span><strong id="mixedSessionProgress">1 / 10</strong></div>
+          <p id="mixedSessionType">Partiefehler und Taktiken wechseln sich ab.</p>
+          <div class="goal-track" aria-hidden="true"><span id="mixedSessionProgressBar"></span></div>
+          <button type="button" id="stopMixedTraining" class="text-button">Einheit beenden</button>
+        </section>
+
         <section id="homeControls" class="control-section onboarding-controls">
           <span class="card-kicker">DEINE NÄCHSTE EINHEIT</span>
           <h2 id="homeRecommendation">Taktische Grundlagen</h2>
@@ -68,6 +75,7 @@
         <section id="learnControls" class="control-section learn-overview" hidden>
           <span class="card-kicker">WÄHLE EIN LERNZIEL</span>
           <div class="learning-menu">
+            <button type="button" id="startMixedTraining"><span class="learning-number">✦</span><strong>Heutige gemischte Einheit</strong><small>Fällige Partiefehler und Taktiken im Wechsel</small><em id="mixedDueCount">Start</em></button>
             <button type="button" data-learning-mode="basics"><span class="learning-number">00</span><strong>Schach von Anfang an</strong><small>Spielziel, Figuren, Schach und Matt verstehen</small><em id="menuBasics">Start</em></button>
             <button type="button" data-learning-mode="tactics"><span class="learning-number">01</span><strong>Figuren gewinnen</strong><small>Gabel, Fesselung, Spieß und Abzugsangriff</small><em id="menuRatingTactics">800</em></button>
             <button type="button" data-learning-mode="openings"><span class="learning-number">02</span><strong>Gut in die Partie starten</strong><small>Eröffnungszüge verstehen und selbst spielen</small><em id="menuRatingOpenings">800</em></button>
@@ -93,6 +101,12 @@
               <span><strong id="matchDraws">0</strong> Remis</span>
               <span><strong id="matchLosses">0</strong> Niederlagen</span>
             </div>
+          </div>
+          <div class="personal-coach-card">
+            <div><strong>Persönlicher Lerngegner</strong><span id="personalCoachStatus">Noch keine gespeicherten Fehler</span></div>
+            <label class="check-option"><input type="checkbox" id="personalizedMatch" checked> Übungspartien aus meinen fälligen Fehlerstellungen starten</label>
+            <label class="check-option"><input type="checkbox" id="automaticCoach" checked> Beim Einstieg automatisch einen ersten Denkanstoß geben</label>
+            <small>Eigene Züge werden lokal im Hintergrund geprüft. Neue kritische Fehler landen automatisch im Wiederholungsplan. Persönliche Fehlerpartien sind ungewertet; Zugfarbe und Stellung stammen aus dem gespeicherten Moment.</small>
           </div>
           <label>Deine Farbe</label>
           <div class="segmented color-choice" id="colorChoice" role="radiogroup" aria-label="Deine Spielfarbe">
@@ -218,6 +232,7 @@
           <div class="puzzle-meta"><span>FEHLER AUS DEINEN PARTIEN</span><span id="mistakeProgress">0 / 0</span></div>
           <h2 id="mistakeTitle">Dein kritischer Moment</h2>
           <p id="mistakePrompt">Finde den besseren Zug, den du in der Partie übersehen hast.</p>
+          <p id="mistakeSchedule" class="review-schedule">Verteilte Wiederholung wird vorbereitet.</p>
           <div id="mistakeExplanation" class="step-explanation" hidden></div>
           <div class="button-row"><button class="secondary-button" id="mistakeHint">Gestufter Hinweis</button><button class="primary-button" id="nextMistake" disabled>Nächster Fehler</button></div>
           <button class="solution-button" id="removeMistake">Stellung aus dem Training entfernen</button>
