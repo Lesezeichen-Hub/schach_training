@@ -22,7 +22,7 @@
         <button class="mode-tab" data-mode="match">Spielen</button>
         <button class="mode-tab" data-mode="practice">Analyse</button>
       </nav>
-      <div class="streak" title="Lokaler Trainingswert – keine offizielle Wertungszahl"><span>◆</span><strong id="learningRating">800</strong><small id="learningLevel">Springer</small></div>
+      <div class="streak" title="Lokaler Trainingswert – keine offizielle Wertungszahl"><span>◆</span><strong id="learningRating">0</strong><small id="learningLevel">Bauer</small></div>
     </header>
 
     <main class="workspace">
@@ -33,13 +33,18 @@
           <div class="turn-indicator" id="blackTurn">am Zug</div>
         </div>
         <div class="board-wrap">
+          <div class="board-view-toggle" role="group" aria-label="Brettansicht">
+            <button type="button" id="view2d" class="active" aria-pressed="true">2D</button>
+            <button type="button" id="view3d" aria-pressed="false">3D</button>
+          </div>
           <div class="board-stage">
             <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
+            <canvas id="board3d" class="board-3d" aria-label="Interaktives 3D-Schachbrett" tabindex="0" hidden></canvas>
             <svg id="lessonArrows" class="lesson-arrows" viewBox="0 0 8 8" role="img" aria-label="Zug- und Angriffspfeile" hidden></svg>
           </div>
           <div id="thinking" class="thinking" hidden><span></span><span></span><span></span> KI rechnet</div>
         </div>
-        <small class="board-help">Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen</small>
+        <small class="board-help" id="boardHelp">Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen</small>
         <div class="player-strip">
           <div class="avatar light">DU</div>
           <div><strong>Dein Training</strong><small id="playerDetail">Weiß · konzentriert</small></div>
@@ -77,10 +82,10 @@
           <div class="learning-menu">
             <button type="button" id="startMixedTraining"><span class="learning-number">✦</span><strong>Heutige gemischte Einheit</strong><small>Fällige Partiefehler und Taktiken im Wechsel</small><em id="mixedDueCount">Start</em></button>
             <button type="button" data-learning-mode="basics"><span class="learning-number">00</span><strong>Schach von Anfang an</strong><small>Spielziel, Figuren, Schach und Matt verstehen</small><em id="menuBasics">Start</em></button>
-            <button type="button" data-learning-mode="tactics"><span class="learning-number">01</span><strong>Figuren gewinnen</strong><small>Gabel, Fesselung, Spieß und Abzugsangriff</small><em id="menuRatingTactics">800</em></button>
-            <button type="button" data-learning-mode="openings"><span class="learning-number">02</span><strong>Gut in die Partie starten</strong><small>Eröffnungszüge verstehen und selbst spielen</small><em id="menuRatingOpenings">800</em></button>
-            <button type="button" data-learning-mode="endgame"><span class="learning-number">03</span><strong>Partien sicher beenden</strong><small>Mattsetzen, Bauern umwandeln, Opposition</small><em id="menuRatingEndgame">800</em></button>
-            <button type="button" data-learning-mode="strategy"><span class="learning-number">04</span><strong>Einen Plan finden</strong><small>Gute und schlechte Entscheidungen vergleichen</small><em id="menuRatingStrategy">800</em></button>
+            <button type="button" data-learning-mode="tactics"><span class="learning-number">01</span><strong>Figuren gewinnen</strong><small>Gabel, Fesselung, Spieß und Abzugsangriff</small><em id="menuRatingTactics">0</em></button>
+            <button type="button" data-learning-mode="openings"><span class="learning-number">02</span><strong>Gut in die Partie starten</strong><small>Eröffnungszüge verstehen und selbst spielen</small><em id="menuRatingOpenings">0</em></button>
+            <button type="button" data-learning-mode="endgame"><span class="learning-number">03</span><strong>Partien sicher beenden</strong><small>Mattsetzen, Bauern umwandeln, Opposition</small><em id="menuRatingEndgame">0</em></button>
+            <button type="button" data-learning-mode="strategy"><span class="learning-number">04</span><strong>Einen Plan finden</strong><small>Gute und schlechte Entscheidungen vergleichen</small><em id="menuRatingStrategy">0</em></button>
           </div>
         </section>
 
@@ -94,7 +99,7 @@
 
         <section id="matchControls" class="control-section" hidden>
           <div class="match-rating-card" aria-label="Deine Spiel-Elo">
-            <div class="match-rating-main"><span>DEINE SPIEL-ELO</span><strong id="matchElo">800</strong><small id="matchEloTrend">Noch keine gewertete Partie</small></div>
+            <div class="match-rating-main"><span>DEINE SPIEL-ELO</span><strong id="matchElo">0</strong><small id="matchEloTrend">Noch keine gewertete Partie</small></div>
             <div class="match-record">
               <span><strong id="matchGames">0</strong> Partien</span>
               <span><strong id="matchWins">0</strong> Siege</span>
@@ -252,15 +257,16 @@
         <p id="storageWarning" role="status" hidden>Fortschritt kann hier nicht dauerhaft gespeichert werden. Das Training funktioniert weiter; bis zum Neuladen bleibt er im Arbeitsspeicher.</p>
 
         <section id="ratingCard" class="rating-card" aria-label="Lernfortschritt">
-          <div class="rating-main"><span id="ratingStage">Aufbaustufe Springer</span><strong id="ratingOverall">800</strong><small>Lern-Elo · lokal</small></div>
+          <div class="rating-main"><span id="ratingStage">Aufbaustufe Bauer</span><strong id="ratingOverall">0</strong><small>Lern-Elo · lokal</small></div>
           <div class="rating-track"><span id="ratingBar"></span></div>
           <div class="rating-modules">
-            <span>Taktik <strong id="ratingTactics">800</strong></span>
-            <span>Endspiel <strong id="ratingEndgame">800</strong></span>
-            <span>Strategie <strong id="ratingStrategy">800</strong></span>
-            <span>Eröffnung <strong id="ratingOpenings">800</strong></span>
+            <span>Taktik <strong id="ratingTactics">0</strong></span>
+            <span>Endspiel <strong id="ratingEndgame">0</strong></span>
+            <span>Strategie <strong id="ratingStrategy">0</strong></span>
+            <span>Eröffnung <strong id="ratingOpenings">0</strong></span>
           </div>
-          <p id="ratingNext">Noch 100 Punkte bis zur nächsten Aufbaustufe.</p>
+          <p id="ratingNext">Noch 400 Punkte bis zur nächsten Aufbaustufe.</p>
+          <button type="button" id="resetProfileElo" class="text-button rating-reset">Profil-Elo auf 0 setzen</button>
         </section>
 
         <section id="trainingStats" class="training-stats" aria-label="Trainingsfortschritt">
@@ -270,7 +276,7 @@
         </section>
 
         <section class="moves-section">
-          <div class="section-title"><h2>Zugliste</h2><button id="undoButton" class="text-button">Zug zurück</button></div>
+          <div class="section-title"><h2>Zugliste</h2><div class="move-navigation"><button id="undoButton" class="text-button">← Zurück</button><button id="redoButton" class="text-button">Vor →</button></div></div>
           <div id="moveList" class="move-list"><p class="empty-state">Noch keine Züge gespielt.</p></div>
         </section>
 
@@ -295,6 +301,7 @@
   <script src="chess-engine.js"></script>
   <script src="training-core.js"></script>
   <script src="training-data.generated.js"></script>
+  <script src="chess-3d.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

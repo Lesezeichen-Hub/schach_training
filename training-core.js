@@ -4,8 +4,8 @@
   const VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
   const pawnMemo = new Map();
   const RATING_STAGES = [
-    { min: 400, name: "Bauer" }, { min: 700, name: "Springer" }, { min: 900, name: "Läufer" },
-    { min: 1100, name: "Turm" }, { min: 1300, name: "Dame" }, { min: 1500, name: "Meister" }
+    { min: 0, name: "Bauer" }, { min: 400, name: "Springer" }, { min: 700, name: "Läufer" },
+    { min: 900, name: "Turm" }, { min: 1100, name: "Dame" }, { min: 1300, name: "Meister" }
   ];
 
   function uci(move) {
@@ -23,19 +23,20 @@
 
   function updateRating(current, score, challengeRating) {
     const expected = 1 / (1 + 10 ** ((challengeRating - current) / 400));
-    return Math.max(400, Math.min(2000, Math.round(current + 32 * (score - expected))));
+    return Math.max(0, Math.min(2000, Math.round(current + 32 * (score - expected))));
   }
 
   function calculateMatchElo(current, opponent, score, games = 0) {
-    const rating = Number.isFinite(current) ? current : 800;
-    const opponentRating = Number.isFinite(opponent) ? opponent : 800;
+    const rating = Number.isFinite(current) ? current : 0;
+    const opponentRating = Number.isFinite(opponent) ? opponent : 450;
     const result = Math.max(0, Math.min(1, Number(score)));
     const expected = 1 / (1 + 10 ** ((opponentRating - rating) / 400));
     const k = games < 10 ? 40 : games < 30 ? 32 : 24;
-    const change = Math.round(k * (result - expected));
+    const rawChange = Math.round(k * (result - expected));
+    const nextRating = Math.max(0, Math.min(2400, rating + rawChange));
     return {
-      rating: Math.max(300, Math.min(2400, rating + change)),
-      change,
+      rating: nextRating,
+      change: nextRating - rating,
       expected,
       k
     };
@@ -365,7 +366,12 @@
       if (!saved[key] || typeof saved[key] !== "object" || Array.isArray(saved[key])) saved[key] = {};
     }
     for (const key of ["count", "totalAttempts", "totalSolved"]) if (!Number.isFinite(saved[key]) || saved[key] < 0) saved[key] = 0;
-    for (const area of ["tactics", "endgame", "strategy", "openings"]) if (!Number.isFinite(saved.ratings[area])) saved.ratings[area] = 800;
+    for (const area of ["tactics", "endgame", "strategy", "openings"]) if (!Number.isFinite(saved.ratings[area])) saved.ratings[area] = 0;
+    const ratingAreas = ["tactics", "endgame", "strategy", "openings"];
+    if (saved.ratingBaseline !== 0 && saved.totalAttempts === 0 && Object.keys(saved.lessons).length === 0 && ratingAreas.every((area) => saved.ratings[area] === 800)) {
+      for (const area of ratingAreas) saved.ratings[area] = 0;
+    }
+    saved.ratingBaseline = 0;
     for (const [id, item] of Object.entries(saved.puzzles)) {
       if (!item || typeof item !== "object" || Array.isArray(item)) { delete saved.puzzles[id]; continue; }
       for (const key of ["attempts", "successes", "errors"]) if (!Number.isFinite(item[key]) || item[key] < 0) item[key] = 0;

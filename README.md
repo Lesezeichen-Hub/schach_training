@@ -23,6 +23,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Spielbarer Eröffnungstrainer mit 25 sinnvollen Repertoirevarianten für Weiß und Schwarz
 - Pläne, typische Fehler, ECO-Codes und schrittweise Zugkontrolle zu jeder Eröffnung
 - Lokale Lern-Elo für Taktik, Endspiel, Strategie und Eröffnungen
+- Manueller Profil-Elo-Reset auf 0, ohne Fehlerstellungen, Wiederholungen oder Lektionsfortschritt zu löschen
 - Aufbaustufen Bauer, Springer, Läufer, Turm, Dame und Meister
 - Coach-Review aus dem PGN-Partieverlauf mit Material- und Rochadeheuristik
 - Tagesziel, Trefferquote, Gesamtfortschritt und persönlicher Trainingsfokus
@@ -42,6 +43,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Hintergrundanalyse per Web Worker mit stärkerer Suchtiefe und Rückfallmodus für lokale Dateien
 - Gestufte Hinweise von der strategischen Idee bis zum konkreten Zug
 - Drag-and-drop, vollständige Tastatursteuerung und eigene Brettmarkierungen
+- Optionales echtes WebGL-3D-Brett mit lokal erzeugten, beleuchteten Figuren, Perspektive sowie Maus- und Touch-Drag-and-drop; 2D bleibt jederzeit als barriereärmerer Rückfall verfügbar
+- Vor/Zurück-Navigation in laufenden Partien und auf dem Analysebrett; nach einem neuen Alternativzug verfällt der Vor-Stapel
 - Freie Farbwahl: mit Weiß, Schwarz oder bei jeder neuen Partie zufällig spielen
 - Iterative Tiefensuche, begrenzte Bedenkzeit und taktische Ruhesuche für höhere Stufen
 - Freies Analysebrett mit FEN-Import
@@ -49,6 +52,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Erkennung von Schach, Matt, Patt, dreifacher Stellungswiederholung, 50-Züge-Regel und unzureichendem Material
 - Responsive Bedienung für Desktop und Mobilgeräte
 - Lokaler Lernfortschritt im Browser
+
+Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gewechselt werden. `?view=3d` erzwingt die 3D-Ansicht für einen direkten Aufruf. Ist WebGL 2 nicht verfügbar, bleibt der Schalter deaktiviert und die vollständige 2D-Bedienung aktiv.
 
 ## Lernphasen und Szenarien
 
@@ -97,4 +102,4 @@ node tests.mjs
 
 Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 135 vollständigen Szenarien und Vergleichsantworten, 405 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Pfeilkoordinaten in beiden Orientierungen und beschädigten/alten Fortschritt. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
 
-Die Lern-Elo beginnt bei 800 und reagiert ähnlich einer Elo-Wertung auf richtige und falsche Entscheidungen sowie die Schwierigkeit der Übung. Sie dient ausschließlich als lokaler Trainings- und Fortschrittswert und ist keine offizielle Spielstärke.
+Lern- und Spiel-Elo beginnen bei neuen Profilen bei **0** und werden ausschließlich durch absolvierte Übungen beziehungsweise gewertete Partien aufgebaut. Werte können nicht negativ werden. Bereits erspielte Wertungen bleiben erhalten; lediglich unberührte alte 800-Standardwerte ohne gewertete Aktivität werden auf 0 migriert. Die Lern-Elo reagiert ähnlich einer Elo-Wertung auf richtige und falsche Entscheidungen sowie die Schwierigkeit der Übung; sie ist keine offizielle Spielstärke.

@@ -99,11 +99,30 @@ for (const opening of trainingData.openings) {
 }
 assert.ok(T.updateRating(800, 1, 800) > 800, "Lern-Elo steigt nach erfolgreicher Aufgabe");
 assert.ok(T.updateRating(800, 0, 800) < 800, "Lern-Elo sinkt nach Fehler");
-assert.equal(T.ratingStage(800).name, "Springer", "Aufbaustufe wird korrekt bestimmt");
+assert.equal(T.updateRating(0, 0, 650), 0, "Lern-Elo startet bei null und kann nicht negativ werden");
+assert.ok(T.updateRating(0, 1, 650) > 0, "Erster Erfolg baut Lern-Elo von null auf");
+assert.equal(T.ratingStage(0).name, "Bauer", "Erste Aufbaustufe beginnt bei null");
+assert.equal(T.ratingStage(400).name, "Springer", "Aufbaustufe wird korrekt bestimmt");
+assert.equal(T.calculateMatchElo(undefined, 450, 0, 0).rating, 0, "Spiel-Elo startet bei null");
+assert.equal(T.calculateMatchElo(0, 450, 0, 0).change, 0, "Spiel-Elo kann nicht unter null fallen");
 assert.equal(T.calculateMatchElo(800, 800, 1, 0).change, 20, "Sieg gegen gleich starke KI erhöht die Start-Elo um 20");
 assert.equal(T.calculateMatchElo(800, 800, .5, 0).change, 0, "Remis gegen gleich starke KI hält die Elo");
 assert.equal(T.calculateMatchElo(800, 800, 0, 0).change, -20, "Niederlage gegen gleich starke KI senkt die Start-Elo um 20");
 assert.ok(T.calculateMatchElo(800, 1200, 1, 0).change > T.calculateMatchElo(800, 800, 1, 0).change, "Überraschungssieg gegen stärkere KI wird höher bewertet");
+let navigationPosition = E.fromFEN();
+const navigationMoves = [];
+for (const code of ["e2e4", "e7e5"]) {
+  const move = E.legalMoves(navigationPosition).find((candidate) => candidate.from + candidate.to === code);
+  navigationMoves.push({ ...move }); navigationPosition = E.applyMove(navigationPosition, move);
+}
+const navigationEnd = E.toFEN(navigationPosition);
+navigationPosition = E.undo(E.undo(navigationPosition));
+assert.equal(E.toFEN(navigationPosition), E.START_FEN, "Zurück stellt die Ausgangsposition wieder her");
+for (const savedMove of navigationMoves) {
+  const move = E.legalMoves(navigationPosition).find((candidate) => candidate.from === savedMove.from && candidate.to === savedMove.to && (candidate.promotion || "") === (savedMove.promotion || ""));
+  navigationPosition = E.applyMove(navigationPosition, move);
+}
+assert.equal(E.toFEN(navigationPosition), navigationEnd, "Vor stellt dieselbe Partieposition exakt wieder her");
 assert.equal(T.classifyMoveLoss(0).id, "best", "Verlustfreier Zug gilt als bester Zug");
 assert.equal(T.classifyMoveLoss(60).id, "inaccuracy", "Moderater Bewertungsverlust gilt als Ungenauigkeit");
 assert.equal(T.classifyMoveLoss(250).id, "blunder", "Großer Bewertungsverlust gilt als grober Fehler");
@@ -259,6 +278,8 @@ const legacy = T.normalizeProgress({totalSolved:7,puzzles:{old:{errors:2,attempt
 assert.equal(legacy.totalSolved,7); assert.equal(legacy.ratings.tactics,912);
 assert.equal(legacy.puzzles.old.openError,true); assert.equal(Object.keys(legacy.lessons).length,0);
 assert.equal(T.isReviewDue(legacy.puzzles.old, '2026-10-07'), true, 'Alte Aufgaben ohne Termin sind sofort fällig');
+const untouchedOldDefault = T.normalizeProgress({ratings:{tactics:800,endgame:800,strategy:800,openings:800}});
+assert.deepEqual(Object.values(untouchedOldDefault.ratings), [0,0,0,0], 'Unberührter alter Standardwert wird auf den neuen Nullstart migriert');
 const spaced = {};
 T.scheduleReview(spaced, 'success', '2026-10-07');
 assert.equal(spaced.reviewStage, 1); assert.equal(spaced.nextReview, '2026-10-08');

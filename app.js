@@ -6,6 +6,7 @@
   const difficulties = E.DIFFICULTY_LEVELS;
   const glyph = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙", k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
   const boardEl = document.querySelector("#board");
+  const board3dEl = document.querySelector("#board3d");
   const statusCard = document.querySelector(".status-card");
   const state = {
     game: E.fromFEN(), mode: "home", level: "learner", colorChoice: "w", playerColor: "w", selected: null,
@@ -18,13 +19,26 @@
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
     analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null,
     activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
-    mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, focusedSquare: "e2", markedSquares: new Set()
+    mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set()
   };
   let analysisWorker = null, analysisJobId = 0;
   const analysisJobs = new Map();
 
   const trainingData = window.CHESS_TRAINING_DATA;
   const puzzles = trainingData.tactics;
+  let boardView = "2d";
+  try { boardView = new URLSearchParams(location.search).get("view") === "3d" || localStorage.getItem("schachwerkstatt-board-view") === "3d" ? "3d" : "2d"; } catch { boardView = "2d"; }
+  const board3d = window.Chess3DView?.create(board3dEl, {
+    onSquare: (square) => selectSquare(square),
+    onDragStart: (from) => {
+      if (!boardInputAllowed()) return;
+      state.selected = from; state.legal = E.legalMoves(state.game, from); render();
+    },
+    onDrop: (from, to) => {
+      if (!boardInputAllowed()) return;
+      state.selected = from; state.legal = E.legalMoves(state.game, from); selectSquare(to);
+    }
+  }) || null;
   const categoryMeta = {
     fork: { title: "Gabel", concept: "Eine Figur greift zwei Ziele gleichzeitig an. Besonders stark ist eine Gabel mit Schach.", rule: "Suche Felder, von denen eine Figur zwei wertvolle Ziele gleichzeitig erreicht." },
     pin: { title: "Fesselung", concept: "Eine Figur kann nicht wegziehen, weil sie sonst König oder eine wertvollere Figur freigibt.", rule: "Folge Linien von Turm, Läufer und Dame bis zum gegnerischen König." },
@@ -92,6 +106,7 @@
     cancelLessonTimer(); clearMatchHint(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null;
     state.personalMatchMistake = null; state.personalMatchPending = false;
     state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
+    state.redoFrames = [];
     const dialog = $("#promotionDialog");
     if (dialog.open) dialog.close("cancel");
   }
@@ -225,7 +240,7 @@
     $("#arrowLegend").hidden = !visible;
     $("#revealSolution").disabled = !view.step;
     if (state.mode === "openings") $("#openingLineProgress").textContent = `${view.ply} / ${view.total} Halbzüge · ${session.scenario.title}`;
-    if (!visible) return;
+    if (!visible || boardView === "3d") return;
     const step = view.step || view.previous;
     const arrows = step?.visual?.arrows || [];
     if (!arrows.length) return;
@@ -260,10 +275,44 @@
     $("#blackTurn").classList.toggle("active", interactiveBoard && state.game.turn === "b");
     $("#thinking").hidden = !state.thinking;
     const hasOwnMatchMove = state.moves.some((move) => move.color === state.playerColor);
-    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && (!hasOwnMatchMove || state.personalMatchMistake));
+    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && (!hasOwnMatchMove || currentStatus.over));
+    $("#redoButton").disabled = !state.redoFrames.length || state.thinking || !["match", "practice"].includes(state.mode);
     renderMatchHintControls();
     renderMatchRating();
     if (state.mode === "match" && currentStatus.over) showCoachReviewSummary();
+  }
+
+  function setBoardView(view, persist = true) {
+    boardView = view === "3d" && board3d ? "3d" : "2d";
+    boardEl.hidden = boardView === "3d";
+    board3dEl.hidden = boardView !== "3d";
+    $("#view2d").classList.toggle("active", boardView === "2d"); $("#view2d").setAttribute("aria-pressed", String(boardView === "2d"));
+    $("#view3d").classList.toggle("active", boardView === "3d"); $("#view3d").setAttribute("aria-pressed", String(boardView === "3d"));
+    $("#view3d").disabled = !board3d;
+    $("#boardHelp").textContent = boardView === "3d" ? "3D: Figur anklicken oder direkt auf ein Zielfeld ziehen · Hinweise und legale Felder bleiben markiert · 2D bietet zusätzlich Tastatur und eigene Markierungen" : "Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen";
+    if (persist) try { localStorage.setItem("schachwerkstatt-board-view", boardView); } catch { /* Ansicht funktioniert auch ohne Speicher. */ }
+    renderBoard(); renderLesson();
+  }
+
+  function sync3DBoard(boardState, flipped) {
+    if (!board3d) return;
+    const highlights = {};
+    for (const square of boardEl.querySelectorAll(".square")) highlights[square.dataset.square] = square.className;
+    if (isLessonMode()) {
+      const view = T.getLessonView(state.lesson), reveal = state.lesson.phase !== "practice" || state.lessonHint || view.status === "complete";
+      if (reveal && view.expected) {
+        const from = view.expected.slice(0, 2), to = view.expected.slice(2, 4);
+        highlights[from] = `${highlights[from] || ""} hint-from`; highlights[to] = `${highlights[to] || ""} hint-to`;
+      }
+    }
+    const movable = new Set();
+    if (!state.reviewPosition && boardInputAllowed()) {
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+        const piece = boardState.board[r][c];
+        if (piece && E.colorOf(piece) === boardState.turn) movable.add(E.sq(r, c));
+      }
+    }
+    board3d.update({ board: boardState.board, flipped, highlights, movable });
   }
 
   function renderBoard() {
@@ -343,6 +392,7 @@
       });
       boardEl.appendChild(button);
     }
+    sync3DBoard(boardState, flipped);
     if (restoreBoardFocus) boardEl.querySelector(`[data-square="${state.focusedSquare}"]`)?.focus();
   }
 
@@ -411,6 +461,7 @@
   }
 
   function makeMove(move, actor) {
+    state.redoFrames = [];
     const usedMatchHint = Boolean(state.matchHint?.stage >= 2);
     let personalFeedback = null;
     clearMatchHint(); state.markedSquares.clear();
@@ -965,12 +1016,13 @@
   }
 
   function getMatchStats(saved = getProgress()) {
-    const fallback = { rating: 800, games: 0, wins: 0, draws: 0, losses: 0, best: 800, lastChange: 0, history: [] };
+    const fallback = { rating: 0, games: 0, wins: 0, draws: 0, losses: 0, best: 0, lastChange: 0, history: [] };
     const stats = saved.matchElo || fallback;
     for (const key of ["rating", "games", "wins", "draws", "losses", "best", "lastChange"]) {
       if (!Number.isFinite(stats[key])) stats[key] = fallback[key];
     }
     if (!Array.isArray(stats.history)) stats.history = [];
+    if (stats.games === 0 && stats.rating === 800 && stats.best === 800) { stats.rating = 0; stats.best = 0; stats.lastChange = 0; }
     return stats;
   }
 
@@ -1274,8 +1326,8 @@
   }
 
   function getRatings(saved = getProgress()) {
-    saved.ratings ||= { tactics: 800, endgame: 800, strategy: 800, openings: 800 };
-    for (const area of ["tactics", "endgame", "strategy", "openings"]) if (!Number.isFinite(saved.ratings[area])) saved.ratings[area] = 800;
+    saved.ratings ||= { tactics: 0, endgame: 0, strategy: 0, openings: 0 };
+    for (const area of ["tactics", "endgame", "strategy", "openings"]) if (!Number.isFinite(saved.ratings[area])) saved.ratings[area] = 0;
     return saved.ratings;
   }
 
@@ -1284,6 +1336,18 @@
     ratings[area] = T.updateRating(ratings[area], score, challengeRating);
     saveProgress(saved);
     updateRatingDisplay();
+  }
+
+  function resetProfileElo() {
+    if (!window.confirm("Lern-Elo und Spiel-Elo wirklich auf 0 setzen? Gespeicherte Fehler, Wiederholungen und abgeschlossene Übungen bleiben erhalten.")) return;
+    const saved = getProgress();
+    saved.ratings = { tactics: 0, endgame: 0, strategy: 0, openings: 0 };
+    saved.ratingBaseline = 0;
+    saved.matchElo = { rating: 0, games: 0, wins: 0, draws: 0, losses: 0, best: 0, lastChange: 0, history: [] };
+    saveProgress(saved); state.matchResult = null;
+    updateRatingDisplay(); renderMatchRating();
+    state.messageOverride = { kind: "success", title: "Profil-Elo zurückgesetzt", text: "Lern- und Spiel-Elo starten wieder bei 0. Deine Aufgaben, Fehlerstellungen und Wiederholungstermine wurden nicht gelöscht." };
+    render();
   }
 
   function updateRatingDisplay() {
@@ -1348,6 +1412,8 @@
     if (state.mixed.active) state.mixed = { active: false, queue: [], index: 0, retryKeys: new Set() };
     switchMode(button.dataset.mode);
   }));
+  $("#view2d").addEventListener("click", () => setBoardView("2d"));
+  $("#view3d").addEventListener("click", () => setBoardView("3d"));
   all("[data-learning-mode]").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.learningMode)));
   $("#learningBack").addEventListener("click", () => state.mixed.active ? finishMixedTraining(true) : switchMode("learn"));
   $("#continueLearning").addEventListener("click", (event) => switchMode(event.currentTarget.dataset.target || "tactics"));
@@ -1359,6 +1425,7 @@
   all("[data-color]").forEach((button) => button.addEventListener("click", () => setColorChoice(button.dataset.color)));
   $("#recommendedDifficulty").addEventListener("click", (event) => setDifficulty(event.currentTarget.dataset.index, true));
   $("#newGame").addEventListener("click", resetGame);
+  $("#resetProfileElo").addEventListener("click", resetProfileElo);
   $("#personalizedMatch").addEventListener("change", updatePersonalCoachStatus);
   $("#automaticCoach").addEventListener("change", (event) => { if (event.target.checked && state.mode === "match" && state.personalMatchPending) preparePersonalMatchHint(1); });
   $("#matchHintButton").addEventListener("click", requestMatchHint);
@@ -1531,15 +1598,41 @@
   $("#loadFen").addEventListener("click", loadFen);
   $("#undoButton").addEventListener("click", () => {
     clearMatchHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
+    state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0;
+    const frame = [];
     if (state.mode === "match") {
       let removedOwnMove = false;
       while (state.game.history.length && !removedOwnMove) {
-        const removed = state.moves.pop();
+        const historyEntry = state.game.history.at(-1), removed = state.moves.pop();
+        frame.unshift({ move: { ...historyEntry.move }, moveData: removed ? { ...removed } : null });
         state.game = E.undo(state.game);
         removedOwnMove = removed?.color === state.playerColor;
       }
     } else {
-      state.game = E.undo(state.game); state.moves.pop();
+      const historyEntry = state.game.history.at(-1), removed = state.moves.pop();
+      if (historyEntry) frame.push({ move: { ...historyEntry.move }, moveData: removed ? { ...removed } : null });
+      state.game = E.undo(state.game);
+    }
+    if (frame.length) state.redoFrames.push(frame);
+    state.lastMove = state.game.history.at(-1)?.move || null;
+    state.opponentLastMove = null;
+    for (let i = state.game.history.length - 1; i >= 0; i--) {
+      const entry = state.game.history[i];
+      if (entry.piece && E.colorOf(entry.piece) !== state.playerColor) { state.opponentLastMove = entry.move; break; }
+    }
+    if (state.personalMatchMistake) state.personalMatchPending = E.toFEN(state.game).split(" ").slice(0, 4).join(" ") === state.personalMatchMistake.fen.split(" ").slice(0, 4).join(" ");
+    state.selected = null; state.legal = []; state.messageOverride = null; render();
+  });
+  $("#redoButton").addEventListener("click", () => {
+    const frame = state.redoFrames.pop();
+    if (!frame?.length) return;
+    clearMatchHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
+    for (const item of frame) {
+      const move = E.legalMoves(state.game).find((candidate) => candidate.from === item.move.from && candidate.to === item.move.to && (candidate.promotion || "") === (item.move.promotion || ""));
+      if (!move) { state.redoFrames = []; break; }
+      const before = state.game, san = E.notation(before, move);
+      state.game = E.applyMove(before, move);
+      state.moves.push(item.moveData || { color: before.turn, san });
     }
     state.lastMove = state.game.history.at(-1)?.move || null;
     state.opponentLastMove = null;
@@ -1547,7 +1640,8 @@
       const entry = state.game.history[i];
       if (entry.piece && E.colorOf(entry.piece) !== state.playerColor) { state.opponentLastMove = entry.move; break; }
     }
-    state.selected = null; state.legal = []; state.messageOverride = null; render();
+    if (state.personalMatchMistake) state.personalMatchPending = E.toFEN(state.game).split(" ").slice(0, 4).join(" ") === state.personalMatchMistake.fen.split(" ").slice(0, 4).join(" ");
+    state.selected = null; state.legal = []; state.messageOverride = { kind: "", title: "Zug wiederhergestellt", text: frame.length === 1 ? "Der zurückgenommene Zug wurde erneut ausgeführt." : "Dein Zug und die gespeicherte Computerantwort wurden erneut ausgeführt." }; render();
   });
 
   function loadFen() {
@@ -1560,5 +1654,5 @@
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 
-  populateOpeningSelect(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); switchMode("home");
+  populateOpeningSelect(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); switchMode("home"); setBoardView(boardView, false);
 })();
