@@ -23,6 +23,8 @@
   };
   let analysisWorker = null, analysisJobId = 0;
   const analysisJobs = new Map();
+  let moveAudioContext = null, soundEnabled = true;
+  try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
 
   const trainingData = window.CHESS_TRAINING_DATA;
   const puzzles = trainingData.tactics;
@@ -54,6 +56,42 @@
 
   function $(selector) { return document.querySelector(selector); }
   function all(selector) { return [...document.querySelectorAll(selector)]; }
+  function ensureMoveAudio() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!moveAudioContext) moveAudioContext = new AudioContextClass();
+    if (moveAudioContext.state === "suspended") moveAudioContext.resume().catch(() => {});
+    return moveAudioContext;
+  }
+  function playMoveSound(before, move) {
+    if (!soundEnabled || !before || !move) return;
+    const [fr, fc] = E.coords(move.from), [tr, tc] = E.coords(move.to);
+    const captured = Boolean(move.enPassant ? before.board[fr][tc] : before.board[tr][tc]);
+    const context = ensureMoveAudio();
+    if (!context) return;
+    const play = () => {
+      const now = context.currentTime, impact = context.createOscillator(), impactGain = context.createGain();
+      impact.type = "triangle";
+      impact.frequency.setValueAtTime(captured ? 118 : 154, now);
+      impact.frequency.exponentialRampToValueAtTime(captured ? 62 : 82, now + .075);
+      impactGain.gain.setValueAtTime(.0001, now);
+      impactGain.gain.exponentialRampToValueAtTime(captured ? .115 : .082, now + .004);
+      impactGain.gain.exponentialRampToValueAtTime(.0001, now + .095);
+      impact.connect(impactGain).connect(context.destination); impact.start(now); impact.stop(now + .1);
+      const length = Math.ceil(context.sampleRate * .035), buffer = context.createBuffer(1, length, context.sampleRate), samples = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) samples[i] = (Math.random() * 2 - 1) * (1 - i / length);
+      const noise = context.createBufferSource(), filter = context.createBiquadFilter(), noiseGain = context.createGain();
+      noise.buffer = buffer; filter.type = "lowpass"; filter.frequency.value = captured ? 1050 : 1450; noiseGain.gain.value = captured ? .055 : .038;
+      noise.connect(filter).connect(noiseGain).connect(context.destination); noise.start(now); noise.stop(now + .04);
+    };
+    if (context.state === "suspended") context.resume().then(play).catch(() => {}); else play();
+  }
+  function updateSoundToggle() {
+    const button = $("#toggleSound");
+    button.textContent = soundEnabled ? "🔊" : "🔇";
+    button.title = soundEnabled ? "Zuggeräusche ausschalten" : "Zuggeräusche einschalten";
+    button.setAttribute("aria-label", button.title); button.setAttribute("aria-pressed", String(soundEnabled));
+  }
   function analyzeInBackground(position, options) {
     const fen = E.toFEN(position);
     if (typeof Worker !== "undefined" && !analysisWorker) {
@@ -191,11 +229,12 @@
   }
   function lessonAdvance(assistance = false) {
     if (!isLessonMode()) return;
+    const before = state.lesson.game;
     const result = T.advanceLesson(state.lesson, assistance);
     if (result.needsHelp) {
       state.messageOverride = { kind: "", title: "Dein Zug wird nicht übersprungen", text: "Ziehe selbst. Mit „Hinweis und Pfeil“ kannst du ausdrücklich Unterstützung anfordern." }; render(); return;
     }
-    if (result.correct) { state.messageOverride = null; state.lessonHint = false; syncLesson(); finishLesson(result); render(); scheduleLesson(); }
+    if (result.correct) { playMoveSound(before, result.move); state.messageOverride = null; state.lessonHint = false; syncLesson(); finishLesson(result); render(); scheduleLesson(); }
   }
   function lessonHelp() {
     if (!isLessonMode()) return;
@@ -468,6 +507,7 @@
     let personalFeedback = null;
     clearMatchHint(); state.markedSquares.clear();
     if (isLessonMode()) {
+      const before = state.lesson.game;
       const result = T.submitLessonMove(state.lesson, move);
       state.selected = null; state.legal = [];
       if (!result.correct) {
@@ -491,6 +531,7 @@
         }
         render(); return;
       }
+      playMoveSound(before, result.move);
       state.messageOverride = null; state.lessonHint = false;
       syncLesson(); finishLesson(result); render(); scheduleLesson(); return;
     }
@@ -508,6 +549,7 @@
       }
       const before = state.game;
       state.game = E.applyMove(before, move); state.lastMove = move; state.moves = [{ color: before.turn, san: E.notation(before, move) }];
+      playMoveSound(before, move);
       const assisted = state.mistakeHintStage > 0 || state.mistakeHadError;
       state.mistakeSolved = true; recordGameMistakeAttempt(true, assisted);
       state.messageOverride = { kind: "success", title: assisted ? "Mit Hinweis gelöst" : "Fehler selbstständig korrigiert", text: `Richtig: ${E.notation(before, move)}. ${state.activeMistake.explanation}${assisted ? " Löse die Stellung später ohne Hinweis, damit sie als beherrscht gilt." : ""}` };
@@ -561,14 +603,14 @@
           updateLearningRating("endgame", 0, state.endgameId === "pawn-opposition" ? 900 : 800);
           animateBoard("wrong-shake"); render(); return;
         }
-        if (review.complete) { updateLearningRating("endgame", 1, state.endgameId === "pawn-opposition" ? 900 : 800); animateBoard("correct-flash"); render(); return; }
-        render(); requestEndgameDefense(); return;
+        if (review.complete) { playMoveSound(before, move); updateLearningRating("endgame", 1, state.endgameId === "pawn-opposition" ? 900 : 800); animateBoard("correct-flash"); render(); return; }
+        playMoveSound(before, move); render(); requestEndgameDefense(); return;
       }
-      render();
+      playMoveSound(before, move); render();
       return;
     }
 
-    render();
+    playMoveSound(before, move); render();
     if (state.mode === "match" && !E.gameStatus(state.game).over && state.game.turn !== state.playerColor) requestAiMove();
   }
 
@@ -1416,6 +1458,13 @@
   }));
   $("#view2d").addEventListener("click", () => setBoardView("2d"));
   $("#view3d").addEventListener("click", () => setBoardView("3d"));
+  $("#toggleSound").addEventListener("click", () => {
+    soundEnabled = !soundEnabled;
+    try { localStorage.setItem("schachwerkstatt-move-sound", soundEnabled ? "on" : "off"); } catch { /* Umschalten funktioniert auch ohne Speicher. */ }
+    updateSoundToggle();
+    if (soundEnabled) ensureMoveAudio();
+  });
+  document.addEventListener("pointerdown", () => { if (soundEnabled) ensureMoveAudio(); }, { once: true, capture: true });
   $("#rotate3d").addEventListener("click", () => board3d?.rotate());
   $("#fullscreen3d").addEventListener("click", async () => {
     const wrap = document.querySelector(".board-wrap");
@@ -1643,13 +1692,16 @@
     const frame = state.redoFrames.pop();
     if (!frame?.length) return;
     clearMatchHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
+    let soundBefore = null, soundMove = null;
     for (const item of frame) {
       const move = E.legalMoves(state.game).find((candidate) => candidate.from === item.move.from && candidate.to === item.move.to && (candidate.promotion || "") === (item.move.promotion || ""));
       if (!move) { state.redoFrames = []; break; }
       const before = state.game, san = E.notation(before, move);
       state.game = E.applyMove(before, move);
+      soundBefore = before; soundMove = move;
       state.moves.push(item.moveData || { color: before.turn, san });
     }
+    playMoveSound(soundBefore, soundMove);
     state.lastMove = state.game.history.at(-1)?.move || null;
     state.opponentLastMove = null;
     for (let i = state.game.history.length - 1; i >= 0; i--) {
@@ -1670,5 +1722,5 @@
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 
-  populateOpeningSelect(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); switchMode("home"); setBoardView(boardView, false);
+  populateOpeningSelect(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
 })();

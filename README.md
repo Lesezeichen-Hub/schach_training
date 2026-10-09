@@ -43,6 +43,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Hintergrundanalyse per Web Worker mit stärkerer Suchtiefe und Rückfallmodus für lokale Dateien
 - Gestufte Hinweise von der strategischen Idee bis zum konkreten Zug
 - Drag-and-drop, vollständige Tastatursteuerung und eigene Brettmarkierungen
+- Dezente lokal erzeugte Zug- und Schlaggeräusche mit dauerhaft gespeichertem Ein-/Ausschalter
 - Optionales echtes WebGL-3D-Brett mit lokal erzeugten, detaillierten Staunton-Figuren, Materialglanz, freier Orbit-Perspektive sowie Maus- und Touch-Drag-and-drop; 2D bleibt jederzeit als barriereärmerer Rückfall verfügbar
 - Vor/Zurück-Navigation in laufenden Partien und auf dem Analysebrett; nach einem neuen Alternativzug verfällt der Vor-Stapel
 - Freie Farbwahl: mit Weiß, Schwarz oder bei jeder neuen Partie zufällig spielen
