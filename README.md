@@ -53,7 +53,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Responsive Bedienung für Desktop und Mobilgeräte
 - Lokaler Lernfortschritt im Browser
 
-Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gewechselt werden. `?view=3d` erzwingt die 3D-Ansicht für einen direkten Aufruf. Ist WebGL 2 nicht verfügbar, bleibt der Schalter deaktiviert und die vollständige 2D-Bedienung aktiv.
+Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gewechselt werden. In 3D lässt sich der Blickwinkel schrittweise drehen und das Brett bildschirmfüllend anzeigen; Escape beendet das Vollbild. `?view=3d` erzwingt die 3D-Ansicht für einen direkten Aufruf. Ist WebGL 2 nicht verfügbar, bleibt der Schalter deaktiviert und die vollständige 2D-Bedienung aktiv.
 
 ## Lernphasen und Szenarien
 

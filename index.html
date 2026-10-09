@@ -37,6 +37,10 @@
             <button type="button" id="view2d" class="active" aria-pressed="true">2D</button>
             <button type="button" id="view3d" aria-pressed="false">3D</button>
           </div>
+          <div class="board-3d-controls" id="board3dControls" aria-label="3D-Brett steuern" hidden>
+            <button type="button" id="rotate3d" title="Brett um 90 Grad drehen" aria-label="Brett um 90 Grad drehen">&#8635; Drehen</button>
+            <button type="button" id="fullscreen3d" title="3D-Brett im Vollbild anzeigen" aria-label="3D-Brett im Vollbild anzeigen">&#x26F6; Vollbild</button>
+          </div>
           <div class="board-stage">
             <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
             <canvas id="board3d" class="board-3d" aria-label="Interaktives 3D-Schachbrett" tabindex="0" hidden></canvas>

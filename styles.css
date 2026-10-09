@@ -56,9 +56,17 @@ button:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3p
 .board-view-toggle { position: absolute; z-index: 9; top: 12px; right: 12px; display: flex; overflow: hidden; border: 1px solid rgba(231,182,93,.55); border-radius: 999px; background: rgba(12,16,13,.82); backdrop-filter: blur(5px); }
 .board-view-toggle button { min-width: 38px; padding: 5px 8px; border: 0; background: transparent; color: #c8d0ca; font-size: .62rem; font-weight: 800; cursor: pointer; }
 .board-view-toggle button.active { background: var(--gold); color: #241a0d; }
+.board-3d-controls { position: absolute; z-index: 9; left: 12px; bottom: 12px; display: flex; gap: 6px; }
+.board-3d-controls[hidden] { display: none; }
+.board-3d-controls button { padding: 7px 10px; border: 1px solid rgba(231,182,93,.55); border-radius: 999px; background: rgba(12,16,13,.86); color: #e8ece9; backdrop-filter: blur(5px); font-size: .68rem; font-weight: 800; cursor: pointer; }
+.board-3d-controls button:hover, .board-3d-controls button:focus-visible { border-color: var(--gold); color: var(--gold); }
 .board-stage { position: relative; width: 100%; aspect-ratio: 1; }
 .board-3d { position: absolute; inset: 0; width: 100%; height: 100%; background: #171714; cursor: grab; touch-action: none; }
 .board-3d.dragging { cursor: grabbing; }
+.board-wrap:fullscreen { width: 100vw; height: 100vh; padding: 0; border: 0; display: grid; place-items: center; background: #11130f; }
+.board-wrap:fullscreen .board-stage { width: min(100vw, 100vh); height: min(100vw, 100vh); }
+.board-wrap:fullscreen .board-view-toggle { top: 18px; right: 18px; }
+.board-wrap:fullscreen .board-3d-controls { left: 18px; bottom: 18px; }
 .lesson-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible; }
 .lesson-arrows text { font: bold .17px ui-sans-serif, system-ui; paint-order: stroke; stroke: #101411; stroke-width: .045; fill: white; }
 .lesson-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
@@ -304,6 +312,8 @@ dialog h2 { font-family: Georgia, serif; margin: 0; } dialog p { color: var(--mu
   .streak small { display: none; }
   .workspace { width: calc(100% - 12px); }
   .board-wrap { padding: 4px; }
+  .board-3d-controls { left: 8px; bottom: 8px; }
+  .board-3d-controls button { padding: 6px 8px; font-size: .62rem; }
   .square { font-size: 10.5vw; }
   .coach-panel { padding-left: 5px; padding-right: 5px; }
 }

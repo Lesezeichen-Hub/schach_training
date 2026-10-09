@@ -289,7 +289,9 @@
     $("#view2d").classList.toggle("active", boardView === "2d"); $("#view2d").setAttribute("aria-pressed", String(boardView === "2d"));
     $("#view3d").classList.toggle("active", boardView === "3d"); $("#view3d").setAttribute("aria-pressed", String(boardView === "3d"));
     $("#view3d").disabled = !board3d;
-    $("#boardHelp").textContent = boardView === "3d" ? "3D: Figur anklicken oder direkt auf ein Zielfeld ziehen · Hinweise und legale Felder bleiben markiert · 2D bietet zusätzlich Tastatur und eigene Markierungen" : "Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen";
+    $("#board3dControls").hidden = boardView !== "3d";
+    if (boardView !== "3d" && document.fullscreenElement === document.querySelector(".board-wrap")) document.exitFullscreen().catch(() => {});
+    $("#boardHelp").textContent = boardView === "3d" ? "3D: Figuren ziehen · Drehen wechselt den Blickwinkel · Vollbild schafft mehr Platz · Esc beendet Vollbild" : "Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen";
     if (persist) try { localStorage.setItem("schachwerkstatt-board-view", boardView); } catch { /* Ansicht funktioniert auch ohne Speicher. */ }
     renderBoard(); renderLesson();
   }
@@ -1414,6 +1416,20 @@
   }));
   $("#view2d").addEventListener("click", () => setBoardView("2d"));
   $("#view3d").addEventListener("click", () => setBoardView("3d"));
+  $("#rotate3d").addEventListener("click", () => board3d?.rotate());
+  $("#fullscreen3d").addEventListener("click", async () => {
+    const wrap = document.querySelector(".board-wrap");
+    try {
+      if (document.fullscreenElement === wrap) await document.exitFullscreen();
+      else await wrap.requestFullscreen();
+    } catch { /* Der Browser kann Vollbild ablehnen; die normale Ansicht bleibt nutzbar. */ }
+  });
+  document.addEventListener("fullscreenchange", () => {
+    const fullscreen = document.fullscreenElement === document.querySelector(".board-wrap");
+    $("#fullscreen3d").textContent = fullscreen ? "\u26F6 Verkleinern" : "\u26F6 Vollbild";
+    $("#fullscreen3d").setAttribute("aria-label", fullscreen ? "Vollbild beenden" : "3D-Brett im Vollbild anzeigen");
+    board3d?.render();
+  });
   all("[data-learning-mode]").forEach((button) => button.addEventListener("click", () => switchMode(button.dataset.learningMode)));
   $("#learningBack").addEventListener("click", () => state.mixed.active ? finishMixedTraining(true) : switchMode("learn"));
   $("#continueLearning").addEventListener("click", (event) => switchMode(event.currentTarget.dataset.target || "tactics"));
