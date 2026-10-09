@@ -291,7 +291,7 @@
     $("#view3d").disabled = !board3d;
     $("#board3dControls").hidden = boardView !== "3d";
     if (boardView !== "3d" && document.fullscreenElement === document.querySelector(".board-wrap")) document.exitFullscreen().catch(() => {});
-    $("#boardHelp").textContent = boardView === "3d" ? "3D: Figuren ziehen · Drehen wechselt den Blickwinkel · Vollbild schafft mehr Platz · Esc beendet Vollbild" : "Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen";
+    $("#boardHelp").textContent = boardView === "3d" ? "3D: Freie Stelle ziehen = frei drehen · Rechte Maustaste dreht überall · Figur ziehen = Zug · Vollbild schafft mehr Platz" : "Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen";
     if (persist) try { localStorage.setItem("schachwerkstatt-board-view", boardView); } catch { /* Ansicht funktioniert auch ohne Speicher. */ }
     renderBoard(); renderLesson();
   }
