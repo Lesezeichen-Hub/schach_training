@@ -67,6 +67,25 @@ for (const record of data.tactics) {
 		}
 	}
 }
+for (const record of data.practicalTactics || []) {
+	const main = {
+		id: 'main',
+		title: record.category === 'mate1' ? 'Matt in 1' : record.category === 'mate2' ? 'Matt in 2' : 'Material gewinnen',
+		purpose: record.prompt,
+		learnerSide: record.side || 'w',
+		startPly: 0,
+		line: record.line,
+		outcome: record.outcome
+	};
+	record.lesson = {
+		revision: content.revision,
+		goal: record.prompt,
+		intro: record.intro,
+		scenarios: [annotate(record, main, record.notes || [])]
+	};
+}
+data.tactics.push(...(data.practicalTactics || []));
+delete data.practicalTactics;
 for (const record of data.openings) {
 	const branches = content.openingBranches[record.id];
 	const main = { id: 'main', title: 'Hauptlinie', purpose: record.ideas.join(' · '), learnerSide: record.side, startPly: 0, line: record.line, outcome: `${record.name}: Der Repertoireausschnitt ist abgeschlossen. Weiterer Plan: ${record.ideas.join(' · ')}. Kein forcierter Gewinn wird behauptet.` };

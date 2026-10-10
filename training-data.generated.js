@@ -7151,6 +7151,1194 @@ window.CHESS_TRAINING_DATA = {
           }
         ]
       }
+    },
+    {
+      "id": "mate1-01",
+      "category": "mate1",
+      "title": "Damenmatt auf g7",
+      "fen": "7k/8/5KQ1/8/8/8/8/8 w - - 0 1",
+      "side": "w",
+      "rating": 500,
+      "line": [
+        "g6g7"
+      ],
+      "prompt": "Setze Schwarz in einem Zug matt.",
+      "hint": "Die Dame braucht Schutz, wenn sie direkt neben den König zieht.",
+      "intro": "Matt in 1: Prüfe zuerst alle Schachgebote und kontrolliere danach Fluchtfelder, Schlagen und Dazwischenziehen.",
+      "notes": [
+        "Dg7# gibt Schach auf der achten Reihe. Der weiße König f6 schützt die Dame und nimmt dem schwarzen König die Fluchtfelder."
+      ],
+      "outcome": "Schachmatt in einem Zug: Der König kann weder fliehen noch die gedeckte Dame schlagen.",
+      "anchors": {
+        "pieces": [
+          "g6"
+        ],
+        "targets": [
+          "g7",
+          "h8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Setze Schwarz in einem Zug matt.",
+        "intro": "Matt in 1: Prüfe zuerst alle Schachgebote und kontrolliere danach Fluchtfelder, Schlagen und Dazwischenziehen.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 1",
+            "purpose": "Setze Schwarz in einem Zug matt.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "g6g7"
+            ],
+            "outcome": "Schachmatt in einem Zug: Der König kann weder fliehen noch die gedeckte Dame schlagen.",
+            "steps": [
+              {
+                "move": "g6g7",
+                "side": "w",
+                "piece": "Dame",
+                "before": "Weiß: Dame g6 → g7 (Qg7#). Dg7# gibt Schach auf der achten Reihe. Der weiße König f6 schützt die Dame und nimmt dem schwarzen König die Fluchtfelder.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Schachmatt in einem Zug: Der König kann weder fliehen noch die gedeckte Dame schlagen.",
+                "hint": "Dg7# gibt Schach auf der achten Reihe. Der weiße König f6 schützt die Dame und nimmt dem schwarzen König die Fluchtfelder.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "g6",
+                      "to": "g7",
+                      "kind": "move",
+                      "label": "Matt in 1: Qg7#"
+                    }
+                  ],
+                  "squares": [
+                    "g6",
+                    "g7"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "g6f7",
+                    "reply": [],
+                    "text": "g6 → f7 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Dg7# gibt Schach auf der achten Reihe. Der weiße König f6 schützt die Dame und nimmt dem schwarzen König die Fluchtfelder."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate1-02",
+      "category": "mate1",
+      "title": "Turmmatt auf der achten Reihe",
+      "fen": "6k1/6B1/6K1/8/8/8/8/7R w - - 0 1",
+      "side": "w",
+      "rating": 550,
+      "line": [
+        "h1h8"
+      ],
+      "prompt": "Setze mit dem Turm in einem Zug matt.",
+      "hint": "Der Läufer muss den Turm auf dem Mattfeld schützen.",
+      "intro": "Matt in 1: Ein Turm sperrt eine ganze Reihe; die übrigen Figuren decken ihn und nehmen die Fluchtfelder.",
+      "notes": [
+        "Th8# sperrt die achte Reihe. Lg7 schützt den Turm auf h8 und Kg6 kontrolliert f7, g7 und h7."
+      ],
+      "outcome": "Schachmatt: Turm, Läufer und König bilden gemeinsam das Mattnetz.",
+      "anchors": {
+        "pieces": [
+          "h1",
+          "g7",
+          "g6"
+        ],
+        "targets": [
+          "h8",
+          "g8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Setze mit dem Turm in einem Zug matt.",
+        "intro": "Matt in 1: Ein Turm sperrt eine ganze Reihe; die übrigen Figuren decken ihn und nehmen die Fluchtfelder.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 1",
+            "purpose": "Setze mit dem Turm in einem Zug matt.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "h1h8"
+            ],
+            "outcome": "Schachmatt: Turm, Läufer und König bilden gemeinsam das Mattnetz.",
+            "steps": [
+              {
+                "move": "h1h8",
+                "side": "w",
+                "piece": "Turm",
+                "before": "Weiß: Turm h1 → h8 (Rh8#). Th8# sperrt die achte Reihe. Lg7 schützt den Turm auf h8 und Kg6 kontrolliert f7, g7 und h7.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Schachmatt: Turm, Läufer und König bilden gemeinsam das Mattnetz.",
+                "hint": "Th8# sperrt die achte Reihe. Lg7 schützt den Turm auf h8 und Kg6 kontrolliert f7, g7 und h7.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "h1",
+                      "to": "h8",
+                      "kind": "move",
+                      "label": "Matt in 1: Rh8#"
+                    }
+                  ],
+                  "squares": [
+                    "h1",
+                    "h8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "h1h2",
+                    "reply": [],
+                    "text": "h1 → h2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Th8# sperrt die achte Reihe. Lg7 schützt den Turm auf h8 und Kg6 kontrolliert f7, g7 und h7."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate1-03",
+      "category": "mate1",
+      "title": "Damenmatt am Brettrand",
+      "fen": "k7/8/2K5/1Q6/8/8/8/8 w - - 0 1",
+      "side": "w",
+      "rating": 600,
+      "line": [
+        "b5b7"
+      ],
+      "prompt": "Finde das Matt in einem Zug.",
+      "hint": "Kontrolliere mit der Dame gleichzeitig a7 und b8.",
+      "intro": "Matt in 1: Am Brettrand besitzt der König weniger Fluchtfelder. Dame und König können sie gemeinsam vollständig abdecken.",
+      "notes": [
+        "Db7# gibt Schach auf der siebten Reihe, kontrolliert a7 und b8 und ist durch Kc6 gedeckt."
+      ],
+      "outcome": "Schachmatt: Der schwarze König ist am Rand vollständig eingeschlossen.",
+      "anchors": {
+        "pieces": [
+          "b5",
+          "c6"
+        ],
+        "targets": [
+          "b7",
+          "a8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Finde das Matt in einem Zug.",
+        "intro": "Matt in 1: Am Brettrand besitzt der König weniger Fluchtfelder. Dame und König können sie gemeinsam vollständig abdecken.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 1",
+            "purpose": "Finde das Matt in einem Zug.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "b5b7"
+            ],
+            "outcome": "Schachmatt: Der schwarze König ist am Rand vollständig eingeschlossen.",
+            "steps": [
+              {
+                "move": "b5b7",
+                "side": "w",
+                "piece": "Dame",
+                "before": "Weiß: Dame b5 → b7 (Qb7#). Db7# gibt Schach auf der siebten Reihe, kontrolliert a7 und b8 und ist durch Kc6 gedeckt.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Schachmatt: Der schwarze König ist am Rand vollständig eingeschlossen.",
+                "hint": "Db7# gibt Schach auf der siebten Reihe, kontrolliert a7 und b8 und ist durch Kc6 gedeckt.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "b5",
+                      "to": "b7",
+                      "kind": "move",
+                      "label": "Matt in 1: Qb7#"
+                    }
+                  ],
+                  "squares": [
+                    "b5",
+                    "b7"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "b5a6",
+                    "reply": [],
+                    "text": "b5 → a6 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Db7# gibt Schach auf der siebten Reihe, kontrolliert a7 und b8 und ist durch Kc6 gedeckt."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate1-04",
+      "category": "mate1",
+      "title": "Matt mit Schwarz",
+      "fen": "8/8/8/8/8/5kq1/8/7K b - - 0 1",
+      "side": "b",
+      "rating": 600,
+      "line": [
+        "g3g2"
+      ],
+      "prompt": "Schwarz zieht und setzt in einem Zug matt.",
+      "hint": "Die Dame kann auf die zweite Reihe ziehen und wird dort vom König geschützt.",
+      "intro": "Matt in 1 mit Schwarz: Drehe die Blickrichtung um, aber prüfe dieselben drei Fragen – Flucht, Schlagen, Blocken.",
+      "notes": [
+        "Dg2# greift den König h1 direkt an. Kf3 deckt g2; g1 und h2 werden von der Dame kontrolliert."
+      ],
+      "outcome": "Schachmatt mit Schwarz: Alle weißen Antworten sind ausgeschlossen.",
+      "anchors": {
+        "pieces": [
+          "g3",
+          "f3"
+        ],
+        "targets": [
+          "g2",
+          "h1"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Schwarz zieht und setzt in einem Zug matt.",
+        "intro": "Matt in 1 mit Schwarz: Drehe die Blickrichtung um, aber prüfe dieselben drei Fragen – Flucht, Schlagen, Blocken.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 1",
+            "purpose": "Schwarz zieht und setzt in einem Zug matt.",
+            "learnerSide": "b",
+            "startPly": 0,
+            "line": [
+              "g3g2"
+            ],
+            "outcome": "Schachmatt mit Schwarz: Alle weißen Antworten sind ausgeschlossen.",
+            "steps": [
+              {
+                "move": "g3g2",
+                "side": "b",
+                "piece": "Dame",
+                "before": "Schwarz: Dame g3 → g2 (Qg2#). Dg2# greift den König h1 direkt an. Kf3 deckt g2; g1 und h2 werden von der Dame kontrolliert.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Schachmatt mit Schwarz: Alle weißen Antworten sind ausgeschlossen.",
+                "hint": "Dg2# greift den König h1 direkt an. Kf3 deckt g2; g1 und h2 werden von der Dame kontrolliert.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "g3",
+                      "to": "g2",
+                      "kind": "move",
+                      "label": "Matt in 1: Qg2#"
+                    }
+                  ],
+                  "squares": [
+                    "g3",
+                    "g2"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "g3f4",
+                    "reply": [],
+                    "text": "g3 → f4 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Dg2# greift den König h1 direkt an. Kf3 deckt g2; g1 und h2 werden von der Dame kontrolliert."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate2-01",
+      "category": "mate2",
+      "title": "König heranführen",
+      "fen": "2k5/7Q/8/1K6/8/8/8/8 w - - 0 1",
+      "side": "w",
+      "rating": 750,
+      "line": [
+        "b5c6",
+        "c8b8",
+        "h7b7"
+      ],
+      "prompt": "Setze in zwei Zügen matt. Finde zuerst den stillen Schlüsselzug.",
+      "hint": "Nicht jedes Matt beginnt mit Schach: Nimm dem König zuerst weitere Felder.",
+      "intro": "Matt in 2: Berechne deinen Schlüsselzug, eine mögliche Antwort und erst dann den Mattzug.",
+      "notes": [
+        "Kc6! verkleinert das Fluchtgebiet und droht ein Damenmatt.",
+        "Schwarz wählt Kb8; auch die andere Königswahl entkommt dem Mattnetz nicht.",
+        "Db7# schließt die letzte Reihe und alle Nachbarfelder."
+      ],
+      "outcome": "Matt in zwei Zügen: Der ruhige Königszug bereitete das entscheidende Damenmatt vor.",
+      "anchors": {
+        "pieces": [
+          "b5",
+          "h7"
+        ],
+        "targets": [
+          "c6",
+          "b7",
+          "c8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Setze in zwei Zügen matt. Finde zuerst den stillen Schlüsselzug.",
+        "intro": "Matt in 2: Berechne deinen Schlüsselzug, eine mögliche Antwort und erst dann den Mattzug.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 2",
+            "purpose": "Setze in zwei Zügen matt. Finde zuerst den stillen Schlüsselzug.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "b5c6",
+              "c8b8",
+              "h7b7"
+            ],
+            "outcome": "Matt in zwei Zügen: Der ruhige Königszug bereitete das entscheidende Damenmatt vor.",
+            "steps": [
+              {
+                "move": "b5c6",
+                "side": "w",
+                "piece": "König",
+                "before": "Weiß: König b5 → c6 (Kc6). Kc6! verkleinert das Fluchtgebiet und droht ein Damenmatt.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Kb8 (c8 → b8).",
+                "hint": "Kc6! verkleinert das Fluchtgebiet und droht ein Damenmatt.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "b5",
+                      "to": "c6",
+                      "kind": "move",
+                      "label": "Matt in 2: Kc6"
+                    }
+                  ],
+                  "squares": [
+                    "b5",
+                    "c6"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "b5a6",
+                    "reply": [],
+                    "text": "b5 → a6 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Kc6! verkleinert das Fluchtgebiet und droht ein Damenmatt."
+                  }
+                ]
+              },
+              {
+                "move": "c8b8",
+                "side": "b",
+                "piece": "König",
+                "before": "Schwarz: König c8 → b8 (Kb8). Schwarz wählt Kb8; auch die andere Königswahl entkommt dem Mattnetz nicht.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Qb7# (h7 → b7).",
+                "hint": "Schwarz wählt Kb8; auch die andere Königswahl entkommt dem Mattnetz nicht.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "c8",
+                      "to": "b8",
+                      "kind": "move",
+                      "label": "Matt in 2: Kb8"
+                    }
+                  ],
+                  "squares": [
+                    "c8",
+                    "b8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "c8d8",
+                    "reply": [],
+                    "text": "c8 → d8 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Schwarz wählt Kb8; auch die andere Königswahl entkommt dem Mattnetz nicht."
+                  }
+                ]
+              },
+              {
+                "move": "h7b7",
+                "side": "w",
+                "piece": "Dame",
+                "before": "Weiß: Dame h7 → b7 (Qb7#). Db7# schließt die letzte Reihe und alle Nachbarfelder.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Matt in zwei Zügen: Der ruhige Königszug bereitete das entscheidende Damenmatt vor.",
+                "hint": "Db7# schließt die letzte Reihe und alle Nachbarfelder.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "h7",
+                      "to": "b7",
+                      "kind": "move",
+                      "label": "Matt in 2: Qb7#"
+                    }
+                  ],
+                  "squares": [
+                    "h7",
+                    "b7"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "h7g8",
+                    "reply": [],
+                    "text": "h7 → g8 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Db7# schließt die letzte Reihe und alle Nachbarfelder."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate2-02",
+      "category": "mate2",
+      "title": "Turm auf die Mattlinie bringen",
+      "fen": "6k1/8/7K/8/8/8/8/1R6 w - - 0 1",
+      "side": "w",
+      "rating": 700,
+      "line": [
+        "b1f1",
+        "g8h8",
+        "f1f8"
+      ],
+      "prompt": "Setze mit dem Turm in zwei Zügen matt.",
+      "hint": "Bereite ein Matt auf der achten Reihe vor, ohne dem König ein neues Fluchtfeld zu geben.",
+      "intro": "Matt in 2: Der erste Turmzug richtet die Mattlinie ein; der zweite nutzt die Unterstützung des Königs.",
+      "notes": [
+        "Tf1! stellt den Turm für Tf8# bereit und hält den schwarzen König am Rand.",
+        "Kh8 ist die einzige Fortsetzung.",
+        "Tf8# kontrolliert die achte Reihe; Kh6 nimmt g7 und h7."
+      ],
+      "outcome": "Matt in zwei Zügen: Erst die richtige Turmlinie wählen, dann am Rand mattsetzen.",
+      "anchors": {
+        "pieces": [
+          "b1",
+          "h6"
+        ],
+        "targets": [
+          "f1",
+          "f8",
+          "g8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Setze mit dem Turm in zwei Zügen matt.",
+        "intro": "Matt in 2: Der erste Turmzug richtet die Mattlinie ein; der zweite nutzt die Unterstützung des Königs.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 2",
+            "purpose": "Setze mit dem Turm in zwei Zügen matt.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "b1f1",
+              "g8h8",
+              "f1f8"
+            ],
+            "outcome": "Matt in zwei Zügen: Erst die richtige Turmlinie wählen, dann am Rand mattsetzen.",
+            "steps": [
+              {
+                "move": "b1f1",
+                "side": "w",
+                "piece": "Turm",
+                "before": "Weiß: Turm b1 → f1 (Rf1). Tf1! stellt den Turm für Tf8# bereit und hält den schwarzen König am Rand.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Kh8 (g8 → h8).",
+                "hint": "Tf1! stellt den Turm für Tf8# bereit und hält den schwarzen König am Rand.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "b1",
+                      "to": "f1",
+                      "kind": "move",
+                      "label": "Matt in 2: Rf1"
+                    }
+                  ],
+                  "squares": [
+                    "b1",
+                    "f1"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "b1b2",
+                    "reply": [],
+                    "text": "b1 → b2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Tf1! stellt den Turm für Tf8# bereit und hält den schwarzen König am Rand."
+                  }
+                ]
+              },
+              {
+                "move": "g8h8",
+                "side": "b",
+                "piece": "König",
+                "before": "Schwarz: König g8 → h8 (Kh8). Kh8 ist die einzige Fortsetzung.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Rf8# (f1 → f8).",
+                "hint": "Kh8 ist die einzige Fortsetzung.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "g8",
+                      "to": "h8",
+                      "kind": "move",
+                      "label": "Matt in 2: Kh8"
+                    }
+                  ],
+                  "squares": [
+                    "g8",
+                    "h8"
+                  ]
+                }
+              },
+              {
+                "move": "f1f8",
+                "side": "w",
+                "piece": "Turm",
+                "before": "Weiß: Turm f1 → f8 (Rf8#). Tf8# kontrolliert die achte Reihe; Kh6 nimmt g7 und h7.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Matt in zwei Zügen: Erst die richtige Turmlinie wählen, dann am Rand mattsetzen.",
+                "hint": "Tf8# kontrolliert die achte Reihe; Kh6 nimmt g7 und h7.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "f1",
+                      "to": "f8",
+                      "kind": "move",
+                      "label": "Matt in 2: Rf8#"
+                    }
+                  ],
+                  "squares": [
+                    "f1",
+                    "f8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "f1f2",
+                    "reply": [],
+                    "text": "f1 → f2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Tf8# kontrolliert die achte Reihe; Kh6 nimmt g7 und h7."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate2-03",
+      "category": "mate2",
+      "title": "Dame für das Grundreihenmatt",
+      "fen": "3k4/8/8/2K5/8/8/8/4Q3 w - - 0 1",
+      "side": "w",
+      "rating": 800,
+      "line": [
+        "c5c6",
+        "d8c8",
+        "e1e8"
+      ],
+      "prompt": "Setze in zwei Zügen matt und finde den ruhigen Königszug.",
+      "hint": "Der König muss die Fluchtfelder auf der siebten Reihe übernehmen.",
+      "intro": "Matt in 2: Der eigene König ist oft eine Angriffsfigur. Er deckt die Felder, die Dame oder Turm allein offenlassen würden.",
+      "notes": [
+        "Kc6! kontrolliert b7, c7 und d7 und bereitet De8# vor.",
+        "Kc8 ist die einzige Antwort auf die entstehende Einschnürung.",
+        "De8# gibt Schach entlang der achten Reihe; alle Fluchtfelder sind gedeckt."
+      ],
+      "outcome": "Matt in zwei Zügen: Der König schloss zuerst das Netz, die Dame vollendete es.",
+      "anchors": {
+        "pieces": [
+          "c5",
+          "e1"
+        ],
+        "targets": [
+          "c6",
+          "e8",
+          "d8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Setze in zwei Zügen matt und finde den ruhigen Königszug.",
+        "intro": "Matt in 2: Der eigene König ist oft eine Angriffsfigur. Er deckt die Felder, die Dame oder Turm allein offenlassen würden.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 2",
+            "purpose": "Setze in zwei Zügen matt und finde den ruhigen Königszug.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "c5c6",
+              "d8c8",
+              "e1e8"
+            ],
+            "outcome": "Matt in zwei Zügen: Der König schloss zuerst das Netz, die Dame vollendete es.",
+            "steps": [
+              {
+                "move": "c5c6",
+                "side": "w",
+                "piece": "König",
+                "before": "Weiß: König c5 → c6 (Kc6). Kc6! kontrolliert b7, c7 und d7 und bereitet De8# vor.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Kc8 (d8 → c8).",
+                "hint": "Kc6! kontrolliert b7, c7 und d7 und bereitet De8# vor.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "c5",
+                      "to": "c6",
+                      "kind": "move",
+                      "label": "Matt in 2: Kc6"
+                    }
+                  ],
+                  "squares": [
+                    "c5",
+                    "c6"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "c5b6",
+                    "reply": [],
+                    "text": "c5 → b6 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Kc6! kontrolliert b7, c7 und d7 und bereitet De8# vor."
+                  }
+                ]
+              },
+              {
+                "move": "d8c8",
+                "side": "b",
+                "piece": "König",
+                "before": "Schwarz: König d8 → c8 (Kc8). Kc8 ist die einzige Antwort auf die entstehende Einschnürung.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Qe8# (e1 → e8).",
+                "hint": "Kc8 ist die einzige Antwort auf die entstehende Einschnürung.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "d8",
+                      "to": "c8",
+                      "kind": "move",
+                      "label": "Matt in 2: Kc8"
+                    }
+                  ],
+                  "squares": [
+                    "d8",
+                    "c8"
+                  ]
+                }
+              },
+              {
+                "move": "e1e8",
+                "side": "w",
+                "piece": "Dame",
+                "before": "Weiß: Dame e1 → e8 (Qe8#). De8# gibt Schach entlang der achten Reihe; alle Fluchtfelder sind gedeckt.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Matt in zwei Zügen: Der König schloss zuerst das Netz, die Dame vollendete es.",
+                "hint": "De8# gibt Schach entlang der achten Reihe; alle Fluchtfelder sind gedeckt.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "e1",
+                      "to": "e8",
+                      "kind": "move",
+                      "label": "Matt in 2: Qe8#"
+                    }
+                  ],
+                  "squares": [
+                    "e1",
+                    "e8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "e1d2",
+                    "reply": [],
+                    "text": "e1 → d2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: De8# gibt Schach entlang der achten Reihe; alle Fluchtfelder sind gedeckt."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate2-04",
+      "category": "mate2",
+      "title": "Mattfolge mit Schwarz",
+      "fen": "6K1/8/7k/8/8/8/8/1r6 b - - 0 1",
+      "side": "b",
+      "rating": 750,
+      "line": [
+        "b1f1",
+        "g8h8",
+        "f1f8"
+      ],
+      "prompt": "Schwarz zieht und setzt in zwei Zügen matt.",
+      "hint": "Bringe den Turm in die Nähe der achten Reihe.",
+      "intro": "Matt in 2 mit Schwarz: Berechne beide eigenen Züge und die einzige weiße Antwort vollständig.",
+      "notes": [
+        "Tf1! bereitet Tf8# vor; der schwarze König h6 deckt die Fluchtfelder.",
+        "Kh8 ist die einzige weiße Fortsetzung.",
+        "Tf8# beendet die Partie auf der Grundreihe."
+      ],
+      "outcome": "Schachmatt in zwei Zügen – diesmal aus schwarzer Perspektive.",
+      "anchors": {
+        "pieces": [
+          "b1",
+          "h6"
+        ],
+        "targets": [
+          "f1",
+          "f8",
+          "g8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Schwarz zieht und setzt in zwei Zügen matt.",
+        "intro": "Matt in 2 mit Schwarz: Berechne beide eigenen Züge und die einzige weiße Antwort vollständig.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 2",
+            "purpose": "Schwarz zieht und setzt in zwei Zügen matt.",
+            "learnerSide": "b",
+            "startPly": 0,
+            "line": [
+              "b1f1",
+              "g8h8",
+              "f1f8"
+            ],
+            "outcome": "Schachmatt in zwei Zügen – diesmal aus schwarzer Perspektive.",
+            "steps": [
+              {
+                "move": "b1f1",
+                "side": "b",
+                "piece": "Turm",
+                "before": "Schwarz: Turm b1 → f1 (Rf1). Tf1! bereitet Tf8# vor; der schwarze König h6 deckt die Fluchtfelder.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Kh8 (g8 → h8).",
+                "hint": "Tf1! bereitet Tf8# vor; der schwarze König h6 deckt die Fluchtfelder.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "b1",
+                      "to": "f1",
+                      "kind": "move",
+                      "label": "Matt in 2: Rf1"
+                    }
+                  ],
+                  "squares": [
+                    "b1",
+                    "f1"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "b1b2",
+                    "reply": [],
+                    "text": "b1 → b2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Tf1! bereitet Tf8# vor; der schwarze König h6 deckt die Fluchtfelder."
+                  }
+                ]
+              },
+              {
+                "move": "g8h8",
+                "side": "w",
+                "piece": "König",
+                "before": "Weiß: König g8 → h8 (Kh8). Kh8 ist die einzige weiße Fortsetzung.",
+                "after": "Kein Schachtempo: Die andere Seite kann ihren Entwicklungs- oder Abwehrplan verfolgen. Kuratierte gegnerische Antwort: Rf8# (f1 → f8).",
+                "hint": "Kh8 ist die einzige weiße Fortsetzung.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "g8",
+                      "to": "h8",
+                      "kind": "move",
+                      "label": "Matt in 2: Kh8"
+                    }
+                  ],
+                  "squares": [
+                    "g8",
+                    "h8"
+                  ]
+                }
+              },
+              {
+                "move": "f1f8",
+                "side": "b",
+                "piece": "Turm",
+                "before": "Schwarz: Turm f1 → f8 (Rf8#). Tf8# beendet die Partie auf der Grundreihe.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Schachmatt in zwei Zügen – diesmal aus schwarzer Perspektive.",
+                "hint": "Tf8# beendet die Partie auf der Grundreihe.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "f1",
+                      "to": "f8",
+                      "kind": "move",
+                      "label": "Matt in 2: Rf8#"
+                    }
+                  ],
+                  "squares": [
+                    "f1",
+                    "f8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "f1f2",
+                    "reply": [],
+                    "text": "f1 → f2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Tf8# beendet die Partie auf der Grundreihe."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-01",
+      "category": "material",
+      "title": "Ungedeckte Dame schlagen",
+      "fen": "q5k1/8/8/8/8/8/8/R5K1 w - - 0 1",
+      "side": "w",
+      "rating": 500,
+      "line": [
+        "a1a8"
+      ],
+      "prompt": "Gewinne die ungedeckte schwarze Dame.",
+      "hint": "Prüfe alle Schlagzüge des Turms auf der offenen a-Linie.",
+      "intro": "Materialgewinn: Suche zuerst ungedeckte Figuren und prüfe vor dem Schlag, ob der Gegner zurückschlagen kann.",
+      "notes": [
+        "Txa8+ gewinnt die Dame auf der offenen Linie. Kein schwarzer Stein kann den Turm sofort zurücknehmen."
+      ],
+      "outcome": "Dame gegen nichts gewonnen: ein klarer Materialgewinn von 900 Punkten.",
+      "anchors": {
+        "pieces": [
+          "a1"
+        ],
+        "targets": [
+          "a8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Gewinne die ungedeckte schwarze Dame.",
+        "intro": "Materialgewinn: Suche zuerst ungedeckte Figuren und prüfe vor dem Schlag, ob der Gegner zurückschlagen kann.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Gewinne die ungedeckte schwarze Dame.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "a1a8"
+            ],
+            "outcome": "Dame gegen nichts gewonnen: ein klarer Materialgewinn von 900 Punkten.",
+            "steps": [
+              {
+                "move": "a1a8",
+                "side": "w",
+                "piece": "Turm",
+                "before": "Weiß: Turm a1 → a8 (Rxa8+). Txa8+ gewinnt die Dame auf der offenen Linie. Kein schwarzer Stein kann den Turm sofort zurücknehmen.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Dame gegen nichts gewonnen: ein klarer Materialgewinn von 900 Punkten.",
+                "hint": "Txa8+ gewinnt die Dame auf der offenen Linie. Kein schwarzer Stein kann den Turm sofort zurücknehmen.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "a1",
+                      "to": "a8",
+                      "kind": "move",
+                      "label": "Material gewinnen: Rxa8+"
+                    }
+                  ],
+                  "squares": [
+                    "a1",
+                    "a8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "a1a2",
+                    "reply": [],
+                    "text": "a1 → a2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Txa8+ gewinnt die Dame auf der offenen Linie. Kein schwarzer Stein kann den Turm sofort zurücknehmen."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-02",
+      "category": "material",
+      "title": "Turm auf der Diagonale",
+      "fen": "k6r/8/8/8/8/2B5/8/6K1 w - - 0 1",
+      "side": "w",
+      "rating": 550,
+      "line": [
+        "c3h8"
+      ],
+      "prompt": "Finde den kostenlosen Turmgewinn.",
+      "hint": "Verfolge die lange Diagonale des Läufers bis zum Brettrand.",
+      "intro": "Materialgewinn: Lange Linien werden leicht übersehen. Zähle auf jedem erreichbaren Zielfeld Angreifer und Verteidiger.",
+      "notes": [
+        "Lxh8 nimmt den ungedeckten Turm. Der schwarze König a8 ist zu weit entfernt für eine Rücknahme."
+      ],
+      "outcome": "Ein Turm fällt ohne Gegenverlust: 500 Materialpunkte gewonnen.",
+      "anchors": {
+        "pieces": [
+          "c3"
+        ],
+        "targets": [
+          "h8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Finde den kostenlosen Turmgewinn.",
+        "intro": "Materialgewinn: Lange Linien werden leicht übersehen. Zähle auf jedem erreichbaren Zielfeld Angreifer und Verteidiger.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Finde den kostenlosen Turmgewinn.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "c3h8"
+            ],
+            "outcome": "Ein Turm fällt ohne Gegenverlust: 500 Materialpunkte gewonnen.",
+            "steps": [
+              {
+                "move": "c3h8",
+                "side": "w",
+                "piece": "Läufer",
+                "before": "Weiß: Läufer c3 → h8 (Bxh8). Lxh8 nimmt den ungedeckten Turm. Der schwarze König a8 ist zu weit entfernt für eine Rücknahme.",
+                "after": "Der Materialtausch ist ausgeführt; prüfe jetzt, ob eine Rücknahme möglich ist. Ende dieses Ausschnitts: Ein Turm fällt ohne Gegenverlust: 500 Materialpunkte gewonnen.",
+                "hint": "Lxh8 nimmt den ungedeckten Turm. Der schwarze König a8 ist zu weit entfernt für eine Rücknahme.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "c3",
+                      "to": "h8",
+                      "kind": "move",
+                      "label": "Material gewinnen: Bxh8"
+                    }
+                  ],
+                  "squares": [
+                    "c3",
+                    "h8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "c3b4",
+                    "reply": [],
+                    "text": "c3 → b4 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Lxh8 nimmt den ungedeckten Turm. Der schwarze König a8 ist zu weit entfernt für eine Rücknahme."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-03",
+      "category": "material",
+      "title": "Springer nimmt die Dame",
+      "fen": "7k/3q4/5N2/8/8/8/8/6K1 w - - 0 1",
+      "side": "w",
+      "rating": 600,
+      "line": [
+        "f6d7"
+      ],
+      "prompt": "Welche wertvolle Figur kann der Springer schlagen?",
+      "hint": "Gehe alle acht möglichen Springersprünge durch.",
+      "intro": "Materialgewinn: Prüfe bei Springern jedes erreichbare Feld; ihre Angriffe verlaufen nicht entlang sichtbarer Linien.",
+      "notes": [
+        "Sxd7 gewinnt die schwarze Dame. Der König h8 kann den Springer auf d7 nicht zurücknehmen."
+      ],
+      "outcome": "Der Springer gewinnt die Dame ohne unmittelbaren Gegenverlust: +900 Materialpunkte.",
+      "anchors": {
+        "pieces": [
+          "f6"
+        ],
+        "targets": [
+          "d7"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Welche wertvolle Figur kann der Springer schlagen?",
+        "intro": "Materialgewinn: Prüfe bei Springern jedes erreichbare Feld; ihre Angriffe verlaufen nicht entlang sichtbarer Linien.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Welche wertvolle Figur kann der Springer schlagen?",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "f6d7"
+            ],
+            "outcome": "Der Springer gewinnt die Dame ohne unmittelbaren Gegenverlust: +900 Materialpunkte.",
+            "steps": [
+              {
+                "move": "f6d7",
+                "side": "w",
+                "piece": "Springer",
+                "before": "Weiß: Springer f6 → d7 (Nxd7). Sxd7 gewinnt die schwarze Dame. Der König h8 kann den Springer auf d7 nicht zurücknehmen.",
+                "after": "Der Materialtausch ist ausgeführt; prüfe jetzt, ob eine Rücknahme möglich ist. Ende dieses Ausschnitts: Der Springer gewinnt die Dame ohne unmittelbaren Gegenverlust: +900 Materialpunkte.",
+                "hint": "Sxd7 gewinnt die schwarze Dame. Der König h8 kann den Springer auf d7 nicht zurücknehmen.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "f6",
+                      "to": "d7",
+                      "kind": "move",
+                      "label": "Material gewinnen: Nxd7"
+                    }
+                  ],
+                  "squares": [
+                    "f6",
+                    "d7"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "f6e8",
+                    "reply": [],
+                    "text": "f6 → e8 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Sxd7 gewinnt die schwarze Dame. Der König h8 kann den Springer auf d7 nicht zurücknehmen."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-04",
+      "category": "material",
+      "title": "Günstiger Abtausch trotz Rücknahme",
+      "fen": "4k3/4q3/8/8/8/8/8/4R1K1 w - - 0 1",
+      "side": "w",
+      "rating": 700,
+      "line": [
+        "e1e7",
+        "e8e7"
+      ],
+      "prompt": "Gewinne Material und rechne die gegnerische Rücknahme vollständig mit.",
+      "hint": "Dame gegen Turm ist auch dann günstig, wenn der Turm danach geschlagen wird.",
+      "intro": "Günstiger Abtausch: Bewerte nicht nur, was du schlägst, sondern auch, welche eigene Figur danach verloren geht.",
+      "notes": [
+        "Txe7+ gewinnt die Dame, stellt den Turm aber bewusst neben den König.",
+        "Kxe7 nimmt den Turm zurück. Dame gegen Turm ergibt trotzdem einen Nettogewinn von 400 Punkten."
+      ],
+      "outcome": "Dame gegen Turm getauscht: Der vollständige Abtausch gewinnt netto 400 Materialpunkte.",
+      "anchors": {
+        "pieces": [
+          "e1"
+        ],
+        "targets": [
+          "e7",
+          "e8"
+        ]
+      },
+      "lesson": {
+        "revision": 1,
+        "goal": "Gewinne Material und rechne die gegnerische Rücknahme vollständig mit.",
+        "intro": "Günstiger Abtausch: Bewerte nicht nur, was du schlägst, sondern auch, welche eigene Figur danach verloren geht.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Gewinne Material und rechne die gegnerische Rücknahme vollständig mit.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "e1e7",
+              "e8e7"
+            ],
+            "outcome": "Dame gegen Turm getauscht: Der vollständige Abtausch gewinnt netto 400 Materialpunkte.",
+            "steps": [
+              {
+                "move": "e1e7",
+                "side": "w",
+                "piece": "Turm",
+                "before": "Weiß: Turm e1 → e7 (Rxe7+). Txe7+ gewinnt die Dame, stellt den Turm aber bewusst neben den König.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Kuratierte gegnerische Antwort: Kxe7 (e8 → e7).",
+                "hint": "Txe7+ gewinnt die Dame, stellt den Turm aber bewusst neben den König.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "e1",
+                      "to": "e7",
+                      "kind": "move",
+                      "label": "Material gewinnen: Rxe7+"
+                    }
+                  ],
+                  "squares": [
+                    "e1",
+                    "e7"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "e1e2",
+                    "reply": [],
+                    "text": "e1 → e2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Txe7+ gewinnt die Dame, stellt den Turm aber bewusst neben den König."
+                  }
+                ]
+              },
+              {
+                "move": "e8e7",
+                "side": "b",
+                "piece": "König",
+                "before": "Schwarz: König e8 → e7 (Kxe7). Kxe7 nimmt den Turm zurück. Dame gegen Turm ergibt trotzdem einen Nettogewinn von 400 Punkten.",
+                "after": "Der Materialtausch ist ausgeführt; prüfe jetzt, ob eine Rücknahme möglich ist. Ende dieses Ausschnitts: Dame gegen Turm getauscht: Der vollständige Abtausch gewinnt netto 400 Materialpunkte.",
+                "hint": "Kxe7 nimmt den Turm zurück. Dame gegen Turm ergibt trotzdem einen Nettogewinn von 400 Punkten.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "e8",
+                      "to": "e7",
+                      "kind": "move",
+                      "label": "Material gewinnen: Kxe7"
+                    }
+                  ],
+                  "squares": [
+                    "e8",
+                    "e7"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "e8d8",
+                    "reply": [],
+                    "text": "e8 → d8 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Kxe7 nimmt den Turm zurück. Dame gegen Turm ergibt trotzdem einen Nettogewinn von 400 Punkten."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "openings": [

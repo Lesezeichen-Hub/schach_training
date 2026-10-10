@@ -125,7 +125,10 @@
     fork: { title: "Gabel", concept: "Eine Figur greift zwei Ziele gleichzeitig an. Besonders stark ist eine Gabel mit Schach.", rule: "Suche Felder, von denen eine Figur zwei wertvolle Ziele gleichzeitig erreicht." },
     pin: { title: "Fesselung", concept: "Eine Figur kann nicht wegziehen, weil sie sonst König oder eine wertvollere Figur freigibt.", rule: "Folge Linien von Turm, Läufer und Dame bis zum gegnerischen König." },
     skewer: { title: "Spieß", concept: "Die wertvollere Figur steht vorn und muss ausweichen; die Figur dahinter geht anschließend verloren.", rule: "Gib dem vorderen Ziel Schach und prüfe, was dahinter ungeschützt bleibt." },
-    discovered: { title: "Abzugsangriff", concept: "Eine Figur zieht mit Tempo weg und öffnet dadurch die Angriffslinie einer zweiten Figur.", rule: "Prüfe, welche eigenen Figuren Linien blockieren und mit Schach abziehen können." }
+    discovered: { title: "Abzugsangriff", concept: "Eine Figur zieht mit Tempo weg und öffnet dadurch die Angriffslinie einer zweiten Figur.", rule: "Prüfe, welche eigenen Figuren Linien blockieren und mit Schach abziehen können." },
+    mate1: { title: "Matt in 1", concept: "Ein einziger Zug beendet die Partie. Prüfe alle Schachs und danach Flucht, Schlagen und Blocken.", rule: "Suche jedes Schachgebot und weise für jedes die drei möglichen Antworten des Gegners zurück." },
+    mate2: { title: "Matt in 2", concept: "Der erste Zug erzwingt eine Antwort oder baut ein lückenloses Mattnetz auf; der zweite setzt matt.", rule: "Berechne Schlüsselzug, gegnerische Antwort und Mattzug vollständig, bevor du ziehst." },
+    material: { title: "Material gewinnen", concept: "Ungedeckte oder höherwertige Figuren lassen sich schlagen oder günstig abtauschen.", rule: "Prüfe Schlagzüge, Verteidiger und Rückschläge; vergleiche danach die vollständige Materialbilanz." }
   };
   const basicsLessons = [
     { title: "Das Ziel des Spiels", fen: E.START_FEN, text: "Du gewinnst nicht durch das Schlagen aller Figuren, sondern durch Schachmatt gegen den gegnerischen König.", points: ["Schach: Der König wird angegriffen.", "Matt: Der König ist angegriffen und kann nicht entkommen.", "Der eigene König darf niemals im Schach stehen bleiben."] },
@@ -1557,7 +1560,7 @@
     const theme = saved.themes[puzzle.category] ||= { attempts: 0, successes: 0 };
     theme.attempts += 1; theme.successes += success ? 1 : 0;
     saveProgress(saved);
-    const challenge = { fork: 650, pin: 750, skewer: 850, discovered: 900 }[puzzle.category];
+    const challenge = { fork: 650, pin: 750, skewer: 850, discovered: 900, mate1: 600, mate2: 800, material: 650 }[puzzle.category];
     updateLearningRating("tactics", success ? 1 : 0, challenge);
     updateTrainingProgress();
     updateMixedDueCount();

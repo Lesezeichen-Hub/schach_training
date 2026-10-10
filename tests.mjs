@@ -178,15 +178,18 @@ assert.equal(finishedHint.move, null, "Beendete Stellungen erzeugen keinen Hinwe
 
 const expectedOpenings = ['italian','ruy-lopez','scotch','four-knights','vienna','kings-gambit','sicilian-open','sicilian-alapin','french','caro-kann','scandinavian','pirc','queens-gambit','qgd','qga','london','colle','catalan','slav','kings-indian','nimzo-indian','dutch','english','reti','modern'];
 assert.deepEqual(trainingData.openings.map((r) => r.id), expectedOpenings, 'Genau die 25 bisherigen Eröffnungs-IDs');
-assert.equal(trainingData.tactics.length, 20);
+assert.equal(trainingData.tactics.length, 32);
 for (const category of ['fork','pin','skewer','discovered']) {
   assert.deepEqual(trainingData.tactics.filter((r) => r.category === category).map((r) => r.id), Array.from({length: 5}, (_, i) => `${category}-0${i + 1}`));
   assert.ok(trainingData.lessonContent.motifs[category].includes('Konter:'));
 }
+for (const category of ['mate1','mate2','material']) {
+  assert.deepEqual(trainingData.tactics.filter((r) => r.category === category).map((r) => r.id), Array.from({length: 4}, (_, i) => `${category}-0${i + 1}`));
+}
 let scenarioCount = 0, stepCount = 0, completions = 0;
 for (const record of [...trainingData.tactics, ...trainingData.openings]) {
   assert.equal(T.validateLesson(E, record).length, 0, `Alle Schritte und Vergleiche von ${record.id} gültig`);
-  assert.deepEqual(record.lesson.scenarios.map((s) => s.id), ['main', 'defense', 'counter']);
+  assert.deepEqual(record.lesson.scenarios.map((s) => s.id), ['mate1','mate2','material'].includes(record.category) ? ['main'] : ['main', 'defense', 'counter']);
   assert.deepEqual(record.lesson.scenarios[0].line, record.line);
   for (const scenario of record.lesson.scenarios) {
     scenarioCount++; stepCount += scenario.line.length;
@@ -228,9 +231,9 @@ for (const record of [...trainingData.tactics, ...trainingData.openings]) {
     assert.equal(E.toFEN(explanation.game), fen);
   }
 }
-assert.equal(scenarioCount, 135);
-assert.equal(completions, 405);
-for (const record of trainingData.tactics) {
+assert.equal(scenarioCount, 147);
+assert.equal(completions, 441);
+for (const record of trainingData.tactics.filter((item) => ['fork','pin','skewer','discovered'].includes(item.category))) {
   const main = record.lesson.scenarios[0];
   let before = T.scenarioStart(E, record, main), after = before;
   for (const code of main.line) after = play(after, code);
@@ -244,7 +247,7 @@ for (const record of trainingData.tactics) {
     assert.ok(!E.legalMoves(first).some((m) => m.to === main.line[0].slice(2,4) && m.capture && E.typeOf(m.capture) !== 'p'), 'Gedeckter Spießangreifer nicht vom König schlagbar');
   }
 }
-for (const record of trainingData.tactics) {
+for (const record of trainingData.tactics.filter((item) => ['fork','pin','skewer','discovered'].includes(item.category))) {
   const defense = record.lesson.scenarios[1];
   let position = T.scenarioStart(E, record, defense);
   for (const code of defense.line) position = play(position, code);
@@ -255,6 +258,28 @@ for (const [category, expected] of [['fork',220],['pin',180],['skewer',330],['di
   let start = E.fromFEN(scenario.startFen), end = start;
   for (const code of scenario.line) end = play(end, code);
   assert.equal((T.materialFor(E,end,'b')-T.materialFor(E,end,'w')) - (T.materialFor(E,start,'b')-T.materialFor(E,start,'w')), expected);
+}
+for (const record of trainingData.tactics.filter((item) => item.category === 'mate1')) {
+  assert.equal(record.line.length, 1, `${record.id}: Matt in 1 hat genau einen Halbzug`);
+  assert.equal(E.gameStatus(play(E.fromFEN(record.fen), record.line[0])).type, 'checkmate', `${record.id}: Lösungszug setzt matt`);
+}
+for (const record of trainingData.tactics.filter((item) => item.category === 'mate2')) {
+  assert.equal(record.line.length, 3, `${record.id}: Matt in 2 enthält zwei eigene Züge und eine Antwort`);
+  const start = E.fromFEN(record.fen);
+  const afterKey = play(start, record.line[0]);
+  for (const reply of E.legalMoves(afterKey)) {
+    const afterReply = E.applyMove(afterKey, reply);
+    assert.ok(E.legalMoves(afterReply).some((move) => E.gameStatus(E.applyMove(afterReply, move)).type === 'checkmate'), `${record.id}: Schlüsselzug erzwingt Matt gegen jede Antwort`);
+  }
+  let position = start;
+  for (const code of record.line) position = play(position, code);
+  assert.equal(E.gameStatus(position).type, 'checkmate', `${record.id}: Lösungsfolge endet matt`);
+}
+for (const [record, expected] of trainingData.tactics.filter((item) => item.category === 'material').map((item, index) => [item, [900, 500, 900, 400][index]])) {
+  let start = E.fromFEN(record.fen), end = start;
+  for (const code of record.line) end = play(end, code);
+  const gain = (T.materialFor(E,end,'w') - T.materialFor(E,end,'b')) - (T.materialFor(E,start,'w') - T.materialFor(E,start,'b'));
+  assert.equal(gain, expected, `${record.id}: versprochener Materialgewinn stimmt`);
 }
 for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
   const square = E.sq(r,c), a = T.arrowPoint(E,square), b = T.arrowPoint(E,square,true);
@@ -319,4 +344,4 @@ for (const [fen, line] of [
   const fenEnd = E.toFEN(session.game);
   T.seekLesson(session,0); T.seekLesson(session,line.length); assert.equal(E.toFEN(session.game),fenEnd);
 }
-console.log(`Alle Tests bestanden: 45 Lektionen, ${scenarioCount} Szenarien, ${stepCount} annotierte Halbzüge, ${completions} Phasenabschlüsse; Regeln, Material, Vergleiche, Navigation, Orientierung und Legacy-Fortschritt.`);
+console.log(`Alle Tests bestanden: 57 Lektionen, ${scenarioCount} Szenarien, ${stepCount} annotierte Halbzüge, ${completions} Phasenabschlüsse; Regeln, Material, Vergleiche, Navigation, Orientierung und Legacy-Fortschritt.`);

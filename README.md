@@ -12,10 +12,10 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
 - Kompakter Denk-Check vor jedem eigenen Zug in geführten Lektionen: Zugidee einordnen, dann erst auf dem Brett ausführen; lokale Trefferquote inklusive
-- 20 Taktikaufgaben zu Gabel, Fesselung, Spieß und Abzugsangriff
+- 32 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie je vier Aufgaben zu Matt in 1, Matt in 2 und Materialgewinn
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien
 - Vier jederzeit wählbare Lernphasen für alle 45 Eröffnungs- und Taktiklektionen
-- 135 Szenarien (45 Hauptlinien, 45 Abwehrausschnitte, 45 Gegenspiel-/Konterabläufe), insgesamt 606 erklärte Halbzüge
+- 147 Szenarien (45 Hauptlinien, 45 Abwehrausschnitte, 45 Gegenspiel-/Konterabläufe und 12 direkte Praxisaufgaben), insgesamt 627 erklärte Halbzüge
 - SVG-Zug- und Angriffspfeile mit Labels und Legende, korrekt gedreht mit der Lernfarbe und responsiv skaliert
 - Zurück, Weiter, Neustart sowie Abspielen/Pause in Vorführungen
 - Konkrete geprüfte Planabweichungen mit Antwort; unbekannte legale Abweichungen werden nicht als automatisch schlechte Züge bezeichnet
@@ -67,9 +67,9 @@ Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gew
 
 „Weiter“ überspringt keinen eigenen Übungszug. Hinweise, Lösungspfeile, Rückwärtsnavigation und Wiederholungen bereits gesehener Folgen kennzeichnen den Versuch als **unterstützt**. In einer Vorführung ist Abspielen/Pause verfügbar; in einer Übung werden nur die kuratierten Gegnerzüge automatisch gespielt. Bei Wechseln werden laufende Lektions-Timer abgebrochen und ihre Sitzungs-/Stellungskennung erneut geprüft. Eine offene Umwandlung wird abgebrochen; Escape wandelt nicht stillschweigend in eine Dame um.
 
-Jede Lektion bietet **Hauptlinie, Abwehr und Konter/Gegenspiel**. Eröffnungszweige beginnen nach `startPly` Halbzügen der Hauptlinie. Die Taktikabwehr beginnt ausdrücklich **einen Zug früher mit Schwarz am Zug**. Taktikkonter sind gekennzeichnete, verwandte **Vergleichsstellungen**: Die 20 Konterabläufe nutzen vier gemeinsame Motivvergleiche (zusätzlicher Verteidiger, relative Fesselung, ungedeckter Spieß, rettende Damenantwort). Es sind nicht 20 verschiedene erzwungene Widerlegungen der Hauptstellungen.
+Die 45 Motiv- und Eröffnungslektionen bieten **Hauptlinie, Abwehr und Konter/Gegenspiel**. Die 12 direkten Matt- und Materialaufgaben konzentrieren sich dagegen auf genau eine konkrete Lösungsfolge. Eröffnungszweige beginnen nach `startPly` Halbzügen der Hauptlinie. Die Taktikabwehr beginnt ausdrücklich **einen Zug früher mit Schwarz am Zug**. Taktikkonter sind gekennzeichnete, verwandte **Vergleichsstellungen**: Die 20 Konterabläufe nutzen vier gemeinsame Motivvergleiche (zusätzlicher Verteidiger, relative Fesselung, ungedeckter Spieß, rettende Damenantwort). Es sind nicht 20 verschiedene erzwungene Widerlegungen der Hauptstellungen.
 
-Die Abdeckung ist bewusst begrenzt: **genau die bisherigen 25 Eröffnungs-IDs und 20 Taktik-IDs**, keine neuen Motive, kein vollständiger Variantenbaum, keine Behauptung universell bester Antworten. Manche vereinfachten Fesselungs-/Gabelstellungen enden trotz Materialgewinn mit bloßen Königen beziehungsweise König und Springer in **Remis**. Rückschläge und dieses Partieergebnis werden ausdrücklich erläutert. Die Eröffnungsausschnitte enden mit einem Entwicklungsplan, nicht mit einem behaupteten Gewinn.
+Die Abdeckung ist bewusst begrenzt: **25 Eröffnungs-IDs, die bisherigen 20 Motiv-IDs und 12 direkte Praxisaufgaben**, kein vollständiger Variantenbaum und keine Behauptung universell bester Antworten. Manche vereinfachten Fesselungs-/Gabelstellungen enden trotz Materialgewinn mit bloßen Königen beziehungsweise König und Springer in **Remis**. Rückschläge und dieses Partieergebnis werden ausdrücklich erläutert. Die Eröffnungsausschnitte enden mit einem Entwicklungsplan, nicht mit einem behaupteten Gewinn.
 
 ## Fortschritt
 
@@ -103,6 +103,6 @@ Mit installiertem Node.js:
 node tests.mjs
 ```
 
-Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 135 vollständigen Szenarien und Vergleichsantworten, 405 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Pfeilkoordinaten in beiden Orientierungen und beschädigten/alten Fortschritt. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
+Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 147 vollständigen Szenarien und Vergleichsantworten, 441 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, echte Mattenden in der angegebenen Zugzahl, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Pfeilkoordinaten in beiden Orientierungen und beschädigten/alten Fortschritt. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
 
 Lern- und Spiel-Elo beginnen bei neuen Profilen bei **0** und werden ausschließlich durch absolvierte Übungen beziehungsweise gewertete Partien aufgebaut. Werte können nicht negativ werden. Bereits erspielte Wertungen bleiben erhalten; lediglich unberührte alte 800-Standardwerte ohne gewertete Aktivität werden auf 0 migriert. Die Lern-Elo reagiert ähnlich einer Elo-Wertung auf richtige und falsche Entscheidungen sowie die Schwierigkeit der Übung; sie ist keine offizielle Spielstärke.
