@@ -13,6 +13,9 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Eigene Brettstellungen im Analysebrett oder direkt während einer Partie lokal benennen, speichern, laden und löschen
 - Gespeicherte Positionen frei analysieren oder als ungewertete Partie gegen die Engine weiterspielen
 - Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug
+- Filterbare Taktikstufen Leicht, Mittel und Schwer, kombinierbar mit dem gewünschten Motiv
+- Zeitpartien ohne Inkrement oder als Fischer-Modus 3+2, 5+3 und 10+5
+- Installierbare Progressive Web App mit lokalem Offline-Cache; nach dem ersten Online-Aufruf läuft die App ohne Verbindung weiter
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
 - Kompakter Denk-Check vor jedem eigenen Zug in geführten Lektionen: Zugidee einordnen, dann erst auf dem Brett ausführen; lokale Trefferquote inklusive
 - 32 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie je vier Aufgaben zu Matt in 1, Matt in 2 und Materialgewinn
@@ -63,6 +66,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Lokaler Lernfortschritt im Browser
 
 Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gewechselt werden. In 3D lässt sich der Blickwinkel durch Ziehen auf einer freien Stelle oder überall mit der rechten Maustaste frei horizontal und vertikal drehen. Zusätzlich kann das Brett schrittweise gedreht und bildschirmfüllend angezeigt werden; Escape beendet das Vollbild. `?view=3d` erzwingt die 3D-Ansicht für einen direkten Aufruf. Ist WebGL 2 nicht verfügbar, bleibt der Schalter deaktiviert und die vollständige 2D-Bedienung aktiv.
+
+Für die Installation als Offline-App muss die Schachwerkstatt einmal über `https://` oder lokal über `http://localhost` geöffnet werden. Sobald der Browser die Installation anbietet, erscheint oben „App installieren“. Ein direkter Aufruf als `file://` unterstützt aus Sicherheitsgründen keine Service Worker.
 
 ## Lernphasen und Szenarien
 

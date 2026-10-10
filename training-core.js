@@ -364,6 +364,15 @@
     if (next[color] === 0) next.flagged = color;
     return next;
   }
+  function addClockIncrement(clock, color) {
+    const current = clock && typeof clock === "object" ? clock : {};
+    const next = { ...current };
+    if (!['w', 'b'].includes(color) || !Number.isFinite(next.initialMs) || next.initialMs <= 0 || next.flagged) return next;
+    const increment = Number.isFinite(next.incrementMs) ? Math.max(0, next.incrementMs) : 0;
+    const remaining = Number.isFinite(next[color]) ? next[color] : next.initialMs;
+    next[color] = remaining + increment;
+    return next;
+  }
   function matchViewColor(opponentMode, playerColor, turn) {
     if (opponentMode === 'hotseat') return turn === 'b' ? 'b' : 'w';
     return playerColor === 'b' ? 'b' : 'w';
@@ -420,5 +429,5 @@
     }
     return saved;
   }
-  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel, advanceClock, matchViewColor };
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel, advanceClock, addClockIncrement, matchViewColor };
 })(typeof window !== "undefined" ? window : globalThis);

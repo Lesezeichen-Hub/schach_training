@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "Schachwerkstatt",
+  "short_name": "Schachwerkstatt",
+  "description": "Lokales Schachtraining mit Taktikaufgaben, Partien und Analyse.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101411",
+  "theme_color": "#101411",
+  "icons": [
+    {
+      "src": "icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -116,6 +116,9 @@ const expiredClock = T.advanceClock({ ...runningClock, lastTick: 2600, w: 500 },
 assert.equal(expiredClock.w, 0, 'Schachuhr fällt nicht unter null');
 assert.equal(expiredClock.flagged, 'w', 'Zeitüberschreitung merkt sich die verlierende Farbe');
 assert.deepEqual(T.advanceClock(expiredClock, 'b', 5000), expiredClock, 'Abgelaufene Uhr bleibt gestoppt');
+const incrementedClock = T.addClockIncrement({ initialMs: 180000, incrementMs: 2000, w: 178400, b: 180000, lastTick: 2600, flagged: null }, 'w');
+assert.equal(incrementedClock.w, 180400, 'Fischer-Inkrement wird nach einem legalen Zug gutgeschrieben');
+assert.equal(T.addClockIncrement({ ...incrementedClock, flagged: 'w' }, 'w').w, 180400, 'Nach Zeitüberschreitung gibt es kein Inkrement');
 assert.equal(T.matchViewColor('ai', 'b', 'w'), 'b', 'Gegen die KI bleibt die gewählte Spielerperspektive erhalten');
 assert.equal(T.matchViewColor('hotseat', 'w', 'w'), 'w', 'Hot Seat zeigt Weiß unten, wenn Weiß am Zug ist');
 assert.equal(T.matchViewColor('hotseat', 'w', 'b'), 'b', 'Hot Seat dreht das Brett für den schwarzen Zug');

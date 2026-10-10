@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101411">
   <meta name="description" content="Lokales Schachtraining mit Partieanalyse, persönlichem Fehlertrainer und acht Computer-Spielstärken.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Schachwerkstatt</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/app-icon.svg">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101411'/%3E%3Cpath d='M22 49h24v6H18v-3l4-3Zm5-27c-5-4-2-12 5-12 6 0 9 7 5 11 8 4 9 14 3 20H25c-6-7-4-15 2-19Z' fill='%23e7b65d'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -22,7 +26,10 @@
         <button class="mode-tab" data-mode="match">Spielen</button>
         <button class="mode-tab" data-mode="practice">Analyse</button>
       </nav>
-      <div class="streak" title="Lokaler Trainingswert – keine offizielle Wertungszahl"><span>◆</span><strong id="learningRating">0</strong><small id="learningLevel">Bauer</small></div>
+      <div class="topbar-actions">
+        <button class="install-app" id="installApp" type="button" hidden>App installieren</button>
+        <div class="streak" title="Lokaler Trainingswert – keine offizielle Wertungszahl"><span>◆</span><strong id="learningRating">0</strong><small id="learningLevel">Bauer</small></div>
+      </div>
     </header>
 
     <main class="workspace">
@@ -136,12 +143,25 @@
             <button type="button" data-color="b" role="radio" aria-checked="false">Schwarz<small>KI beginnt</small></button>
             <button type="button" data-color="random" role="radio" aria-checked="false">Zufall<small>neu ausgelost</small></button>
           </div>
-          <label>Bedenkzeit je Spieler</label>
-          <div class="segmented time-choice" id="timeChoice" role="radiogroup" aria-label="Bedenkzeit je Spieler">
-            <button class="active" type="button" data-time="0" role="radio" aria-checked="true">Ohne Uhr</button>
-            <button type="button" data-time="3" role="radio" aria-checked="false">3 min</button>
-            <button type="button" data-time="5" role="radio" aria-checked="false">5 min</button>
-            <button type="button" data-time="10" role="radio" aria-checked="false">10 min</button>
+          <label>Zeitmodus</label>
+          <div class="time-control-options" id="timeChoice" role="radiogroup" aria-label="Zeitmodus und Bedenkzeit je Spieler">
+            <div class="time-control-group">
+              <span>REGULÄR · OHNE INKREMENT</span>
+              <div class="segmented time-choice">
+                <button class="active" type="button" data-time="0" data-increment="0" role="radio" aria-checked="true">Ohne Uhr</button>
+                <button type="button" data-time="3" data-increment="0" role="radio" aria-checked="false">3 Minuten</button>
+                <button type="button" data-time="5" data-increment="0" role="radio" aria-checked="false">5 Minuten</button>
+                <button type="button" data-time="10" data-increment="0" role="radio" aria-checked="false">10 Minuten</button>
+              </div>
+            </div>
+            <div class="time-control-group">
+              <span>MIT INKREMENT · SEKUNDEN PRO ZUG</span>
+              <div class="segmented time-choice increment-choice">
+                <button type="button" data-time="3" data-increment="2" role="radio" aria-checked="false">3 + 2</button>
+                <button type="button" data-time="5" data-increment="3" role="radio" aria-checked="false">5 + 3</button>
+                <button type="button" data-time="10" data-increment="5" role="radio" aria-checked="false">10 + 5</button>
+              </div>
+            </div>
           </div>
           <label for="difficulty" id="difficultyLabel">Spielstärke</label>
           <div class="difficulty-control" id="difficultyControl">
@@ -190,6 +210,13 @@
             <option value="mate2">Matt in 2</option>
             <option value="material">Material gewinnen</option>
             <option value="review">Meine Fehler</option>
+          </select>
+          <label for="tacticDifficulty">Schwierigkeitsstufe</label>
+          <select id="tacticDifficulty">
+            <option value="all">Alle Stufen</option>
+            <option value="easy">Leicht · bis etwa 700</option>
+            <option value="medium">Mittel · etwa 701–900</option>
+            <option value="hard">Schwer · ab etwa 901</option>
           </select>
           <div class="concept-card">
             <span>MOTIV VERSTEHEN</span>

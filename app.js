@@ -11,11 +11,11 @@
   const state = {
     game: E.fromFEN(), mode: "home", level: "learner", colorChoice: "w", playerColor: "w", selected: null,
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
-    puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null,
+    puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null, tacticDifficulty: "all",
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
     openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
     matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null, positionTraining: false,
-    opponentMode: "ai", clockMinutes: 0, clock: { initialMs: 0, w: 0, b: 0, lastTick: 0, flagged: null },
+    opponentMode: "ai", clockMinutes: 0, clockIncrementSeconds: 0, clock: { initialMs: 0, incrementMs: 0, w: 0, b: 0, lastTick: 0, flagged: null },
     personalMatchMistake: null, personalMatchPending: false, personalMatchCursor: 0, matchLearningId: "", liveAnalysisRequest: 0, liveAnalysisPending: 0,
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
     thinkingCheck: { runId: 0, ply: -1, resolved: false, attempted: false, selected: "", correct: "" },
@@ -29,11 +29,17 @@
   let automaticMoveAnimation = null;
   let moveAudioContext = null, soundEnabled = true;
   const savedPositionsKey = "schachwerkstatt-saved-positions";
+  const timeControlKeys = new Set(["0+0", "3+0", "3+2", "5+0", "5+3", "10+0", "10+5"]);
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
   try {
     const savedMinutes = Number(localStorage.getItem("schachwerkstatt-time-control"));
     if ([0, 3, 5, 10].includes(savedMinutes)) state.clockMinutes = savedMinutes;
+    const savedIncrement = Number(localStorage.getItem("schachwerkstatt-time-increment"));
+    if ([0, 2, 3, 5].includes(savedIncrement)) state.clockIncrementSeconds = savedMinutes ? savedIncrement : 0;
+    if (!timeControlKeys.has(`${state.clockMinutes}+${state.clockIncrementSeconds}`)) state.clockIncrementSeconds = 0;
     if (localStorage.getItem("schachwerkstatt-opponent") === "hotseat") state.opponentMode = "hotseat";
+    const savedTacticDifficulty = localStorage.getItem("schachwerkstatt-tactic-difficulty");
+    if (["all", "easy", "medium", "hard"].includes(savedTacticDifficulty)) state.tacticDifficulty = savedTacticDifficulty;
   } catch { /* Zeitauswahl bleibt für diese Sitzung verfügbar. */ }
 
   const trainingData = window.CHESS_TRAINING_DATA;
@@ -184,6 +190,23 @@
     button.title = soundEnabled ? "Zuggeräusche ausschalten" : "Zuggeräusche einschalten";
     button.setAttribute("aria-label", button.title); button.setAttribute("aria-pressed", String(soundEnabled));
   }
+  function setupInstallApp() {
+    const button = $("#installApp");
+    let installPrompt = null;
+    const standalone = window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    if (standalone) button.hidden = true;
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault(); installPrompt = event; button.hidden = false;
+    });
+    window.addEventListener("appinstalled", () => { installPrompt = null; button.hidden = true; });
+    button.addEventListener("click", async () => {
+      if (!installPrompt) return;
+      installPrompt.prompt();
+      await installPrompt.userChoice;
+      installPrompt = null; button.hidden = true;
+    });
+    if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
   function analyzeInBackground(position, options) {
     const fen = E.toFEN(position);
     if (typeof Worker !== "undefined" && !analysisWorker) {
@@ -248,7 +271,7 @@
     const dialog = $("#promotionDialog");
     if (dialog.open) dialog.close("cancel");
     window.clearInterval(matchClockTimer); matchClockTimer = null;
-    state.clock = { initialMs: 0, w: 0, b: 0, lastTick: 0, flagged: null };
+    state.clock = { initialMs: 0, incrementMs: 0, w: 0, b: 0, lastTick: 0, flagged: null };
   }
   function isLessonMode() { return ["tactics", "openings"].includes(state.mode) && state.lesson; }
   function isHotSeat() { return state.mode === "match" && state.opponentMode === "hotseat"; }
@@ -575,7 +598,8 @@
   function startMatchClock() {
     window.clearInterval(matchClockTimer); matchClockTimer = null;
     const initialMs = state.clockMinutes * 60000;
-    state.clock = { initialMs, w: initialMs, b: initialMs, lastTick: Date.now(), flagged: null };
+    const incrementMs = state.clockIncrementSeconds * 1000;
+    state.clock = { initialMs, incrementMs, w: initialMs, b: initialMs, lastTick: Date.now(), flagged: null };
     if (!initialMs) return;
     matchClockTimer = window.setInterval(() => {
       updateMatchClock();
@@ -861,7 +885,10 @@
     state.legal = [];
     state.messageOverride = personalFeedback;
     if (state.mode === "practice") $("#fenInput").value = E.toFEN(state.game);
-    if (state.mode === "match" && state.clock.initialMs) state.clock.lastTick = Date.now();
+    if (state.mode === "match" && state.clock.initialMs) {
+      state.clock = T.addClockIncrement(state.clock, before.turn);
+      state.clock.lastTick = Date.now();
+    }
 
     if (state.mode === "match" && !isHotSeat() && actor === "human" && !personalFeedback) learnFromMatchMove(before, move, san);
 
@@ -1438,6 +1465,7 @@
       const record = puzzles.find((item) => item.id === unit.id);
       if (!record) return;
       $("#themeFilter").value = "all";
+      $("#tacticDifficulty").value = "all";
       state.puzzlePosition = puzzles.indexOf(record);
       switchMode("tactics");
       startLesson(record, { phase: "guided", scenario: unit.scenario || "main" });
@@ -1464,13 +1492,16 @@
   }
 
   function loadPuzzle(index) {
-    const reviewEmpty = $("#themeFilter")?.value === "review" && !puzzles.some((puzzle) => getProgress().puzzles?.[puzzle.id]?.openError);
+    const strictPool = filteredTacticPool();
+    const reviewEmpty = $("#themeFilter")?.value === "review" && !strictPool.length;
+    const filterFallback = $("#themeFilter")?.value !== "review" && !strictPool.length;
     const pool = currentPuzzlePool();
     state.puzzlePosition = (index + pool.length) % pool.length;
     const puzzle = pool[state.puzzlePosition];
     state.puzzleIndex = puzzles.indexOf(puzzle);
-    state.game = E.fromFEN(puzzle.fen); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = reviewEmpty ? { kind: "success", title: "Noch keine Fehler offen", text: "Stark! Bis hierhin gibt es keine Fehlversuche. Du trainierst deshalb weiter im gemischten Modus." } : null; state.puzzleSolved = false; state.attemptsOnPuzzle = 0; state.solutionFrom = null; state.solutionTo = null;
-    $("#puzzleTheme").textContent = categoryMeta[puzzle.category].title; $("#puzzleProgress").textContent = `${state.puzzlePosition + 1} / ${pool.length}`;
+    state.game = E.fromFEN(puzzle.fen); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = reviewEmpty ? { kind: "success", title: "Keine passende Wiederholung offen", text: "In dieser Schwierigkeitsstufe ist gerade kein Fehler fällig. Du trainierst deshalb passende gemischte Aufgaben." } : filterFallback ? { kind: "", title: "Keine Aufgabe in dieser Kombination", text: "Für Motiv und Schwierigkeitsstufe gibt es noch keine gemeinsame Aufgabe. Es wird eine passende Aufgabe derselben Stufe gezeigt." } : null; state.puzzleSolved = false; state.attemptsOnPuzzle = 0; state.solutionFrom = null; state.solutionTo = null;
+    const challenge = tacticChallengeRating(puzzle), difficulty = tacticDifficultyFor(puzzle);
+    $("#puzzleTheme").textContent = `${categoryMeta[puzzle.category].title} · ${difficulty === "easy" ? "Leicht" : difficulty === "medium" ? "Mittel" : "Schwer"} · ${challenge}`; $("#puzzleProgress").textContent = `${state.puzzlePosition + 1} / ${pool.length}`;
     $("#conceptTitle").textContent = puzzle.title; $("#conceptText").textContent = categoryMeta[puzzle.category].concept;
     $("#puzzlePrompt").textContent = puzzle.prompt; $("#puzzleDescription").textContent = "Trainiere die gesamte Lehrfolge einschließlich gegnerischer Antworten. Wähle unten Phase und Szenario."; $("#lessonText").textContent = categoryMeta[puzzle.category].rule;
     $("#nextPuzzle").textContent = "Nächste Aufgabe";
@@ -1653,7 +1684,7 @@
       switchMode("mistakes");
       loadGameMistake(0, item.id);
     } else {
-      $("#themeFilter").value = "all"; $("#lessonPhase").value = "practice";
+      $("#themeFilter").value = "all"; $("#tacticDifficulty").value = "all"; $("#lessonPhase").value = "practice";
       switchMode("tactics");
       const puzzle = puzzles.find((candidate) => candidate.id === item.id) || puzzles[0];
       loadPuzzle(puzzles.indexOf(puzzle));
@@ -1756,15 +1787,34 @@
     target.textContent = state.liveAnalysisPending ? `${state.liveAnalysisPending} Zug${state.liveAnalysisPending === 1 ? " wird" : "e werden"} geprüft` : allMistakes.length ? `${due} fällig · ${allMistakes.length} gespeichert` : "Noch keine gespeicherten Fehler";
   }
 
-  function currentPuzzlePool() {
+  function tacticChallengeRating(puzzle) {
+    if (Number.isFinite(puzzle?.rating)) return puzzle.rating;
+    const sequence = Math.max(1, Number(puzzle?.id?.match(/(\d+)$/)?.[1]) || 1);
+    const base = { fork: 550, pin: 600, skewer: 700, discovered: 800 }[puzzle?.category] || 650;
+    return base + (sequence - 1) * 50;
+  }
+
+  function tacticDifficultyFor(puzzle) {
+    const rating = tacticChallengeRating(puzzle);
+    return rating <= 700 ? "easy" : rating <= 850 ? "medium" : "hard";
+  }
+
+  function filteredTacticPool() {
     const filter = $("#themeFilter")?.value || "all";
-    if (filter === "all") return puzzles;
-    if (filter === "review") {
-      const progress = getProgress();
-      const review = puzzles.filter((puzzle) => progress.puzzles?.[puzzle.id]?.openError);
-      return review.length ? review : puzzles;
-    }
-    return puzzles.filter((puzzle) => puzzle.category === filter);
+    const difficulty = $("#tacticDifficulty")?.value || state.tacticDifficulty || "all";
+    const progress = filter === "review" ? getProgress() : null;
+    return puzzles.filter((puzzle) => {
+      const themeMatches = filter === "all" || filter === "review" ? filter !== "review" || progress.puzzles?.[puzzle.id]?.openError : puzzle.category === filter;
+      return themeMatches && (difficulty === "all" || tacticDifficultyFor(puzzle) === difficulty);
+    });
+  }
+
+  function currentPuzzlePool() {
+    const filtered = filteredTacticPool();
+    if (filtered.length) return filtered;
+    const difficulty = $("#tacticDifficulty")?.value || state.tacticDifficulty || "all";
+    const sameDifficulty = puzzles.filter((puzzle) => difficulty === "all" || tacticDifficultyFor(puzzle) === difficulty);
+    return sameDifficulty.length ? sameDifficulty : puzzles;
   }
 
   function recordPuzzleAttempt(success) {
@@ -1918,16 +1968,21 @@
     }
   }
 
-  function setTimeChoice(minutes, restart = true) {
+  function setTimeChoice(minutes, incrementSeconds = 0, restart = true) {
     const value = Number(minutes);
-    if (![0, 3, 5, 10].includes(value)) return;
+    const increment = value ? Number(incrementSeconds) : 0;
+    if (!timeControlKeys.has(`${value}+${increment}`)) return;
     state.clockMinutes = value;
+    state.clockIncrementSeconds = increment;
     all("[data-time]").forEach((button) => {
-      const active = Number(button.dataset.time) === value;
+      const active = Number(button.dataset.time) === value && Number(button.dataset.increment || 0) === increment;
       button.classList.toggle("active", active);
       button.setAttribute("aria-checked", String(active));
     });
-    try { localStorage.setItem("schachwerkstatt-time-control", String(value)); } catch { /* Auswahl gilt mindestens für diese Sitzung. */ }
+    try {
+      localStorage.setItem("schachwerkstatt-time-control", String(value));
+      localStorage.setItem("schachwerkstatt-time-increment", String(increment));
+    } catch { /* Auswahl gilt mindestens für diese Sitzung. */ }
     if (restart && state.mode === "match") resetGame();
   }
 
@@ -1968,7 +2023,7 @@
   $("#difficulty").addEventListener("change", (event) => setDifficulty(event.target.value, true));
   all("[data-color]").forEach((button) => button.addEventListener("click", () => setColorChoice(button.dataset.color)));
   all("[data-opponent]").forEach((button) => button.addEventListener("click", () => setOpponentMode(button.dataset.opponent)));
-  all("[data-time]").forEach((button) => button.addEventListener("click", () => setTimeChoice(button.dataset.time)));
+  all("[data-time]").forEach((button) => button.addEventListener("click", () => setTimeChoice(button.dataset.time, button.dataset.increment)));
   $("#recommendedDifficulty").addEventListener("click", (event) => setDifficulty(event.currentTarget.dataset.index, true));
   $("#newGame").addEventListener("click", resetGame);
   $("#resetProfileElo").addEventListener("click", resetProfileElo);
@@ -2005,6 +2060,11 @@
     render();
   });
   $("#themeFilter").addEventListener("change", () => loadPuzzle(0));
+  $("#tacticDifficulty").addEventListener("change", (event) => {
+    state.tacticDifficulty = event.target.value;
+    try { localStorage.setItem("schachwerkstatt-tactic-difficulty", state.tacticDifficulty); } catch { /* Auswahl gilt mindestens für diese Sitzung. */ }
+    loadPuzzle(0);
+  });
   $("#endgameSelect").addEventListener("change", (event) => loadEndgame(event.target.value));
   $("#restartEndgame").addEventListener("click", () => loadEndgame(state.endgameId));
   $("#nextStrategy").addEventListener("click", () => loadStrategyStep(state.strategyStep + 1));
@@ -2315,5 +2375,6 @@
   }
 
   $("#savedPositionSelect").addEventListener("change", () => renderSavedPositions($("#savedPositionSelect").value));
-  populateOpeningSelect(); renderSavedPositions(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
+  $("#tacticDifficulty").value = state.tacticDifficulty;
+  populateOpeningSelect(); renderSavedPositions(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, state.clockIncrementSeconds, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); setupInstallApp(); switchMode("home"); setBoardView(boardView, false);
 })();
