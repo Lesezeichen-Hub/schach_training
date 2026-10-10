@@ -2143,7 +2143,9 @@
   $("#loadStart").addEventListener("click", () => { $("#fenInput").value = E.START_FEN; loadFen(); });
   $("#loadFen").addEventListener("click", loadFen);
   $("#practiceHintButton").addEventListener("click", requestPracticeHint);
-  $("#savePosition").addEventListener("click", saveCurrentPosition);
+  $("#savePosition").addEventListener("click", () => saveCurrentPosition("#positionName"));
+  $("#saveMatchPosition").addEventListener("click", () => saveCurrentPosition("#matchPositionName"));
+  $("#matchPositionName").addEventListener("keydown", (event) => { if (event.key === "Enter") saveCurrentPosition("#matchPositionName"); });
   $("#loadPosition").addEventListener("click", loadSelectedPosition);
   $("#deletePosition").addEventListener("click", deleteSelectedPosition);
   $("#trainPosition").addEventListener("click", startPositionTraining);
@@ -2247,16 +2249,17 @@
     $("#deletePosition").disabled = !select.value;
   }
 
-  function saveCurrentPosition() {
+  function saveCurrentPosition(inputSelector = "#positionName") {
     const positions = getSavedPositions();
-    const enteredName = $("#positionName").value.trim();
+    const input = $(inputSelector);
+    const enteredName = input.value.trim();
     const name = (enteredName || `Stellung ${positions.length + 1}`).slice(0, 60);
     const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, fen: E.toFEN(state.game), createdAt: new Date().toISOString() };
     if (!storeSavedPositions([...positions, item])) {
       state.messageOverride = { kind: "error", title: "Speichern nicht möglich", text: "Der Browser hat den lokalen Speicher nicht freigegeben." };
       render(); return;
     }
-    $("#positionName").value = "";
+    input.value = "";
     renderSavedPositions(item.id);
     state.messageOverride = { kind: "success", title: "Stellung gespeichert", text: `„${name}“ kann jederzeit auf diesem Gerät wieder geladen werden.` };
     render();

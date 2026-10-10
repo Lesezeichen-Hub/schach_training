@@ -161,6 +161,13 @@
             <p id="matchHintText"></p>
             <small id="matchHintMeta"></small>
           </div>
+          <div class="position-library match-position-save">
+            <span>PARTIESTELLUNG MERKEN</span>
+            <label for="matchPositionName">Name der aktuellen Stellung</label>
+            <input id="matchPositionName" type="text" maxlength="60" placeholder="z. B. Stellung nach dem Opfer">
+            <button class="secondary-button full-button" id="saveMatchPosition" type="button">Aktuelle Stellung speichern</button>
+            <small>Später unter Analyse → Meine Stellungen laden.</small>
+          </div>
           <button class="primary-button" id="newGame">Neue Partie</button>
           <button class="secondary-button full-button" id="reviewGame">Partie analysieren</button>
           <button class="secondary-button full-button" id="trainGameMistakes">Fehler aus Partien trainieren · <span id="gameMistakeCount">0</span></button>

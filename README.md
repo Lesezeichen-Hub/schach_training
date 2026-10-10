@@ -10,7 +10,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 
 ## Funktionen
 
-- Eigene Brettstellungen lokal benennen, speichern, laden und löschen
+- Eigene Brettstellungen im Analysebrett oder direkt während einer Partie lokal benennen, speichern, laden und löschen
 - Gespeicherte Positionen frei analysieren oder als ungewertete Partie gegen die Engine weiterspielen
 - Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
