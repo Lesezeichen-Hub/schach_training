@@ -160,6 +160,16 @@ const blackReview = T.coachReview([
 assert.ok(blackReview.improvements.some((text) => text.includes("Figur verloren")), "Coach erkennt Materialverlust des schwarzen Spielers");
 assert.ok(blackReview.strengths.some((text) => text.includes("Rochade")), "Coach erkennt die schwarze Rochade");
 assert.equal(T.toPgn([{ color: "w", san: "e4" }, { color: "b", san: "e5" }]), "1. e4 e5 *", "PGN wird aus dem Partieverlauf erzeugt");
+const importedTokens = T.pgnMoveTokens('[Event "Test"]\n\n1. e4 {Zentrum} e5 (1... c5) 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O $1 1-0');
+assert.equal([...importedTokens].join(" "), "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O", "PGN-Import entfernt Kopfzeilen, Kommentare, Varianten, NAGs und Ergebnis");
+let importedPosition = E.fromFEN();
+for (const token of importedTokens) {
+  const move = T.resolvePgnMove(E, importedPosition, token);
+  assert.ok(move, `PGN-Zug ${token} wird eindeutig und legal aufgelöst`);
+  importedPosition = E.applyMove(importedPosition, move);
+}
+assert.equal(importedPosition.board[E.coords("g1")[0]][E.coords("g1")[1]], "K", "PGN-Rochade setzt den König korrekt nach g1");
+assert.equal(T.resolvePgnMove(E, E.fromFEN(), "Qh9"), null, "Ungültige PGN-Züge werden abgewiesen");
 
 assert.equal(E.DIFFICULTY_LEVELS.length, 8, "Acht fein abgestufte Spielstärken sind verfügbar");
 for (let index = 1; index < E.DIFFICULTY_LEVELS.length; index++) {

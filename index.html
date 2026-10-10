@@ -54,6 +54,7 @@
             <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
             <canvas id="board3d" class="board-3d" aria-label="Interaktives 3D-Schachbrett mit Feldkoordinaten am Rand" tabindex="0" hidden></canvas>
             <svg id="lessonArrows" class="lesson-arrows" viewBox="0 0 8 8" role="img" aria-label="Zug- und Angriffspfeile" hidden></svg>
+            <svg id="engineArrows" class="lesson-arrows engine-arrows" viewBox="0 0 8 8" role="img" aria-label="Engine-Zugvorschläge" hidden></svg>
           </div>
           <div id="thinking" class="thinking" hidden><span></span><span></span><span></span> KI rechnet</div>
         </div>
@@ -311,6 +312,40 @@
         </section>
 
         <section id="practiceControls" class="control-section" hidden>
+          <button class="secondary-button full-button" id="togglePositionEditor" type="button">Visuellen Stellungseditor öffnen</button>
+          <div class="position-editor" id="positionEditor" hidden>
+            <div class="position-editor-head"><span>FIGUR AUSWÄHLEN</span><small>Danach Zielfeld auf dem Brett anklicken</small></div>
+            <div class="piece-palette" id="piecePalette" role="radiogroup" aria-label="Figur für den Stellungseditor">
+              <button type="button" data-editor-piece="K" role="radio" aria-checked="false" aria-label="Weißer König">♔</button>
+              <button type="button" data-editor-piece="Q" role="radio" aria-checked="false" aria-label="Weiße Dame">♕</button>
+              <button type="button" data-editor-piece="R" role="radio" aria-checked="false" aria-label="Weißer Turm">♖</button>
+              <button type="button" data-editor-piece="B" role="radio" aria-checked="false" aria-label="Weißer Läufer">♗</button>
+              <button type="button" data-editor-piece="N" role="radio" aria-checked="false" aria-label="Weißer Springer">♘</button>
+              <button type="button" data-editor-piece="P" role="radio" aria-checked="false" aria-label="Weißer Bauer">♙</button>
+              <button type="button" data-editor-piece="k" role="radio" aria-checked="false" aria-label="Schwarzer König">♚</button>
+              <button type="button" data-editor-piece="q" role="radio" aria-checked="false" aria-label="Schwarze Dame">♛</button>
+              <button type="button" data-editor-piece="r" role="radio" aria-checked="false" aria-label="Schwarzer Turm">♜</button>
+              <button type="button" data-editor-piece="b" role="radio" aria-checked="false" aria-label="Schwarzer Läufer">♝</button>
+              <button type="button" data-editor-piece="n" role="radio" aria-checked="false" aria-label="Schwarzer Springer">♞</button>
+              <button type="button" data-editor-piece="p" role="radio" aria-checked="false" aria-label="Schwarzer Bauer">♟</button>
+              <button type="button" class="eraser" data-editor-piece="" role="radio" aria-checked="false" aria-label="Figur entfernen">⌫</button>
+            </div>
+            <label for="editorTurn">Am Zug</label>
+            <select id="editorTurn"><option value="w">Weiß</option><option value="b">Schwarz</option></select>
+            <fieldset class="castling-editor">
+              <legend>Rochaderechte</legend>
+              <label><input type="checkbox" data-castling="K"> Weiß kurz</label>
+              <label><input type="checkbox" data-castling="Q"> Weiß lang</label>
+              <label><input type="checkbox" data-castling="k"> Schwarz kurz</label>
+              <label><input type="checkbox" data-castling="q"> Schwarz lang</label>
+            </fieldset>
+            <div class="button-row"><button class="secondary-button" id="editorClear" type="button">Brett leeren</button><button class="secondary-button" id="editorStart" type="button">Grundstellung</button></div>
+            <p id="editorValidation" class="editor-validation" aria-live="polite"></p>
+            <label for="editorPositionName">Name zum direkten Speichern</label>
+            <input id="editorPositionName" type="text" maxlength="60" placeholder="z. B. Isolierter Damenbauer">
+            <button class="secondary-button full-button" id="saveEditorPosition" type="button">Stellung direkt speichern</button>
+            <div class="button-row"><button class="secondary-button" id="cancelPositionEditor" type="button">Abbrechen</button><button class="primary-button" id="applyPositionEditor" type="button">Stellung übernehmen</button></div>
+          </div>
           <label for="fenInput">Stellung (FEN)</label>
           <textarea id="fenInput" rows="3" spellcheck="false" aria-describedby="fenHelp"></textarea>
           <small id="fenHelp">FEN einfügen oder eine Beispielstellung laden.</small>
@@ -324,6 +359,16 @@
             <select id="savedPositionSelect"></select>
             <div class="button-row"><button class="secondary-button" id="deletePosition">Löschen</button><button class="primary-button" id="loadPosition">Laden</button></div>
           </div>
+          <div class="pgn-import">
+            <span>PGN-PARTIE IMPORTIEREN</span>
+            <label for="pgnInput">PGN-Text</label>
+            <textarea id="pgnInput" rows="6" spellcheck="false" placeholder="[Event &quot;Trainingspartie&quot;]&#10;&#10;1. e4 e5 2. Nf3 Nc6 …"></textarea>
+            <label for="pgnPlayerColor">Zu analysierende Seite</label>
+            <select id="pgnPlayerColor"><option value="w">Weiß</option><option value="b">Schwarz</option></select>
+            <button class="primary-button full-button" id="importPgn" type="button">PGN laden und analysieren</button>
+            <p id="pgnImportStatus" aria-live="polite"></p>
+            <div id="pgnAnalysis" class="coach-review" hidden></div>
+          </div>
           <button class="primary-button full-button" id="trainPosition">Aus dieser Stellung gegen die Engine üben</button>
           <button class="hint-action" id="practiceHintButton" type="button">
             <span aria-hidden="true">✦</span><strong>Engine-Hinweis anfordern</strong><small>Erst Idee, dann Figur, zuletzt genauer Zug</small>
@@ -332,6 +377,11 @@
             <div class="match-hint-head"><span>STELLUNGS-HINWEIS</span><strong id="practiceHintMove"></strong></div>
             <p id="practiceHintText"></p><small id="practiceHintMeta"></small>
           </div>
+          <div class="button-row engine-arrow-actions">
+            <button class="secondary-button" id="calculateEngineArrows" type="button">Engine-Pfeile berechnen</button>
+            <button class="secondary-button" id="clearEngineArrows" type="button" disabled>Pfeile ausblenden</button>
+          </div>
+          <small class="engine-arrow-legend"><span>1 Grün: bester Zug</span><span>2 Gold / 3 Blau: Alternativen</span></small>
         </section>
 
         <section class="status-card" aria-live="polite">

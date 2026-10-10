@@ -11,6 +11,9 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 ## Funktionen
 
 - Eigene Brettstellungen im Analysebrett oder direkt während einer Partie lokal benennen, speichern, laden und löschen
+- Visueller Stellungseditor mit Figurenpalette, Radierer, Zugrecht, Rochaderechten und Gültigkeitsprüfung
+- PGN-Import mit legaler Zugrekonstruktion, Farbauswahl und automatischer lokaler Zug-für-Zug-Analyse
+- Engine-Pfeile für den besten Zug und zwei Alternativen; in der Partieanalyse werden gespielter und besserer Zug gegenübergestellt
 - Gespeicherte Positionen frei analysieren oder als ungewertete Partie gegen die Engine weiterspielen
 - Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug
 - Filterbare Taktikstufen Leicht, Mittel und Schwer, kombinierbar mit dem gewünschten Motiv

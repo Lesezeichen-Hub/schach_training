@@ -20,6 +20,7 @@
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
     thinkingCheck: { runId: 0, ply: -1, resolved: false, attempted: false, selected: "", correct: "" },
     analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null, practiceHint: null, practiceHintThinking: false, practiceHintRequest: 0,
+    positionEditorActive: false, editorPiece: "P", editorSnapshot: null, engineArrows: [], engineArrowsThinking: false, engineArrowsRequest: 0, importedPgn: false,
     activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
     mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set(), moveAnimating: false
   };
@@ -248,6 +249,13 @@
     const box = $("#practiceHint");
     if (box) box.hidden = true;
   }
+  function clearEngineArrows() {
+    state.engineArrowsRequest += 1;
+    state.engineArrowsThinking = false;
+    state.engineArrows = [];
+    const svg = $("#engineArrows");
+    if (svg) { svg.replaceChildren(); svg.setAttribute("hidden", ""); }
+  }
   function cancelLessonTimer() {
     window.clearTimeout(state.lessonTimer); state.lessonTimer = null;
     state.lessonPlaying = false; state.thinking = false;
@@ -260,10 +268,14 @@
     state.reviewMove = null;
     const button = $("#reviewGame");
     if (button) { button.disabled = false; button.textContent = "Partie analysieren"; }
+    const importButton = $("#importPgn");
+    if (importButton) { importButton.disabled = false; importButton.textContent = "PGN laden und analysieren"; }
+    const pgnBox = $("#pgnAnalysis");
+    if (pgnBox) { pgnBox.hidden = true; pgnBox.replaceChildren(); }
   }
   function beginPositionSession() {
     if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
-    cancelLessonTimer(); clearMatchHint(); clearPracticeHint(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null; state.positionTraining = false;
+    cancelLessonTimer(); clearMatchHint(); clearPracticeHint(); clearEngineArrows(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null; state.positionTraining = false; state.positionEditorActive = false; state.editorSnapshot = null; state.importedPgn = false;
     automaticMoveAnimation?.cancel?.(); automaticMoveAnimation = null; state.moveAnimating = false;
     state.personalMatchMistake = null; state.personalMatchPending = false;
     state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
@@ -535,6 +547,8 @@
     $("#redoButton").disabled = !state.redoFrames.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && state.clock.initialMs > 0);
     renderMatchHintControls();
     renderPracticeHintControls();
+    renderPositionEditorControls();
+    renderEngineArrowControls();
     renderMatchRating();
     renderMatchClocks();
     renderMatchPlayers();
@@ -634,7 +648,7 @@
       }
     }
     const movable = new Set();
-    if (!state.reviewPosition && boardInputAllowed()) {
+    if (!state.reviewPosition && !state.positionEditorActive && boardInputAllowed()) {
       for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
         const piece = boardState.board[r][c];
         if (piece && E.colorOf(piece) === boardState.turn) movable.add(E.sq(r, c));
@@ -648,7 +662,7 @@
     boardEl.innerHTML = "";
     const boardState = state.reviewPosition || state.game;
     const checkColor = E.inCheck(boardState, boardState.turn) ? boardState.turn : null;
-    const flipped = isLessonMode() ? state.lesson.learnerSide === 'b' : state.mode === "match" && T.matchViewColor(state.opponentMode, state.playerColor, state.game.turn) === "b";
+    const flipped = isLessonMode() ? state.lesson.learnerSide === 'b' : state.mode === "match" ? T.matchViewColor(state.opponentMode, state.playerColor, state.game.turn) === "b" : state.mode === "practice" && state.importedPgn && state.playerColor === "b";
     boardEl.setAttribute('aria-label', `Schachbrett, ${flipped ? 'Schwarz' : 'Weiß'} unten`);
     for (let viewRow = 0; viewRow < 8; viewRow++) for (let viewCol = 0; viewCol < 8; viewCol++) {
       const r = flipped ? 7 - viewRow : viewRow;
@@ -697,10 +711,11 @@
       button.addEventListener("keydown", (event) => handleBoardKey(event, squareName, flipped));
       button.addEventListener("contextmenu", (event) => {
         event.preventDefault();
+        if (state.positionEditorActive) { editPositionSquare(squareName, null); return; }
         if (state.markedSquares.has(squareName)) state.markedSquares.delete(squareName); else state.markedSquares.add(squareName);
         button.classList.toggle("user-marked", state.markedSquares.has(squareName));
       });
-      if (piece && E.colorOf(piece) === boardState.turn && boardInputAllowed()) {
+      if (!state.positionEditorActive && piece && E.colorOf(piece) === boardState.turn && boardInputAllowed()) {
         button.draggable = true;
         button.addEventListener("dragstart", (event) => {
           if (state.thinking || E.gameStatus(state.game).over) { event.preventDefault(); return; }
@@ -722,7 +737,34 @@
       boardEl.appendChild(button);
     }
     sync3DBoard(boardState, flipped);
+    renderEngineArrows(flipped);
     if (restoreBoardFocus) boardEl.querySelector(`[data-square="${state.focusedSquare}"]`)?.focus();
+  }
+
+  function renderEngineArrows(flipped) {
+    const svg = $("#engineArrows");
+    svg.replaceChildren();
+    if (!state.engineArrows.length || state.positionEditorActive) { svg.setAttribute("hidden", ""); return; }
+    const ns = "http://www.w3.org/2000/svg";
+    const colors = ["#62be77", "#e7b65d", "#329de2", "#be83ef"];
+    const makeSvg = (tag, attributes) => {
+      const element = document.createElementNS(ns, tag);
+      for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+      return element;
+    };
+    const defs = makeSvg("defs", {}); svg.appendChild(defs);
+    state.engineArrows.forEach((arrow, index) => {
+      const color = arrow.color || colors[index] || colors.at(-1), markerId = `engine-arrow-${index}`;
+      const marker = makeSvg("marker", { id: markerId, markerWidth: 4, markerHeight: 4, refX: 3, refY: 2, orient: "auto", markerUnits: "strokeWidth" });
+      marker.appendChild(makeSvg("path", { d: "M0,0 L4,2 L0,4 Z", fill: color })); defs.appendChild(marker);
+      const from = T.arrowPoint(E, arrow.from, flipped), to = T.arrowPoint(E, arrow.to, flipped);
+      const line = makeSvg("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: color, "stroke-width": index ? .075 : .105, "stroke-opacity": .88, "marker-end": `url(#${markerId})` });
+      if (index) line.setAttribute("stroke-dasharray", ".16 .07");
+      const title = makeSvg("title", {}); title.textContent = arrow.label || `Engine-Vorschlag ${index + 1}`; line.appendChild(title); svg.appendChild(line);
+      const label = makeSvg("text", { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - .1, "text-anchor": "middle" }); label.textContent = String(index + 1); svg.appendChild(label);
+    });
+    svg.setAttribute("aria-label", state.engineArrows.map((arrow, index) => `${index + 1}: ${arrow.from} nach ${arrow.to}`).join("; "));
+    svg.removeAttribute("hidden");
   }
 
   function handleBoardKey(event, square, flipped) {
@@ -743,6 +785,7 @@
   }
 
   async function selectSquare(square) {
+    if (state.positionEditorActive) { editPositionSquare(square, state.editorPiece); return; }
     if (!boardInputAllowed()) return;
     const [r, c] = E.coords(square);
     const piece = state.game.board[r][c];
@@ -770,7 +813,7 @@
   }
 
   function boardInputAllowed() {
-    if (state.reviewPosition || state.thinking || state.moveAnimating || (state.mode === "match" && state.clock.flagged) || E.gameStatus(state.game).over) return false;
+    if (state.positionEditorActive || state.reviewPosition || state.thinking || state.moveAnimating || (state.mode === "match" && state.clock.flagged) || E.gameStatus(state.game).over) return false;
     if (["home", "learn", "basics", "strategy"].includes(state.mode)) return false;
     if (state.mode === "tactics" && state.puzzleSolved) return false;
     if (state.mode === "mistakes" && (state.mistakeSolved || !state.activeMistake)) return false;
@@ -798,7 +841,7 @@
     state.redoFrames = [];
     const usedMatchHint = Boolean(state.matchHint?.stage >= 2);
     let personalFeedback = null;
-    clearMatchHint(); clearPracticeHint(); state.markedSquares.clear();
+    clearMatchHint(); clearPracticeHint(); clearEngineArrows(); state.markedSquares.clear();
     if (isLessonMode()) {
       const before = state.lesson.game;
       const result = T.submitLessonMove(state.lesson, move);
@@ -1158,6 +1201,38 @@
       $("#practiceHintMove").textContent = `3 · ${hint.notation} · ${hint.move.from} → ${hint.move.to}`;
       $("#practiceHintText").textContent = explainHintMove(position, hint.move);
       $("#practiceHintMeta").textContent = `${describeEvaluation(hint.analysis.score, position.turn)} · Tiefe ${hint.analysis.depth || 1}${alternatives.length ? ` · Alternativen: ${alternatives.join(", ")}` : ""}`;
+      state.engineArrows = hint.analysis.alternatives.slice(0, 3).map((item, index) => ({ from: item.move.from, to: item.move.to, label: `${index + 1}. ${E.notation(position, item.move)}` }));
+    }
+  }
+
+  function renderEngineArrowControls() {
+    const calculate = $("#calculateEngineArrows"), clear = $("#clearEngineArrows");
+    if (!calculate || !clear) return;
+    const position = state.reviewPosition || state.game;
+    calculate.disabled = state.mode !== "practice" || state.engineArrowsThinking || state.positionEditorActive || E.gameStatus(position).over;
+    calculate.textContent = state.engineArrowsThinking ? "Engine berechnet Pfeile …" : state.engineArrows.length ? "Engine-Pfeile neu berechnen" : "Engine-Pfeile berechnen";
+    clear.disabled = !state.engineArrows.length && !state.engineArrowsThinking;
+  }
+
+  async function requestEngineArrows() {
+    if (state.mode !== "practice" || state.engineArrowsThinking || state.positionEditorActive) return;
+    const position = state.reviewPosition || state.game;
+    if (E.gameStatus(position).over) return;
+    const expectedFen = E.toFEN(position), sessionId = state.sessionId, requestId = ++state.engineArrowsRequest;
+    state.engineArrowsThinking = true; state.engineArrows = []; renderEngineArrowControls(); renderEngineArrows(false);
+    try {
+      const analysis = await analyzeInBackground(position, { depth: 7, timeMs: 1800, quiescence: 3, multiPv: 3 });
+      const currentPosition = state.reviewPosition || state.game;
+      if (requestId !== state.engineArrowsRequest || sessionId !== state.sessionId || state.mode !== "practice" || E.toFEN(currentPosition) !== expectedFen) return;
+      state.engineArrowsThinking = false;
+      state.engineArrows = analysis.alternatives.slice(0, 3).map((item, index) => ({
+        from: item.move.from, to: item.move.to, label: `${index + 1}. ${E.notation(position, item.move)}`
+      }));
+      renderBoard(); renderEngineArrowControls();
+    } catch {
+      if (requestId !== state.engineArrowsRequest) return;
+      state.engineArrowsThinking = false; renderEngineArrowControls();
+      state.messageOverride = { kind: "error", title: "Engine-Pfeile nicht verfügbar", text: "Die Stellung konnte gerade nicht berechnet werden." }; render();
     }
   }
 
@@ -2070,6 +2145,45 @@
   $("#nextStrategy").addEventListener("click", () => loadStrategyStep(state.strategyStep + 1));
   $("#openingSelect").addEventListener("change", (event) => loadOpening(event.target.value));
   $("#restartOpening").addEventListener("click", () => loadOpening(trainingData.openings[state.openingIndex].id));
+
+  function importPgn() {
+    const source = $("#pgnInput").value.trim(), status = $("#pgnImportStatus");
+    status.classList.remove("error");
+    if (!source) { status.textContent = "Füge zuerst eine PGN-Partie ein."; status.classList.add("error"); return; }
+    try {
+      const fenHeader = source.match(/^\s*\[FEN\s+"([^"]+)"\]\s*$/mi)?.[1];
+      let position = fenHeader ? validPracticePosition(fenHeader) : E.fromFEN();
+      if (!position) throw new Error("Die FEN-Ausgangsstellung im PGN ist ungültig.");
+      const playerColor = $("#pgnPlayerColor").value === "b" ? "b" : "w", records = [], tokens = T.pgnMoveTokens(source);
+      if (!tokens.length) throw new Error("Im PGN wurden keine Züge gefunden.");
+      for (let ply = 0; ply < tokens.length; ply++) {
+        const before = position, move = T.resolvePgnMove(E, before, tokens[ply]);
+        if (!move) throw new Error(`Zug ${ply + 1} (${tokens[ply]}) ist in der erreichten Stellung nicht eindeutig oder nicht legal.`);
+        const san = E.notation(before, move);
+        position = E.applyMove(before, move);
+        records.push({
+          color: before.turn, san,
+          whiteMaterialBefore: T.materialFor(E, before, "w"), whiteMaterialAfter: T.materialFor(E, position, "w"),
+          playerMaterialBefore: T.materialFor(E, before, playerColor), playerMaterialAfter: T.materialFor(E, position, playerColor)
+        });
+      }
+      beginPositionSession();
+      state.game = position; state.moves = records; state.lastMove = position.history.at(-1)?.move || null; state.opponentLastMove = null;
+      state.playerColor = playerColor; state.importedPgn = true; state.matchLearningId = `pgn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      state.messageOverride = { kind: "success", title: "PGN importiert", text: `${records.length} Halbzüge wurden legal rekonstruiert. Die lokale Engine analysiert jetzt ${playerColor === "w" ? "Weiß" : "Schwarz"}.` };
+      $("#fenInput").value = E.toFEN(position);
+      status.textContent = `${records.length} Halbzüge geladen · Analyse für ${playerColor === "w" ? "Weiß" : "Schwarz"} gestartet.`;
+      $("#pgnAnalysis").hidden = false;
+      render(); startGameAnalysis();
+    } catch (error) {
+      status.textContent = error.message || "Das PGN konnte nicht gelesen werden."; status.classList.add("error");
+      $("#pgnAnalysis").hidden = true;
+    }
+  }
+
+  function analysisBox() { return state.mode === "practice" ? $("#pgnAnalysis") : $("#coachReview"); }
+  function analysisActionButton() { return state.mode === "practice" ? $("#importPgn") : $("#reviewGame"); }
+
   function showCoachReviewSummary() {
     const box = $("#coachReview");
     if (state.analysisRunning || state.gameAnalysis.length || !box.hidden) return;
@@ -2083,22 +2197,22 @@
   function startGameAnalysis() {
     if (state.analysisRunning) return;
     const positions = state.game.history.map((entry, ply) => ({ entry, ply })).filter(({ entry }) => E.fromFEN(entry.fen).turn === state.playerColor);
-    const box = $("#coachReview");
+    const box = analysisBox(), actionButton = analysisActionButton();
     if (!positions.length) {
       box.hidden = false; box.innerHTML = '<strong>Noch keine eigenen Züge</strong><p>Spiele mindestens einen Zug, damit die Partieanalyse beginnen kann.</p>';
       return;
     }
     const requestId = ++state.analysisRequest;
     state.analysisRunning = true; state.gameAnalysis = []; state.reviewPosition = null; state.reviewMove = null;
-    $("#reviewGame").disabled = true;
+    actionButton.disabled = true;
     renderAnalysisProgress(0, positions.length);
 
     const analyzeNext = (index) => {
       if (requestId !== state.analysisRequest || !state.analysisRunning) return;
       if (index >= positions.length) {
         state.analysisRunning = false;
-        $("#reviewGame").disabled = false;
-        $("#reviewGame").textContent = "Analyse neu berechnen";
+        actionButton.disabled = false;
+        actionButton.textContent = state.mode === "practice" ? "PGN erneut laden und analysieren" : "Analyse neu berechnen";
         saveGameMistakes(state.gameAnalysis);
         renderGameAnalysis();
         return;
@@ -2112,8 +2226,8 @@
           let analysis;
           try { analysis = await analyzeInBackground(position, { depth: 6, timeMs: 900, quiescence: 3, multiPv: 5 }); }
           catch {
-            state.analysisRunning = false; $("#reviewGame").disabled = false;
-            $("#coachReview").innerHTML = '<strong>Analyse unterbrochen</strong><p>Die Hintergrundanalyse konnte diese Stellung nicht verarbeiten. Du kannst die Analyse erneut starten.</p>';
+            state.analysisRunning = false; actionButton.disabled = false;
+            analysisBox().innerHTML = '<strong>Analyse unterbrochen</strong><p>Die Hintergrundanalyse konnte diese Stellung nicht verarbeiten. Du kannst die Analyse erneut starten.</p>';
             return;
           }
           if (requestId !== state.analysisRequest || !state.analysisRunning) return;
@@ -2140,13 +2254,13 @@
   }
 
   function renderAnalysisProgress(done, total) {
-    const box = $("#coachReview"); box.hidden = false;
+    const box = analysisBox(); box.hidden = false;
     const percent = Math.round(done / total * 100);
     box.innerHTML = `<strong>Partie wird Zug für Zug analysiert</strong><p>${done} von ${total} eigenen Zügen geprüft. Die lokale Engine vergleicht jeden Zug mit allen legalen Kandidaten.</p><div class="analysis-progress" aria-label="${percent} Prozent"><span style="width:${percent}%"></span></div>`;
   }
 
   function renderGameAnalysis() {
-    const box = $("#coachReview"); box.hidden = false; box.innerHTML = "";
+    const box = analysisBox(); box.hidden = false; box.innerHTML = "";
     const results = state.gameAnalysis;
     if (!results.length) { box.innerHTML = '<strong>Keine auswertbaren Züge</strong><p>Für diese Partie konnten keine eigenen legalen Züge rekonstruiert werden.</p>'; return; }
     const averageQuality = Math.round(results.reduce((sum, item) => sum + item.classification.quality, 0) / results.length);
@@ -2163,7 +2277,7 @@
     });
     const detail = document.createElement("div"); detail.id = "analysisDetail"; detail.className = "analysis-detail"; detail.textContent = "Wähle einen Zug aus der Liste.";
     const finalButton = document.createElement("button"); finalButton.type = "button"; finalButton.className = "text-button analysis-final"; finalButton.textContent = "Endstellung auf dem Brett zeigen";
-    finalButton.addEventListener("click", () => { state.reviewPosition = null; state.reviewMove = null; renderBoard(); all(".analysis-row").forEach((row) => row.classList.remove("active")); detail.textContent = "Endstellung der Partie."; });
+    finalButton.addEventListener("click", () => { state.reviewPosition = null; state.reviewMove = null; clearEngineArrows(); renderBoard(); all(".analysis-row").forEach((row) => row.classList.remove("active")); detail.textContent = "Endstellung der Partie."; });
     box.append(heading, note, list, detail, finalButton);
     const firstCritical = results.findIndex((item) => ["mistake", "blunder"].includes(item.classification.id));
     showAnalysisPosition(firstCritical >= 0 ? firstCritical : 0);
@@ -2174,6 +2288,9 @@
     if (!item) return;
     state.reviewPosition = E.fromFEN(item.fen);
     state.reviewMove = { played: item.played, best: item.best };
+    state.engineArrows = sameMove(item.played, item.best)
+      ? [{ from: item.best.from, to: item.best.to, color: "#62be77", label: `Stärkster Zug: ${item.bestSan}` }]
+      : [{ from: item.played.from, to: item.played.to, color: "#e06459", label: `Gespielt: ${item.playedSan}` }, { from: item.best.from, to: item.best.to, color: "#e7b65d", label: `Besser: ${item.bestSan}` }];
     renderBoard();
     all(".analysis-row").forEach((row, rowIndex) => row.classList.toggle("active", rowIndex === index));
     const detail = $("#analysisDetail");
@@ -2196,6 +2313,7 @@
   }
 
   $("#reviewGame").addEventListener("click", startGameAnalysis);
+  $("#importPgn").addEventListener("click", importPgn);
   $("#trainGameMistakes").addEventListener("click", () => switchMode("mistakes"));
   $("#mistakeHint").addEventListener("click", showMistakeHint);
   $("#nextMistake").addEventListener("click", () => state.mixed.active ? advanceMixedTraining() : loadGameMistake(0));
@@ -2203,6 +2321,29 @@
   $("#loadStart").addEventListener("click", () => { $("#fenInput").value = E.START_FEN; loadFen(); });
   $("#loadFen").addEventListener("click", loadFen);
   $("#practiceHintButton").addEventListener("click", requestPracticeHint);
+  $("#calculateEngineArrows").addEventListener("click", requestEngineArrows);
+  $("#clearEngineArrows").addEventListener("click", () => { clearEngineArrows(); renderBoard(); renderEngineArrowControls(); });
+  $("#togglePositionEditor").addEventListener("click", togglePositionEditor);
+  $("#cancelPositionEditor").addEventListener("click", cancelPositionEditor);
+  $("#applyPositionEditor").addEventListener("click", applyPositionEditor);
+  $("#editorClear").addEventListener("click", clearPositionEditor);
+  $("#editorStart").addEventListener("click", () => setEditorPosition(E.fromFEN()));
+  $("#saveEditorPosition").addEventListener("click", () => saveCurrentPosition("#editorPositionName"));
+  $("#editorPositionName").addEventListener("keydown", (event) => { if (event.key === "Enter") saveCurrentPosition("#editorPositionName"); });
+  all("[data-editor-piece]").forEach((button) => button.addEventListener("click", () => {
+    state.editorPiece = button.dataset.editorPiece || null;
+    renderPositionEditorControls();
+  }));
+  $("#editorTurn").addEventListener("change", (event) => {
+    if (!state.positionEditorActive) return;
+    state.game.turn = event.target.value === "b" ? "b" : "w";
+    updateEditorPosition();
+  });
+  all("[data-castling]").forEach((input) => input.addEventListener("change", () => {
+    if (!state.positionEditorActive) return;
+    state.game.castling[input.dataset.castling] = input.checked;
+    updateEditorPosition();
+  }));
   $("#savePosition").addEventListener("click", () => saveCurrentPosition("#positionName"));
   $("#saveMatchPosition").addEventListener("click", () => saveCurrentPosition("#matchPositionName"));
   $("#matchPositionName").addEventListener("keydown", (event) => { if (event.key === "Enter") saveCurrentPosition("#matchPositionName"); });
@@ -2210,7 +2351,7 @@
   $("#deletePosition").addEventListener("click", deleteSelectedPosition);
   $("#trainPosition").addEventListener("click", startPositionTraining);
   $("#undoButton").addEventListener("click", () => {
-    clearMatchHint(); clearPracticeHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
+    clearMatchHint(); clearPracticeHint(); clearEngineArrows(); cancelGameAnalysis(); $("#coachReview").hidden = true;
     state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0;
     const frame = [];
     if (state.mode === "match") {
@@ -2241,7 +2382,7 @@
   $("#redoButton").addEventListener("click", () => {
     const frame = state.redoFrames.pop();
     if (!frame?.length) return;
-    clearMatchHint(); clearPracticeHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
+    clearMatchHint(); clearPracticeHint(); clearEngineArrows(); cancelGameAnalysis(); $("#coachReview").hidden = true;
     let soundBefore = null, soundMove = null;
     for (const item of frame) {
       const move = E.legalMoves(state.game).find((candidate) => candidate.from === item.move.from && candidate.to === item.move.to && (candidate.promotion || "") === (item.move.promotion || ""));
@@ -2264,6 +2405,100 @@
     render();
   });
 
+  function positionProblem(position) {
+    const pieces = position.board.flat();
+    if (pieces.filter((piece) => piece === "K").length !== 1) return "Die Stellung braucht genau einen weißen König.";
+    if (pieces.filter((piece) => piece === "k").length !== 1) return "Die Stellung braucht genau einen schwarzen König.";
+    if (position.board[0].some((piece) => piece?.toLowerCase() === "p") || position.board[7].some((piece) => piece?.toLowerCase() === "p")) return "Bauern dürfen nicht auf der ersten oder achten Reihe stehen.";
+    if (E.inCheck(position, "w") && E.inCheck(position, "b")) return "Beide Könige dürfen nicht gleichzeitig im Schach stehen.";
+    const required = { K: ["e1", "K", "h1", "R"], Q: ["e1", "K", "a1", "R"], k: ["e8", "k", "h8", "r"], q: ["e8", "k", "a8", "r"] };
+    for (const [right, [kingSquare, king, rookSquare, rook]] of Object.entries(required)) {
+      if (!position.castling[right]) continue;
+      const [kr, kc] = E.coords(kingSquare), [rr, rc] = E.coords(rookSquare);
+      if (position.board[kr][kc] !== king || position.board[rr][rc] !== rook) return "Ein Rochaderecht ist gewählt, aber König oder Turm steht nicht auf dem Ausgangsfeld.";
+    }
+    return "";
+  }
+
+  function renderPositionEditorControls() {
+    const panel = $("#positionEditor");
+    if (!panel) return;
+    panel.hidden = !state.positionEditorActive;
+    $("#togglePositionEditor").textContent = state.positionEditorActive ? "Editor schließen und Änderungen verwerfen" : "Visuellen Stellungseditor öffnen";
+    all("[data-editor-piece]").forEach((button) => {
+      const piece = button.dataset.editorPiece || null, active = piece === state.editorPiece;
+      button.classList.toggle("active", active); button.setAttribute("aria-checked", String(active));
+    });
+    if (!state.positionEditorActive) return;
+    $("#editorTurn").value = state.game.turn;
+    all("[data-castling]").forEach((input) => { input.checked = Boolean(state.game.castling[input.dataset.castling]); });
+    const problem = positionProblem(state.game), target = $("#editorValidation");
+    target.textContent = problem || "Stellung ist speicherbereit.";
+    target.classList.toggle("error", Boolean(problem));
+    $("#applyPositionEditor").disabled = Boolean(problem);
+    $("#saveEditorPosition").disabled = Boolean(problem);
+  }
+
+  function togglePositionEditor() {
+    if (state.positionEditorActive) { cancelPositionEditor(); return; }
+    state.editorSnapshot = {
+      game: E.cloneState(state.game), moves: state.moves.map((move) => ({ ...move })), lastMove: state.lastMove ? { ...state.lastMove } : null,
+      opponentLastMove: state.opponentLastMove ? { ...state.opponentLastMove } : null, messageOverride: state.messageOverride
+    };
+    clearPracticeHint(); state.positionEditorActive = true; state.selected = null; state.legal = []; state.markedSquares.clear();
+    state.messageOverride = { kind: "", title: "Stellungseditor aktiv", text: "Wähle eine Figur und klicke ihr Zielfeld an. Mit Rechtsklick entfernst du eine Figur." };
+    $("#fenInput").value = E.toFEN(state.game);
+    render();
+  }
+
+  function cancelPositionEditor() {
+    const snapshot = state.editorSnapshot;
+    if (snapshot) {
+      state.game = snapshot.game; state.moves = snapshot.moves; state.lastMove = snapshot.lastMove;
+      state.opponentLastMove = snapshot.opponentLastMove; state.messageOverride = snapshot.messageOverride;
+    }
+    state.positionEditorActive = false; state.editorSnapshot = null; state.selected = null; state.legal = [];
+    $("#fenInput").value = E.toFEN(state.game);
+    render();
+  }
+
+  function setEditorPosition(position) {
+    if (!state.positionEditorActive) return;
+    state.game = position; state.moves = []; state.lastMove = null; state.opponentLastMove = null;
+    updateEditorPosition();
+  }
+
+  function clearPositionEditor() {
+    if (!state.positionEditorActive) return;
+    const empty = E.fromFEN("8/8/8/8/8/8/8/8 w - - 0 1");
+    setEditorPosition(empty);
+  }
+
+  function editPositionSquare(square, piece) {
+    if (!state.positionEditorActive) return;
+    const [row, column] = E.coords(square);
+    state.game.board[row][column] = piece || null;
+    state.game.ep = null; state.game.halfmove = 0; state.game.fullmove = 1; state.game.history = [];
+    state.moves = []; state.lastMove = null; state.opponentLastMove = null;
+    updateEditorPosition();
+  }
+
+  function updateEditorPosition() {
+    state.selected = null; state.legal = [];
+    $("#fenInput").value = E.toFEN(state.game);
+    renderBoard(); renderPositionEditorControls();
+  }
+
+  function applyPositionEditor() {
+    const fen = E.toFEN(state.game), parsed = validPracticePosition(fen);
+    if (!parsed) { renderPositionEditorControls(); return; }
+    beginPositionSession();
+    state.game = parsed; state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = [];
+    state.messageOverride = { kind: "success", title: "Eigene Stellung übernommen", text: "Du kannst sie jetzt benennen und speichern, analysieren oder gegen die Engine spielen." };
+    $("#fenInput").value = fen;
+    render();
+  }
+
   function validPracticePosition(fen) {
     try {
       const fields = fen.trim().split(/\s+/);
@@ -2272,9 +2507,7 @@
       if (fields[2] !== "-" && new Set(fields[2]).size !== fields[2].length) return null;
       if (!fields[0].split("/").every((rank) => /^[prnbqkPRNBQK1-8]+$/.test(rank))) return null;
       const parsed = E.fromFEN(fen);
-      const pieces = parsed.board.flat();
-      if (pieces.filter((piece) => piece === "K").length !== 1 || pieces.filter((piece) => piece === "k").length !== 1) return null;
-      if (E.inCheck(parsed, "w") && E.inCheck(parsed, "b")) return null;
+      if (positionProblem(parsed)) return null;
       return parsed;
     } catch { return null; }
   }
@@ -2314,7 +2547,13 @@
     const input = $(inputSelector);
     const enteredName = input.value.trim();
     const name = (enteredName || `Stellung ${positions.length + 1}`).slice(0, 60);
-    const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, fen: E.toFEN(state.game), createdAt: new Date().toISOString() };
+    const fen = E.toFEN(state.game);
+    if (!validPracticePosition(fen)) {
+      state.messageOverride = { kind: "error", title: "Stellung noch nicht gültig", text: positionProblem(state.game) || "Prüfe die Figuren und das Zugrecht." };
+      if (state.positionEditorActive) { renderPositionEditorControls(); return; }
+      render(); return;
+    }
+    const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, fen, createdAt: new Date().toISOString() };
     if (!storeSavedPositions([...positions, item])) {
       state.messageOverride = { kind: "error", title: "Speichern nicht möglich", text: "Der Browser hat den lokalen Speicher nicht freigegeben." };
       render(); return;

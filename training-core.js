@@ -161,6 +161,40 @@
     return `${turns.join(" ")} ${result}`.trim();
   }
 
+  function pgnMoveTokens(pgn) {
+    let body = String(pgn || "").replace(/^\s*\[[^\r\n]*\]\s*$/gm, " ").replace(/\{[^}]*\}/gs, " ").replace(/;[^\r\n]*/g, " ");
+    let mainline = "", variationDepth = 0;
+    for (const character of body) {
+      if (character === "(") { variationDepth += 1; continue; }
+      if (character === ")") { variationDepth = Math.max(0, variationDepth - 1); continue; }
+      if (!variationDepth) mainline += character;
+    }
+    return mainline.replace(/\$\d+/g, " ").split(/\s+/).map((raw) => raw.replace(/^\d+\.(?:\.\.)?/, "").trim()).filter((token) => token && token !== "..." && token !== "e.p." && !/^(?:1-0|0-1|1\/2-1\/2|\*)$/.test(token));
+  }
+
+  function resolvePgnMove(engine, position, rawToken) {
+    let token = rawToken.replace(/[!?]+$/g, "").replace(/^0-0-0/, "O-O-O").replace(/^0-0/, "O-O");
+    const coordinate = token.match(/^([a-h][1-8])[-x]?([a-h][1-8])(?:=?([qrbnQRBN]))?[+#]?$/);
+    const legal = engine.legalMoves(position);
+    if (coordinate) return legal.find((move) => move.from === coordinate[1] && move.to === coordinate[2] && (move.promotion || "") === (coordinate[3] || "").toLowerCase()) || null;
+    if (/^O-O(?:-O)?[+#]?$/.test(token)) {
+      const side = token.startsWith("O-O-O") ? "Q" : "K";
+      return legal.find((move) => move.castle === side) || null;
+    }
+    token = token.replace(/[+#]+$/, "");
+    const match = token.match(/^([KQRBN])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=?([QRBN]))?$/);
+    if (!match) return null;
+    const [, requestedPiece = "P", fromFile, fromRank, capture, target, promotion] = match;
+    const candidates = legal.filter((move) => {
+      const [row, column] = engine.coords(move.from), piece = position.board[row][column];
+      return engine.typeOf(piece).toUpperCase() === requestedPiece && move.to === target
+        && (!fromFile || move.from[0] === fromFile) && (!fromRank || move.from[1] === fromRank)
+        && Boolean(move.capture || move.enPassant) === Boolean(capture)
+        && (move.promotion || "") === (promotion || "").toLowerCase();
+    });
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
   function coachReview(records, pgn = toPgn(records), playerColor = "w") {
     const ownMoves = records.filter((record) => record.color === playerColor);
     const castledEarly = ownMoves.slice(0, 15).some((record) => record.san === "O-O" || record.san === "O-O-O");
@@ -429,5 +463,5 @@
     }
     return saved;
   }
-  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel, advanceClock, addClockIncrement, matchViewColor };
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, pgnMoveTokens, resolvePgnMove, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel, advanceClock, addClockIncrement, matchViewColor };
 })(typeof window !== "undefined" ? window : globalThis);
