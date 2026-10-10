@@ -10,6 +10,9 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 
 ## Funktionen
 
+- Eigene Brettstellungen lokal benennen, speichern, laden und löschen
+- Gespeicherte Positionen frei analysieren oder als ungewertete Partie gegen die Engine weiterspielen
+- Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
 - Kompakter Denk-Check vor jedem eigenen Zug in geführten Lektionen: Zugidee einordnen, dann erst auf dem Brett ausführen; lokale Trefferquote inklusive
 - 32 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie je vier Aufgaben zu Matt in 1, Matt in 2 und Materialgewinn

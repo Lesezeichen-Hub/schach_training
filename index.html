@@ -281,6 +281,23 @@
           <textarea id="fenInput" rows="3" spellcheck="false" aria-describedby="fenHelp"></textarea>
           <small id="fenHelp">FEN einfügen oder eine Beispielstellung laden.</small>
           <div class="button-row"><button class="secondary-button" id="loadStart">Grundstellung</button><button class="primary-button" id="loadFen">Stellung laden</button></div>
+          <div class="position-library">
+            <span>MEINE STELLUNGEN</span>
+            <label for="positionName">Name der aktuellen Stellung</label>
+            <input id="positionName" type="text" maxlength="60" placeholder="z. B. Angriff am Königsflügel">
+            <button class="secondary-button full-button" id="savePosition">Aktuelle Stellung speichern</button>
+            <label for="savedPositionSelect">Gespeicherte Stellung</label>
+            <select id="savedPositionSelect"></select>
+            <div class="button-row"><button class="secondary-button" id="deletePosition">Löschen</button><button class="primary-button" id="loadPosition">Laden</button></div>
+          </div>
+          <button class="primary-button full-button" id="trainPosition">Aus dieser Stellung gegen die Engine üben</button>
+          <button class="hint-action" id="practiceHintButton" type="button">
+            <span aria-hidden="true">✦</span><strong>Engine-Hinweis anfordern</strong><small>Erst Idee, dann Figur, zuletzt genauer Zug</small>
+          </button>
+          <div id="practiceHint" class="match-hint" aria-live="polite" hidden>
+            <div class="match-hint-head"><span>STELLUNGS-HINWEIS</span><strong id="practiceHintMove"></strong></div>
+            <p id="practiceHintText"></p><small id="practiceHintMeta"></small>
+          </div>
         </section>
 
         <section class="status-card" aria-live="polite">

@@ -14,12 +14,12 @@
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null,
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
     openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
-    matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null,
+    matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null, positionTraining: false,
     opponentMode: "ai", clockMinutes: 0, clock: { initialMs: 0, w: 0, b: 0, lastTick: 0, flagged: null },
     personalMatchMistake: null, personalMatchPending: false, personalMatchCursor: 0, matchLearningId: "", liveAnalysisRequest: 0, liveAnalysisPending: 0,
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
     thinkingCheck: { runId: 0, ply: -1, resolved: false, attempted: false, selected: "", correct: "" },
-    analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null,
+    analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null, practiceHint: null, practiceHintThinking: false, practiceHintRequest: 0,
     activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
     mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set(), moveAnimating: false
   };
@@ -28,6 +28,7 @@
   let matchClockTimer = null;
   let automaticMoveAnimation = null;
   let moveAudioContext = null, soundEnabled = true;
+  const savedPositionsKey = "schachwerkstatt-saved-positions";
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
   try {
     const savedMinutes = Number(localStorage.getItem("schachwerkstatt-time-control"));
@@ -217,6 +218,13 @@
     const box = $("#matchHint");
     if (box) box.hidden = true;
   }
+  function clearPracticeHint() {
+    state.practiceHintRequest += 1;
+    state.practiceHint = null;
+    state.practiceHintThinking = false;
+    const box = $("#practiceHint");
+    if (box) box.hidden = true;
+  }
   function cancelLessonTimer() {
     window.clearTimeout(state.lessonTimer); state.lessonTimer = null;
     state.lessonPlaying = false; state.thinking = false;
@@ -232,7 +240,7 @@
   }
   function beginPositionSession() {
     if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
-    cancelLessonTimer(); clearMatchHint(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null;
+    cancelLessonTimer(); clearMatchHint(); clearPracticeHint(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null; state.positionTraining = false;
     automaticMoveAnimation?.cancel?.(); automaticMoveAnimation = null; state.moveAnimating = false;
     state.personalMatchMistake = null; state.personalMatchPending = false;
     state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
@@ -503,6 +511,7 @@
     $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && (!hasOwnMatchMove || matchStatus.over || state.clock.initialMs > 0));
     $("#redoButton").disabled = !state.redoFrames.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && state.clock.initialMs > 0);
     renderMatchHintControls();
+    renderPracticeHintControls();
     renderMatchRating();
     renderMatchClocks();
     renderMatchPlayers();
@@ -549,7 +558,7 @@
     $("#playerDetail").textContent = `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
     $("#opponentAvatar").textContent = "KI";
     $("#opponentName").textContent = "Trainingspartner";
-    $("#opponentDetail").textContent = state.personalMatchMistake ? "Persönlicher Lerngegner · startet aus deinem gespeicherten Fehler" : `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
+    $("#opponentDetail").textContent = state.positionTraining ? "Stellungstraining · ungewertet" : state.personalMatchMistake ? "Persönlicher Lerngegner · startet aus deinem gespeicherten Fehler" : `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
   }
 
   function updateMatchClock(now = Date.now()) {
@@ -637,9 +646,10 @@
         if (state.opponentLastMove.from === squareName) button.classList.add("opponent-last-from");
         if (state.opponentLastMove.to === squareName) button.classList.add("opponent-last-to");
       }
-      if (state.mode === "match" && state.matchHint?.move) {
-        if (state.matchHint.stage >= 2 && state.matchHint.move.from === squareName) button.classList.add("hint-from");
-        if (state.matchHint.stage >= 3 && state.matchHint.move.to === squareName) button.classList.add("hint-to");
+      const activeHint = state.mode === "match" ? state.matchHint : state.mode === "practice" ? state.practiceHint : null;
+      if (activeHint?.move) {
+        if (activeHint.stage >= 2 && activeHint.move.from === squareName) button.classList.add("hint-from");
+        if (activeHint.stage >= 3 && activeHint.move.to === squareName) button.classList.add("hint-to");
       }
       if (state.reviewMove) {
         if (state.reviewMove.played.to === squareName) button.classList.add("review-played");
@@ -764,7 +774,7 @@
     state.redoFrames = [];
     const usedMatchHint = Boolean(state.matchHint?.stage >= 2);
     let personalFeedback = null;
-    clearMatchHint(); state.markedSquares.clear();
+    clearMatchHint(); clearPracticeHint(); state.markedSquares.clear();
     if (isLessonMode()) {
       const before = state.lesson.game;
       const result = T.submitLessonMove(state.lesson, move);
@@ -850,6 +860,7 @@
     state.selected = null;
     state.legal = [];
     state.messageOverride = personalFeedback;
+    if (state.mode === "practice") $("#fenInput").value = E.toFEN(state.game);
     if (state.mode === "match" && state.clock.initialMs) state.clock.lastTick = Date.now();
 
     if (state.mode === "match" && !isHotSeat() && actor === "human" && !personalFeedback) learnFromMatchMove(before, move, san);
@@ -1063,6 +1074,66 @@
     }
   }
 
+  function renderPracticeHintControls() {
+    const button = $("#practiceHintButton");
+    if (!button) return;
+    const available = state.mode === "practice" && !state.practiceHintThinking && !E.gameStatus(state.game).over;
+    button.disabled = !available;
+    button.querySelector("strong").textContent = state.practiceHintThinking ? "Stellung wird analysiert …" : state.practiceHint?.stage < 3 ? "Konkreteren Hinweis zeigen" : state.practiceHint ? "Analyse erneut anzeigen" : "Engine-Hinweis anfordern";
+    button.querySelector("small").textContent = state.practiceHintThinking ? "Die lokale Engine rechnet" : state.practiceHint ? `Hilfestufe ${state.practiceHint.stage} von 3` : "Erst Idee, dann Figur, zuletzt genauer Zug";
+  }
+
+  async function requestPracticeHint() {
+    if (state.mode !== "practice" || state.practiceHintThinking || E.gameStatus(state.game).over) return;
+    const expectedFen = E.toFEN(state.game);
+    if (state.practiceHint?.fen === expectedFen) {
+      state.practiceHint.stage = Math.min(3, state.practiceHint.stage + 1);
+      showPracticeHint(); render(); return;
+    }
+    const sessionId = state.sessionId, requestId = ++state.practiceHintRequest;
+    state.practiceHintThinking = true; state.practiceHint = null;
+    $("#practiceHint").hidden = false;
+    $("#practiceHintMove").textContent = "…";
+    $("#practiceHintText").textContent = "Ich vergleiche die legalen Züge und ihre stärksten Antworten.";
+    $("#practiceHintMeta").textContent = "Lokale Engine · die Stellung verlässt deinen Browser nicht.";
+    renderPracticeHintControls();
+    try {
+      const analysis = await analyzeInBackground(state.game, { depth: 7, timeMs: 1800, quiescence: 3, multiPv: 3 });
+      if (requestId !== state.practiceHintRequest || sessionId !== state.sessionId || state.mode !== "practice" || E.toFEN(state.game) !== expectedFen) return;
+      state.practiceHintThinking = false;
+      if (!analysis.move) { clearPracticeHint(); render(); return; }
+      state.practiceHint = { move: analysis.move, notation: E.notation(state.game, analysis.move), analysis, fen: expectedFen, stage: 1 };
+      showPracticeHint(); render();
+    } catch {
+      if (requestId !== state.practiceHintRequest) return;
+      state.practiceHintThinking = false;
+      $("#practiceHintMove").textContent = "Analyse nicht verfügbar";
+      $("#practiceHintText").textContent = "Die Stellung konnte gerade nicht berechnet werden. Versuche es erneut.";
+      renderPracticeHintControls();
+    }
+  }
+
+  function showPracticeHint() {
+    const hint = state.practiceHint;
+    if (!hint) return;
+    const position = E.fromFEN(hint.fen), [r, c] = E.coords(hint.move.from), piece = position.board[r][c];
+    $("#practiceHint").hidden = false;
+    if (hint.stage === 1) {
+      $("#practiceHintMove").textContent = "1 · Idee";
+      $("#practiceHintText").textContent = explainHintPlan(position, hint.move);
+      $("#practiceHintMeta").textContent = "Rechne selbst weiter. Der nächste Hinweis zeigt die Figur.";
+    } else if (hint.stage === 2) {
+      $("#practiceHintMove").textContent = `2 · ${pieceName(piece)} auf ${hint.move.from}`;
+      $("#practiceHintText").textContent = `${explainHintPlan(position, hint.move)} Prüfe jetzt die Zielfelder dieser Figur.`;
+      $("#practiceHintMeta").textContent = "Das Startfeld ist blau markiert. Der nächste Hinweis zeigt den vollständigen Zug.";
+    } else {
+      const alternatives = hint.analysis.alternatives.slice(1).map((item) => E.notation(position, item.move));
+      $("#practiceHintMove").textContent = `3 · ${hint.notation} · ${hint.move.from} → ${hint.move.to}`;
+      $("#practiceHintText").textContent = explainHintMove(position, hint.move);
+      $("#practiceHintMeta").textContent = `${describeEvaluation(hint.analysis.score, position.turn)} · Tiefe ${hint.analysis.depth || 1}${alternatives.length ? ` · Alternativen: ${alternatives.join(", ")}` : ""}`;
+    }
+  }
+
   function explainHintPlan(position, move) {
     const after = E.applyMove(position, move, false);
     if (E.gameStatus(after).type === "checkmate") return "Suche zuerst nach einem unmittelbaren Matt: Schachgebot, Fluchtfelder und mögliche Abwehrzüge.";
@@ -1227,6 +1298,7 @@
 
   function resetGame() {
     beginPositionSession();
+    if (state.mode === "match") syncOpponentControls();
     if (state.mode === "match") state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     if (state.mode === "match") state.playerColor = isHotSeat() ? "w" : state.colorChoice === "random" ? (Math.random() < .5 ? "w" : "b") : state.colorChoice;
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.puzzleSolved = false; state.thinking = false; state.matchRated = false; state.matchResult = null;
@@ -1614,9 +1686,9 @@
 
   function recordMatchResult(status) {
     if (state.matchRated || !status.over) return;
-    if (isHotSeat() || state.personalMatchMistake) {
+    if (isHotSeat() || state.personalMatchMistake || state.positionTraining) {
       state.matchRated = true;
-      if (isHotSeat()) return;
+      if (isHotSeat() || state.positionTraining) return;
       const completedSession = state.sessionId;
       window.setTimeout(() => {
         if (state.mode === "match" && state.sessionId === completedSession && E.gameStatus(state.game).over && !state.analysisRunning && !state.gameAnalysis.length) startGameAnalysis();
@@ -2070,8 +2142,13 @@
   $("#removeMistake").addEventListener("click", removeActiveMistake);
   $("#loadStart").addEventListener("click", () => { $("#fenInput").value = E.START_FEN; loadFen(); });
   $("#loadFen").addEventListener("click", loadFen);
+  $("#practiceHintButton").addEventListener("click", requestPracticeHint);
+  $("#savePosition").addEventListener("click", saveCurrentPosition);
+  $("#loadPosition").addEventListener("click", loadSelectedPosition);
+  $("#deletePosition").addEventListener("click", deleteSelectedPosition);
+  $("#trainPosition").addEventListener("click", startPositionTraining);
   $("#undoButton").addEventListener("click", () => {
-    clearMatchHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
+    clearMatchHint(); clearPracticeHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
     state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0;
     const frame = [];
     if (state.mode === "match") {
@@ -2095,12 +2172,14 @@
       if (entry.piece && E.colorOf(entry.piece) !== state.playerColor) { state.opponentLastMove = entry.move; break; }
     }
     if (state.personalMatchMistake) state.personalMatchPending = E.toFEN(state.game).split(" ").slice(0, 4).join(" ") === state.personalMatchMistake.fen.split(" ").slice(0, 4).join(" ");
-    state.selected = null; state.legal = []; state.messageOverride = null; render();
+    state.selected = null; state.legal = []; state.messageOverride = null;
+    if (state.mode === "practice") $("#fenInput").value = E.toFEN(state.game);
+    render();
   });
   $("#redoButton").addEventListener("click", () => {
     const frame = state.redoFrames.pop();
     if (!frame?.length) return;
-    clearMatchHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
+    clearMatchHint(); clearPracticeHint(); cancelGameAnalysis(); $("#coachReview").hidden = true;
     let soundBefore = null, soundMove = null;
     for (const item of frame) {
       const move = E.legalMoves(state.game).find((candidate) => candidate.from === item.move.from && candidate.to === item.move.to && (candidate.promotion || "") === (item.move.promotion || ""));
@@ -2118,18 +2197,120 @@
       if (entry.piece && E.colorOf(entry.piece) !== state.playerColor) { state.opponentLastMove = entry.move; break; }
     }
     if (state.personalMatchMistake) state.personalMatchPending = E.toFEN(state.game).split(" ").slice(0, 4).join(" ") === state.personalMatchMistake.fen.split(" ").slice(0, 4).join(" ");
-    state.selected = null; state.legal = []; state.messageOverride = { kind: "", title: "Zug wiederhergestellt", text: frame.length === 1 ? "Der zurückgenommene Zug wurde erneut ausgeführt." : "Dein Zug und die gespeicherte Computerantwort wurden erneut ausgeführt." }; render();
+    state.selected = null; state.legal = []; state.messageOverride = { kind: "", title: "Zug wiederhergestellt", text: frame.length === 1 ? "Der zurückgenommene Zug wurde erneut ausgeführt." : "Dein Zug und die gespeicherte Computerantwort wurden erneut ausgeführt." };
+    if (state.mode === "practice") $("#fenInput").value = E.toFEN(state.game);
+    render();
   });
 
-  function loadFen() {
+  function validPracticePosition(fen) {
     try {
-      const parsed = E.fromFEN($("#fenInput").value.trim());
-      if (!(E.inCheck(parsed, "w") && E.inCheck(parsed, "b")) && parsed.board.flat().filter((p) => p === "K").length === 1 && parsed.board.flat().filter((p) => p === "k").length === 1) {
-        beginPositionSession();
-        state.game = parsed; state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = { kind: "success", title: "Stellung geladen", text: `${parsed.turn === "w" ? "Weiß" : "Schwarz"} ist am Zug.` }; render();
-      } else throw new Error();
-    } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
+      const fields = fen.trim().split(/\s+/);
+      if (fields.length !== 6 || !/^[wb]$/.test(fields[1]) || !/^(?:-|[KQkq]{1,4})$/.test(fields[2]) || !/^(?:-|[a-h][36])$/.test(fields[3])) return null;
+      if (!/^\d+$/.test(fields[4]) || !/^\d+$/.test(fields[5]) || Number(fields[5]) < 1) return null;
+      if (fields[2] !== "-" && new Set(fields[2]).size !== fields[2].length) return null;
+      if (!fields[0].split("/").every((rank) => /^[prnbqkPRNBQK1-8]+$/.test(rank))) return null;
+      const parsed = E.fromFEN(fen);
+      const pieces = parsed.board.flat();
+      if (pieces.filter((piece) => piece === "K").length !== 1 || pieces.filter((piece) => piece === "k").length !== 1) return null;
+      if (E.inCheck(parsed, "w") && E.inCheck(parsed, "b")) return null;
+      return parsed;
+    } catch { return null; }
   }
 
-  populateOpeningSelect(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
+  function getSavedPositions() {
+    try {
+      const value = JSON.parse(localStorage.getItem(savedPositionsKey) || "[]");
+      if (!Array.isArray(value)) return [];
+      return value.filter((item) => item && typeof item.id === "string" && typeof item.name === "string" && typeof item.fen === "string" && validPracticePosition(item.fen)).slice(-50);
+    } catch { return []; }
+  }
+
+  function storeSavedPositions(positions) {
+    try { localStorage.setItem(savedPositionsKey, JSON.stringify(positions.slice(-50))); return true; }
+    catch { return false; }
+  }
+
+  function renderSavedPositions(preferredId) {
+    const select = $("#savedPositionSelect"), positions = getSavedPositions();
+    const selectedId = preferredId || select.value;
+    select.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = ""; placeholder.textContent = positions.length ? "Gespeicherte Stellung wählen" : "Noch keine Stellung gespeichert";
+    select.appendChild(placeholder);
+    for (const item of positions) {
+      const option = document.createElement("option");
+      option.value = item.id; option.textContent = item.name.slice(0, 60);
+      select.appendChild(option);
+    }
+    if (positions.some((item) => item.id === selectedId)) select.value = selectedId;
+    $("#loadPosition").disabled = !select.value;
+    $("#deletePosition").disabled = !select.value;
+  }
+
+  function saveCurrentPosition() {
+    const positions = getSavedPositions();
+    const enteredName = $("#positionName").value.trim();
+    const name = (enteredName || `Stellung ${positions.length + 1}`).slice(0, 60);
+    const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, fen: E.toFEN(state.game), createdAt: new Date().toISOString() };
+    if (!storeSavedPositions([...positions, item])) {
+      state.messageOverride = { kind: "error", title: "Speichern nicht möglich", text: "Der Browser hat den lokalen Speicher nicht freigegeben." };
+      render(); return;
+    }
+    $("#positionName").value = "";
+    renderSavedPositions(item.id);
+    state.messageOverride = { kind: "success", title: "Stellung gespeichert", text: `„${name}“ kann jederzeit auf diesem Gerät wieder geladen werden.` };
+    render();
+  }
+
+  function selectedSavedPosition() {
+    const id = $("#savedPositionSelect").value;
+    return getSavedPositions().find((item) => item.id === id) || null;
+  }
+
+  function loadSelectedPosition() {
+    const item = selectedSavedPosition();
+    if (!item) return;
+    $("#fenInput").value = item.fen;
+    loadFen();
+    state.messageOverride = { kind: "success", title: `„${item.name}“ geladen`, text: `${state.game.turn === "w" ? "Weiß" : "Schwarz"} ist am Zug. Du kannst Varianten ziehen oder einen Engine-Hinweis anfordern.` };
+    render();
+  }
+
+  function deleteSelectedPosition() {
+    const item = selectedSavedPosition();
+    if (!item || !window.confirm(`Gespeicherte Stellung „${item.name}“ löschen?`)) return;
+    storeSavedPositions(getSavedPositions().filter((entry) => entry.id !== item.id));
+    renderSavedPositions();
+    state.messageOverride = { kind: "", title: "Stellung gelöscht", text: "Die aktuelle Brettstellung bleibt unverändert." };
+    render();
+  }
+
+  function startPositionTraining() {
+    const fen = E.toFEN(state.game), parsed = validPracticePosition(fen);
+    if (!parsed) return;
+    setOpponentMode("ai", false);
+    switchMode("match");
+    beginPositionSession();
+    state.game = parsed; state.positionTraining = true; state.playerColor = parsed.turn;
+    state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = [];
+    state.matchRated = false; state.matchResult = null; state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    state.messageOverride = { kind: "", title: "Stellungstraining gestartet", text: `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"} ab der gewählten Stellung. Der Trainingspartner antwortet nach deinem Zug; die Partie ist ungewertet.` };
+    $("#panelEyebrow").textContent = "STELLUNGSTRAINING";
+    $("#panelTitle").textContent = "Eine Position. Viele Pläne.";
+    $("#panelIntro").textContent = "Probiere deine Idee gegen die lokale Engine aus. Diese Partie verändert deine Wertung nicht.";
+    $("#matchRatingCard").hidden = true;
+    $("#personalCoachCard").hidden = true;
+    startMatchClock(); render(); renderMatchPlayers();
+  }
+
+  function loadFen() {
+    const parsed = validPracticePosition($("#fenInput").value.trim());
+    if (parsed) {
+      beginPositionSession();
+      state.game = parsed; state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = { kind: "success", title: "Stellung geladen", text: `${parsed.turn === "w" ? "Weiß" : "Schwarz"} ist am Zug.` }; render();
+    } else { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
+  }
+
+  $("#savedPositionSelect").addEventListener("change", () => renderSavedPositions($("#savedPositionSelect").value));
+  populateOpeningSelect(); renderSavedPositions(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
 })();
