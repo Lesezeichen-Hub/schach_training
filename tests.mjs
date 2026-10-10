@@ -292,6 +292,11 @@ T.scheduleReview(spaced, 'assisted', '2026-10-11');
 assert.equal(spaced.reviewStage, 0); assert.equal(spaced.nextReview, '2026-10-11', 'Unterstützte Korrektur bleibt am selben Tag fällig');
 assert.equal(T.reviewDueLabel({nextReview:'2026-10-08'}, '2026-10-07'), 'morgen fällig');
 assert.equal(T.normalizeProgress({gameMistakes:"kaputt"}).gameMistakes.length, 0, "Beschädigter Partiefehlerspeicher wird repariert");
+const repairedThinking = T.normalizeProgress({thinkingCoach:"kaputt"}).thinkingCoach;
+assert.equal(repairedThinking.attempts, 0, "Beschädigte Denk-Check-Versuche werden repariert");
+assert.equal(repairedThinking.correct, 0, "Beschädigte Denk-Check-Treffer werden repariert");
+const plausibleThinking = T.normalizeProgress({thinkingCoach:{attempts:3,correct:8}}).thinkingCoach;
+assert.equal(plausibleThinking.attempts, 3); assert.equal(plausibleThinking.correct, 3, "Denk-Check-Treffer bleiben plausibel");
 const learnedMistake = T.normalizeProgress({gameMistakes:[{fen:E.START_FEN,best:'e2e4',seenCount:-2,lastSeenAt:'kaputt'}]}).gameMistakes[0];
 assert.equal(learnedMistake.seenCount, 1); assert.equal(learnedMistake.lastSeenAt, 0); assert.equal(learnedMistake.reviewStage, 0);
 for (const corrupt of [null, [], 1, 'bad', {ratings:[],puzzles:{bad:null},themes:{bad:3},count:'x'}]) {

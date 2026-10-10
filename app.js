@@ -17,6 +17,7 @@
     matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null,
     personalMatchMistake: null, personalMatchPending: false, personalMatchCursor: 0, matchLearningId: "", liveAnalysisRequest: 0, liveAnalysisPending: 0,
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
+    thinkingCheck: { runId: 0, ply: -1, resolved: false, attempted: false, selected: "", correct: "" },
     analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null,
     activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
     mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set()
@@ -259,6 +260,87 @@
     state.puzzleSolved = session.ply === session.scenario.line.length;
     state.openingPly = session.ply;
     $("#playerDetail").textContent = `Lernfarbe: ${session.learnerSide === "w" ? "Weiß" : "Schwarz"} · ${session.scenario.title}`;
+    prepareThinkingCheck();
+  }
+
+  const thinkingIdeas = [
+    { id: "attack", label: "Angreifen oder drohen" },
+    { id: "defense", label: "Eine Drohung abwehren" },
+    { id: "development", label: "Eine Figur entwickeln" },
+    { id: "center", label: "Das Zentrum beeinflussen" },
+    { id: "safety", label: "Den König sichern" },
+    { id: "counter", label: "Aktives Gegenspiel" },
+    { id: "plan", label: "Die Stellung verbessern" }
+  ];
+
+  function thinkingIdeaFor(step) {
+    const kind = step?.visual?.arrows?.[0]?.kind;
+    if (["attack", "defense", "counter"].includes(kind)) return kind;
+    const text = `${step?.before || ""} ${step?.after || ""}`.toLowerCase();
+    if (/matt|schach|angreif|droh|gabel|fessel|spieß/.test(text)) return "attack";
+    if (/abwehr|abwehren|verteidig|decken|retten/.test(text)) return "defense";
+    if (/entwick|ins spiel|figur heraus/.test(text)) return "development";
+    if (/zentrum|zentral|bauernzentrum/.test(text)) return "center";
+    if (/roch|könig sicher|königssicherheit/.test(text)) return "safety";
+    if (/gegenangriff|gegenspiel|konter/.test(text)) return "counter";
+    return "plan";
+  }
+
+  function prepareThinkingCheck() {
+    if (!isLessonMode()) return;
+    const view = T.getLessonView(state.lesson);
+    if (state.lesson.phase !== "guided" || view.status !== "awaiting-user") return;
+    if (state.thinkingCheck.runId === state.lesson.runId && state.thinkingCheck.ply === view.ply) return;
+    state.thinkingCheck = { runId: state.lesson.runId, ply: view.ply, resolved: false, attempted: false, selected: "", correct: thinkingIdeaFor(view.step) };
+  }
+
+  function thinkingOptions(correct, ply) {
+    const alternatives = thinkingIdeas.filter((idea) => idea.id !== correct);
+    const first = alternatives[ply % alternatives.length];
+    const second = alternatives[(ply * 3 + 2) % alternatives.length];
+    const unique = [thinkingIdeas.find((idea) => idea.id === correct), first, second].filter((idea, index, list) => idea && list.findIndex((item) => item.id === idea.id) === index);
+    for (const idea of alternatives) if (unique.length < 3 && !unique.some((item) => item.id === idea.id)) unique.push(idea);
+    return unique.sort((a, b) => ((a.id.charCodeAt(0) + ply) % 7) - ((b.id.charCodeAt(0) + ply) % 7));
+  }
+
+  function chooseThinkingIdea(id) {
+    const check = state.thinkingCheck;
+    if (!isLessonMode() || state.lesson.phase !== "guided" || check.resolved) return;
+    check.selected = id;
+    const correct = id === check.correct;
+    if (!check.attempted) {
+      check.attempted = true;
+      const saved = getProgress();
+      saved.thinkingCoach ||= { attempts: 0, correct: 0 };
+      saved.thinkingCoach.attempts = (Number(saved.thinkingCoach.attempts) || 0) + 1;
+      saved.thinkingCoach.correct = (Number(saved.thinkingCoach.correct) || 0) + (correct ? 1 : 0);
+      saveProgress(saved);
+    }
+    if (correct) check.resolved = true;
+    render();
+  }
+
+  function renderThinkingCoach(view) {
+    const card = $("#thinkingCoach");
+    const active = state.lesson.phase === "guided" && view.status === "awaiting-user";
+    card.hidden = !active;
+    if (!active) return;
+    prepareThinkingCheck();
+    const check = state.thinkingCheck;
+    const saved = getProgress().thinkingCoach || { attempts: 0, correct: 0 };
+    const attempts = Number(saved.attempts) || 0, correctTotal = Number(saved.correct) || 0;
+    $("#thinkingCoachScore").textContent = attempts ? `${Math.round(correctTotal / attempts * 100)}% beim ersten Versuch` : "Erster Denk-Check";
+    const options = $("#thinkingCoachOptions"); options.innerHTML = "";
+    for (const idea of thinkingOptions(check.correct, view.ply)) {
+      const button = document.createElement("button");
+      button.type = "button"; button.textContent = idea.label;
+      if (check.resolved && idea.id === check.correct) button.classList.add("correct");
+      else if (check.selected === idea.id && idea.id !== check.correct) button.classList.add("incorrect");
+      button.disabled = check.resolved;
+      button.addEventListener("click", () => chooseThinkingIdea(idea.id));
+      options.appendChild(button);
+    }
+    $("#thinkingCoachFeedback").textContent = check.resolved ? "Richtig eingeordnet. Jetzt führe den Zug selbst auf dem Brett aus." : check.attempted ? "Noch nicht. Prüfe die konkrete Aufgabe der Stellung und versuche es erneut." : "Wähle zuerst die Zugidee, dann wird das Brett freigegeben.";
   }
   function scheduleLesson() {
     if (!isLessonMode()) return;
@@ -325,11 +407,14 @@
   }
   function renderLesson() {
     $("#lessonControls").hidden = !isLessonMode();
+    $("#thinkingCoach").hidden = true;
     const svg = $("#lessonArrows"); svg.innerHTML = ""; svg.setAttribute('hidden', '');
     $("#arrowDescriptions").textContent = '';
     if (!isLessonMode()) return;
     const session = state.lesson, view = T.getLessonView(session);
-    const visible = session.phase !== "practice" || state.lessonHint || view.status === "complete";
+    renderThinkingCoach(view);
+    const thinkingPending = session.phase === "guided" && view.status === "awaiting-user" && !state.thinkingCheck.resolved;
+    const visible = (session.phase !== "practice" || state.lessonHint || view.status === "complete") && !thinkingPending;
     const hideSolution = session.phase === 'practice' && !visible;
     $("#lessonGoal").textContent = hideSolution ? `${session.scenario.title}: Finde die Zugfolge zum trainierten Motiv oder Eröffnungsplan.` : session.scenario.purpose;
     if (state.mode === 'tactics') {
@@ -568,6 +653,7 @@
     if (state.mode === "mistakes" && (state.mistakeSolved || !state.activeMistake)) return false;
     if (state.mode === "endgame" && (state.endgameFailed || state.game.turn === "b")) return false;
     if (isLessonMode() && T.getLessonView(state.lesson).status !== "awaiting-user") return false;
+    if (isLessonMode() && state.lesson.phase === "guided" && !state.thinkingCheck.resolved) return false;
     return state.mode !== "match" || state.game.turn === state.playerColor;
   }
 

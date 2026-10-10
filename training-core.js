@@ -366,6 +366,10 @@
       if (!saved[key] || typeof saved[key] !== "object" || Array.isArray(saved[key])) saved[key] = {};
     }
     for (const key of ["count", "totalAttempts", "totalSolved"]) if (!Number.isFinite(saved[key]) || saved[key] < 0) saved[key] = 0;
+    if (!saved.thinkingCoach || typeof saved.thinkingCoach !== "object" || Array.isArray(saved.thinkingCoach)) saved.thinkingCoach = { attempts: 0, correct: 0 };
+    if (!Number.isFinite(saved.thinkingCoach.attempts) || saved.thinkingCoach.attempts < 0) saved.thinkingCoach.attempts = 0;
+    if (!Number.isFinite(saved.thinkingCoach.correct) || saved.thinkingCoach.correct < 0) saved.thinkingCoach.correct = 0;
+    saved.thinkingCoach.correct = Math.min(saved.thinkingCoach.attempts, saved.thinkingCoach.correct);
     for (const area of ["tactics", "endgame", "strategy", "openings"]) if (!Number.isFinite(saved.ratings[area])) saved.ratings[area] = 0;
     const ratingAreas = ["tactics", "endgame", "strategy", "openings"];
     if (saved.ratingBaseline !== 0 && saved.totalAttempts === 0 && Object.keys(saved.lessons).length === 0 && ratingAreas.every((area) => saved.ratings[area] === 800)) {

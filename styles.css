@@ -79,6 +79,17 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .lesson-controls #lessonIntro { margin-top: 10px; }
 .lesson-controls #lessonAssistance, .lesson-controls #lessonSaved { margin-top: 9px; font-size: .74rem; color: var(--gold); }
 .lesson-controls .coverage-note, .lesson-controls .arrow-legend { margin-top: 10px; font-size: .68rem; }
+.thinking-coach { margin: 12px 0; padding: 11px; border: 1px solid #4c4934; background: #181a14; }
+.thinking-coach > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.thinking-coach > div:first-child strong { color: var(--gold); font-size: .76rem; }
+.thinking-coach > div:first-child small { color: var(--muted); font-size: .61rem; }
+.thinking-coach > p { margin: 7px 0 8px; font-size: .76rem; }
+.thinking-coach-options { display: grid; gap: 5px; }
+.thinking-coach-options button { padding: 8px 9px; border: 1px solid var(--line); background: #101511; text-align: left; font-size: .69rem; cursor: pointer; }
+.thinking-coach-options button:hover { border-color: var(--gold-dark); }
+.thinking-coach-options button.correct { border-color: #5f8c69; background: #17251a; color: #b7dfbf; }
+.thinking-coach-options button.incorrect { border-color: var(--danger); color: #efaaa4; }
+#thinkingCoachFeedback { display: block; margin-top: 7px; color: var(--muted); font-size: .63rem; line-height: 1.4; }
 #storageWarning { padding: 10px; color: var(--danger); font-size: .78rem; border: 1px solid var(--danger); }
 .board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; overflow: hidden; user-select: none; touch-action: manipulation; }
 .board-help { display: block; margin: 7px 2px -2px; color: #7e8980; font-size: .62rem; text-align: center; }

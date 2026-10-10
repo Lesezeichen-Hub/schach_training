@@ -11,6 +11,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 ## Funktionen
 
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
+- Kompakter Denk-Check vor jedem eigenen Zug in geführten Lektionen: Zugidee einordnen, dann erst auf dem Brett ausführen; lokale Trefferquote inklusive
 - 20 Taktikaufgaben zu Gabel, Fesselung, Spieß und Abzugsangriff
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien
 - Vier jederzeit wählbare Lernphasen für alle 45 Eröffnungs- und Taktiklektionen
