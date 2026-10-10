@@ -109,6 +109,16 @@ assert.equal(T.calculateMatchElo(800, 800, 1, 0).change, 20, "Sieg gegen gleich 
 assert.equal(T.calculateMatchElo(800, 800, .5, 0).change, 0, "Remis gegen gleich starke KI hält die Elo");
 assert.equal(T.calculateMatchElo(800, 800, 0, 0).change, -20, "Niederlage gegen gleich starke KI senkt die Start-Elo um 20");
 assert.ok(T.calculateMatchElo(800, 1200, 1, 0).change > T.calculateMatchElo(800, 800, 1, 0).change, "Überraschungssieg gegen stärkere KI wird höher bewertet");
+const runningClock = T.advanceClock({ initialMs: 180000, w: 180000, b: 180000, lastTick: 1000, flagged: null }, 'w', 2600);
+assert.equal(runningClock.w, 178400, 'Schachuhr zieht nur der aktiven Farbe die verstrichene Zeit ab');
+assert.equal(runningClock.b, 180000, 'Schachuhr lässt die inaktive Farbe unverändert');
+const expiredClock = T.advanceClock({ ...runningClock, lastTick: 2600, w: 500 }, 'w', 3200);
+assert.equal(expiredClock.w, 0, 'Schachuhr fällt nicht unter null');
+assert.equal(expiredClock.flagged, 'w', 'Zeitüberschreitung merkt sich die verlierende Farbe');
+assert.deepEqual(T.advanceClock(expiredClock, 'b', 5000), expiredClock, 'Abgelaufene Uhr bleibt gestoppt');
+assert.equal(T.matchViewColor('ai', 'b', 'w'), 'b', 'Gegen die KI bleibt die gewählte Spielerperspektive erhalten');
+assert.equal(T.matchViewColor('hotseat', 'w', 'w'), 'w', 'Hot Seat zeigt Weiß unten, wenn Weiß am Zug ist');
+assert.equal(T.matchViewColor('hotseat', 'w', 'b'), 'b', 'Hot Seat dreht das Brett für den schwarzen Zug');
 let navigationPosition = E.fromFEN();
 const navigationMoves = [];
 for (const code of ["e2e4", "e7e5"]) {

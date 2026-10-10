@@ -52,6 +52,11 @@ button:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3p
 .player-strip small { margin-top: 3px; color: var(--muted); font-size: .75rem; }
 .turn-indicator { margin-left: auto; color: var(--muted); font-size: .72rem; border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; opacity: 0; }
 .turn-indicator.active { opacity: 1; color: var(--gold); border-color: var(--gold-dark); }
+.chess-clock { margin-left: auto; min-width: 70px; padding: 6px 9px; border: 1px solid var(--line); background: #0c110e; color: var(--ink); font-variant-numeric: tabular-nums; font-size: 1rem; font-weight: 800; letter-spacing: .04em; text-align: center; }
+.chess-clock.active { border-color: var(--gold); color: var(--gold); background: #211f16; }
+.chess-clock.low { border-color: #b84f46; color: #ff8c7e; }
+.chess-clock[hidden] { display: none; }
+.chess-clock:not([hidden]) + .turn-indicator { margin-left: 0; }
 .board-wrap { position: relative; padding: 6px; background: var(--board-frame); border: 1px solid #46554a; box-shadow: var(--shadow); }
 .board-view-toggle { position: absolute; z-index: 9; top: 12px; right: 12px; display: flex; overflow: hidden; border: 1px solid rgba(231,182,93,.55); border-radius: 999px; background: rgba(12,16,13,.82); backdrop-filter: blur(5px); }
 .board-view-toggle button { min-width: 38px; padding: 5px 8px; border: 0; background: transparent; color: #c8d0ca; font-size: .62rem; font-weight: 800; cursor: pointer; }
@@ -191,6 +196,8 @@ select { width: 100%; min-height: 40px; margin-bottom: 12px; padding: 8px 34px 8
 .segmented button small { display: block; margin-top: 3px; color: var(--muted); font-size: .68rem; font-weight: 500; }
 .segmented button.active { border-color: var(--gold); background: #2c291d; color: var(--gold); }
 .color-choice { margin-bottom: 18px; }
+.opponent-choice { grid-template-columns: repeat(2, 1fr); margin-bottom: 18px; }
+.time-choice { grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
 .match-rating-card { margin: -2px 0 16px; padding: 12px; border: 1px solid #46402a; background: #201f17; }
 .match-rating-main { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 2px 10px; }
 .match-rating-main > span { color: var(--gold); font-size: .64rem; font-weight: 800; letter-spacing: .13em; }

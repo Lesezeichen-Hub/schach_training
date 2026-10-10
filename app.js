@@ -15,6 +15,7 @@
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
     openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
     matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null,
+    opponentMode: "ai", clockMinutes: 0, clock: { initialMs: 0, w: 0, b: 0, lastTick: 0, flagged: null },
     personalMatchMistake: null, personalMatchPending: false, personalMatchCursor: 0, matchLearningId: "", liveAnalysisRequest: 0, liveAnalysisPending: 0,
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
     thinkingCheck: { runId: 0, ply: -1, resolved: false, attempted: false, selected: "", correct: "" },
@@ -24,8 +25,14 @@
   };
   let analysisWorker = null, analysisJobId = 0;
   const analysisJobs = new Map();
+  let matchClockTimer = null;
   let moveAudioContext = null, soundEnabled = true;
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
+  try {
+    const savedMinutes = Number(localStorage.getItem("schachwerkstatt-time-control"));
+    if ([0, 3, 5, 10].includes(savedMinutes)) state.clockMinutes = savedMinutes;
+    if (localStorage.getItem("schachwerkstatt-opponent") === "hotseat") state.opponentMode = "hotseat";
+  } catch { /* Zeitauswahl bleibt für diese Sitzung verfügbar. */ }
 
   const trainingData = window.CHESS_TRAINING_DATA;
   const guidedStep = (move, before, after, kind = "move") => ({
@@ -230,8 +237,11 @@
     state.redoFrames = [];
     const dialog = $("#promotionDialog");
     if (dialog.open) dialog.close("cancel");
+    window.clearInterval(matchClockTimer); matchClockTimer = null;
+    state.clock = { initialMs: 0, w: 0, b: 0, lastTick: 0, flagged: null };
   }
   function isLessonMode() { return ["tactics", "openings"].includes(state.mode) && state.lesson; }
+  function isHotSeat() { return state.mode === "match" && state.opponentMode === "hotseat"; }
   function lessonKey() { return `${state.mode}:${state.lesson.record.id}`; }
   function exposureKey(session = state.lesson) { return `${session.record.category ? 'tactics' : 'openings'}:${session.record.id}:${session.scenario.id}`; }
   function startLesson(record, options = {}) {
@@ -472,21 +482,93 @@
 
   function render() {
     const currentStatus = E.gameStatus(state.game);
-    if (state.mode === "match" && currentStatus.over) recordMatchResult(currentStatus);
+    const matchStatus = state.mode === "match" && state.clock.flagged ? { over: true, type: "timeout", winner: state.clock.flagged === "w" ? "b" : "w" } : currentStatus;
+    if (state.mode === "match" && matchStatus.over) {
+      window.clearInterval(matchClockTimer); matchClockTimer = null;
+      recordMatchResult(matchStatus);
+    }
     renderBoard();
     renderMoves();
     renderStatus();
     renderLesson();
     const interactiveBoard = !["home", "learn", "basics", "strategy"].includes(state.mode);
-    $("#whiteTurn").classList.toggle("active", interactiveBoard && state.game.turn === "w" && !state.thinking);
-    $("#blackTurn").classList.toggle("active", interactiveBoard && state.game.turn === "b");
+    const playerTurn = isHotSeat() ? true : state.mode === "match" ? state.game.turn === state.playerColor : state.game.turn === "w";
+    $("#whiteTurn").classList.toggle("active", interactiveBoard && playerTurn && !state.thinking && !matchStatus.over);
+    $("#blackTurn").classList.toggle("active", interactiveBoard && !playerTurn && !matchStatus.over);
     $("#thinking").hidden = !state.thinking;
     const hasOwnMatchMove = state.moves.some((move) => move.color === state.playerColor);
-    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && (!hasOwnMatchMove || currentStatus.over));
-    $("#redoButton").disabled = !state.redoFrames.length || state.thinking || !["match", "practice"].includes(state.mode);
+    $("#undoButton").disabled = !state.game.history.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && (!hasOwnMatchMove || matchStatus.over || state.clock.initialMs > 0));
+    $("#redoButton").disabled = !state.redoFrames.length || state.thinking || !["match", "practice"].includes(state.mode) || (state.mode === "match" && state.clock.initialMs > 0);
     renderMatchHintControls();
     renderMatchRating();
+    renderMatchClocks();
+    renderMatchPlayers();
     if (state.mode === "match" && currentStatus.over) showCoachReviewSummary();
+  }
+
+  function formatClock(milliseconds) {
+    const safe = Math.max(0, Math.ceil(milliseconds / 1000));
+    const minutes = Math.floor(safe / 60), seconds = safe % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function renderMatchClocks() {
+    const timed = state.mode === "match" && state.clock.initialMs > 0;
+    const player = $("#playerClock"), opponent = $("#opponentClock");
+    player.hidden = !timed; opponent.hidden = !timed;
+    if (!timed) return;
+    const playerColor = T.matchViewColor(state.opponentMode, state.playerColor, state.game.turn);
+    const opponentColor = playerColor === "w" ? "b" : "w";
+    const running = !state.clock.flagged && !E.gameStatus(state.game).over;
+    player.textContent = formatClock(state.clock[playerColor]);
+    opponent.textContent = formatClock(state.clock[opponentColor]);
+    player.classList.toggle("active", running && state.game.turn === playerColor);
+    opponent.classList.toggle("active", running && state.game.turn === opponentColor);
+    player.classList.toggle("low", state.clock[playerColor] <= 10000);
+    opponent.classList.toggle("low", state.clock[opponentColor] <= 10000);
+  }
+
+  function renderMatchPlayers() {
+    if (state.mode !== "match") return;
+    if (isHotSeat()) {
+      const current = state.game.turn, waiting = current === "w" ? "b" : "w";
+      const ended = Boolean(state.clock.flagged || E.gameStatus(state.game).over);
+      $("#playerAvatar").textContent = current === "w" ? "S1" : "S2";
+      $("#playerName").textContent = current === "w" ? "Spieler 1" : "Spieler 2";
+      $("#playerDetail").textContent = `${current === "w" ? "Weiß" : "Schwarz"} · ${ended ? "Partie beendet" : "am Zug"}`;
+      $("#opponentAvatar").textContent = waiting === "w" ? "S1" : "S2";
+      $("#opponentName").textContent = waiting === "w" ? "Spieler 1" : "Spieler 2";
+      $("#opponentDetail").textContent = `${waiting === "w" ? "Weiß" : "Schwarz"} · ${ended ? "Partie beendet" : "wartet"}`;
+      return;
+    }
+    $("#playerAvatar").textContent = "DU";
+    $("#playerName").textContent = "Dein Training";
+    $("#playerDetail").textContent = `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
+    $("#opponentAvatar").textContent = "KI";
+    $("#opponentName").textContent = "Trainingspartner";
+    $("#opponentDetail").textContent = state.personalMatchMistake ? "Persönlicher Lerngegner · startet aus deinem gespeicherten Fehler" : `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
+  }
+
+  function updateMatchClock(now = Date.now()) {
+    if (state.mode !== "match" || !state.clock.initialMs || state.clock.flagged || state.matchRated || E.gameStatus(state.game).over) return;
+    const color = state.game.turn;
+    state.clock = T.advanceClock(state.clock, color, now);
+    if (!state.clock.flagged) return;
+    state.thinking = false;
+    clearMatchHint();
+    window.clearInterval(matchClockTimer); matchClockTimer = null;
+  }
+
+  function startMatchClock() {
+    window.clearInterval(matchClockTimer); matchClockTimer = null;
+    const initialMs = state.clockMinutes * 60000;
+    state.clock = { initialMs, w: initialMs, b: initialMs, lastTick: Date.now(), flagged: null };
+    if (!initialMs) return;
+    matchClockTimer = window.setInterval(() => {
+      updateMatchClock();
+      if (state.clock.flagged) render();
+      else renderMatchClocks();
+    }, 200);
   }
 
   function setBoardView(view, persist = true) {
@@ -529,7 +611,7 @@
     boardEl.innerHTML = "";
     const boardState = state.reviewPosition || state.game;
     const checkColor = E.inCheck(boardState, boardState.turn) ? boardState.turn : null;
-    const flipped = isLessonMode() ? state.lesson.learnerSide === 'b' : state.mode === "match" && state.playerColor === "b";
+    const flipped = isLessonMode() ? state.lesson.learnerSide === 'b' : state.mode === "match" && T.matchViewColor(state.opponentMode, state.playerColor, state.game.turn) === "b";
     boardEl.setAttribute('aria-label', `Schachbrett, ${flipped ? 'Schwarz' : 'Weiß'} unten`);
     for (let viewRow = 0; viewRow < 8; viewRow++) for (let viewCol = 0; viewCol < 8; viewCol++) {
       const r = flipped ? 7 - viewRow : viewRow;
@@ -546,7 +628,7 @@
       if (!state.reviewPosition && state.selected === squareName) button.classList.add("selected");
       const candidate = state.reviewPosition ? null : state.legal.find((move) => move.to === squareName);
       if (candidate) button.classList.add("legal", candidate.capture ? "capture" : "quiet");
-      if (!state.reviewPosition && state.mode !== "match" && state.lastMove && (state.lastMove.from === squareName || state.lastMove.to === squareName)) button.classList.add("last-move");
+      if (!state.reviewPosition && (state.mode !== "match" || isHotSeat()) && state.lastMove && (state.lastMove.from === squareName || state.lastMove.to === squareName)) button.classList.add("last-move");
       if (!state.reviewPosition && state.mode === "match" && state.opponentLastMove) {
         if (state.opponentLastMove.from === squareName) button.classList.add("opponent-last-from");
         if (state.opponentLastMove.to === squareName) button.classList.add("opponent-last-to");
@@ -650,14 +732,14 @@
   }
 
   function boardInputAllowed() {
-    if (state.reviewPosition || state.thinking || E.gameStatus(state.game).over) return false;
+    if (state.reviewPosition || state.thinking || (state.mode === "match" && state.clock.flagged) || E.gameStatus(state.game).over) return false;
     if (["home", "learn", "basics", "strategy"].includes(state.mode)) return false;
     if (state.mode === "tactics" && state.puzzleSolved) return false;
     if (state.mode === "mistakes" && (state.mistakeSolved || !state.activeMistake)) return false;
     if (state.mode === "endgame" && (state.endgameFailed || state.game.turn === "b")) return false;
     if (isLessonMode() && T.getLessonView(state.lesson).status !== "awaiting-user") return false;
     if (isLessonMode() && state.lesson.phase === "guided" && !state.thinkingCheck.resolved) return false;
-    return state.mode !== "match" || state.game.turn === state.playerColor;
+    return state.mode !== "match" || isHotSeat() || state.game.turn === state.playerColor;
   }
 
   function choosePromotion() {
@@ -671,6 +753,10 @@
   }
 
   function makeMove(move, actor) {
+    if (state.mode === "match") {
+      updateMatchClock();
+      if (state.clock.flagged) { render(); return; }
+    }
     state.redoFrames = [];
     const usedMatchHint = Boolean(state.matchHint?.stage >= 2);
     let personalFeedback = null;
@@ -760,8 +846,9 @@
     state.selected = null;
     state.legal = [];
     state.messageOverride = personalFeedback;
+    if (state.mode === "match" && state.clock.initialMs) state.clock.lastTick = Date.now();
 
-    if (state.mode === "match" && actor === "human" && !personalFeedback) learnFromMatchMove(before, move, san);
+    if (state.mode === "match" && !isHotSeat() && actor === "human" && !personalFeedback) learnFromMatchMove(before, move, san);
 
     if (state.mode === "endgame") {
       if (actor === "human") {
@@ -780,7 +867,7 @@
     }
 
     playMoveSound(before, move); render();
-    if (state.mode === "match" && !E.gameStatus(state.game).over && state.game.turn !== state.playerColor) requestAiMove();
+    if (state.mode === "match" && !isHotSeat() && !E.gameStatus(state.game).over && state.game.turn !== state.playerColor) requestAiMove();
   }
 
   function animateBoard(className) {
@@ -810,7 +897,7 @@
     const config = E.difficultyConfig(state.level);
     const delay = 140 + Math.min(260, Math.round(config.timeMs / 4));
     window.setTimeout(() => {
-      if (state.sessionId !== sessionId || state.mode !== "match" || E.toFEN(state.game) !== expectedFen) return;
+      if (state.sessionId !== sessionId || state.mode !== "match" || state.clock.flagged || E.toFEN(state.game) !== expectedFen) return;
       const move = E.chooseMove(state.game, state.level);
       state.thinking = false;
       if (move) makeMove(move, "ai"); else render();
@@ -846,7 +933,7 @@
     const button = $("#matchHintButton");
     if (!button) return;
     const status = E.gameStatus(state.game);
-    const available = state.mode === "match" && state.game.turn === state.playerColor && !state.thinking && !status.over;
+    const available = state.mode === "match" && !isHotSeat() && state.game.turn === state.playerColor && !state.thinking && !state.clock.flagged && !status.over;
     button.disabled = !available || state.hintThinking;
     button.querySelector("strong").textContent = state.hintThinking ? "Stellung wird analysiert …" : state.matchHint?.stage < 3 ? "Konkreteren Hinweis zeigen" : state.matchHint ? "Analyse erneut anzeigen" : "Zughilfe anfordern";
     button.querySelector("small").textContent = state.hintThinking ? "Die Berechnung läuft im Hintergrund" : state.matchHint ? `Hilfestufe ${state.matchHint.stage} von 3` : "Erst Idee, dann Figur, zuletzt genauer Zug";
@@ -866,7 +953,7 @@
   }
 
   async function requestMatchHint() {
-    if (state.mode !== "match" || state.thinking || state.hintThinking || state.game.turn !== state.playerColor || E.gameStatus(state.game).over) return;
+    if (state.mode !== "match" || isHotSeat() || state.thinking || state.hintThinking || state.clock.flagged || state.game.turn !== state.playerColor || E.gameStatus(state.game).over) return;
     const expectedFen = E.toFEN(state.game);
     if (state.personalMatchPending && !state.matchHint && preparePersonalMatchHint(1)) { render(); return; }
     if (state.matchHint?.fen === expectedFen) {
@@ -970,10 +1057,18 @@
   }
 
   function renderStatus() {
-    const status = E.gameStatus(state.game);
+    const boardStatus = E.gameStatus(state.game);
+    const timeout = state.mode === "match" && state.clock.flagged;
+    const status = timeout ? { over: true, type: "timeout", winner: state.clock.flagged === "w" ? "b" : "w" } : boardStatus;
     statusCard.className = "status-card";
     let title, text, kind = "";
-    if (state.messageOverride) ({ title, text, kind } = state.messageOverride);
+    if (timeout) {
+      const playerWon = status.winner === state.playerColor;
+      title = isHotSeat() ? `Zeit abgelaufen – Spieler ${status.winner === "w" ? "1" : "2"} gewinnt` : playerWon ? "Zeit abgelaufen – du gewinnst" : "Zeit abgelaufen – Computer gewinnt";
+      text = isHotSeat() ? `Die Bedenkzeit von Spieler ${state.clock.flagged === "w" ? "1" : "2"} ist abgelaufen.` : `${state.clock.flagged === state.playerColor ? "Deine" : "Die gegnerische"} Bedenkzeit ist abgelaufen.`;
+      kind = isHotSeat() || playerWon ? "success" : "error";
+    }
+    else if (state.messageOverride) ({ title, text, kind } = state.messageOverride);
     else if (isLessonMode()) {
       const view = T.getLessonView(state.lesson);
       title = view.status === 'complete' ? 'Ganze Lehrfolge abgeschlossen' : view.status === 'awaiting-user' ? 'Dein nächster Zug' : view.status === 'explaining' ? 'Motiv und Voraussetzungen' : 'Kuratierte Lehrantwort';
@@ -982,9 +1077,9 @@
     }
     else if (status.type === "checkmate") {
       const playerWon = status.winner === state.playerColor;
-      title = state.mode === "match" ? (playerWon ? "Schachmatt – du gewinnst" : "Schachmatt – Computer gewinnt") : "Schachmatt";
+      title = isHotSeat() ? `Schachmatt – Spieler ${status.winner === "w" ? "1" : "2"} gewinnt` : state.mode === "match" ? (playerWon ? "Schachmatt – du gewinnst" : "Schachmatt – Computer gewinnt") : "Schachmatt";
       text = `${status.winner === "w" ? "Weiß" : "Schwarz"} gewinnt die Partie.`;
-      kind = state.mode === "match" ? (playerWon ? "success" : "error") : "success";
+      kind = isHotSeat() ? "success" : state.mode === "match" ? (playerWon ? "success" : "error") : "success";
     }
     else if (status.type === "stalemate") { title = "Patt – kein Schach"; text = "Die Materialüberzahl reicht nicht: Der Gegner hat keinen legalen Zug, sein König ist aber nicht angegriffen. Für Matt muss dein letzter Zug zugleich Schach geben."; }
     else if (status.type === "fiftyMove") { title = "Remis"; text = "50-Züge-Regel: 100 Halbzüge ohne Bauernzug oder Schlagzug."; }
@@ -994,7 +1089,10 @@
     else if (status.check) { title = "Schach!"; text = state.mode === "match" ? `${state.game.turn === state.playerColor ? "Dein König" : "Der gegnerische König"} ist angegriffen.` : `${state.game.turn === "w" ? "Der weiße" : "Der schwarze"} König ist angegriffen.`; kind = "error"; }
     else if (state.mode === "tactics" && state.puzzleSolved) { title = "Aufgabe gelöst"; text = "Sehr gut erkannt. Nimm das Motiv mit in deine nächste Partie."; kind = "success"; }
     else if (state.mode === "mistakes") { title = state.mistakeSolved ? "Stellung gelöst" : "Du bist am Zug"; text = state.mistakeSolved ? "Der bessere Zug ist jetzt in deinem persönlichen Fehlerspeicher verankert." : "Finde den stärksten Zug aus deiner früheren Partie."; kind = state.mistakeSolved ? "success" : ""; }
-    else if (state.mode === "match") { title = state.game.turn === state.playerColor ? "Du bist am Zug" : "KI ist am Zug"; text = state.game.turn === state.playerColor ? "Wähle eine Figur und danach eines der markierten Zielfelder." : "Dein Trainingspartner berechnet seinen Zug."; }
+    else if (state.mode === "match") {
+      if (isHotSeat()) { title = `Spieler ${state.game.turn === "w" ? "1" : "2"} ist am Zug`; text = `${state.game.turn === "w" ? "Weiß" : "Schwarz"} spielt von der unteren Brettseite.`; }
+      else { title = state.game.turn === state.playerColor ? "Du bist am Zug" : "KI ist am Zug"; text = state.game.turn === state.playerColor ? "Wähle eine Figur und danach eines der markierten Zielfelder." : "Dein Trainingspartner berechnet seinen Zug."; }
+    }
     else { title = state.game.turn === "w" ? "Weiß ist am Zug" : "Schwarz ist am Zug"; text = "Wähle eine Figur und danach eines der markierten Zielfelder."; }
     if (state.mode === "match" && status.over && state.matchResult) {
       const change = state.matchResult.change;
@@ -1040,6 +1138,8 @@
     $("#learningBack").hidden = !learningModes.includes(mode);
     document.querySelector(".moves-section").hidden = ["home", "learn", "basics"].includes(mode);
     document.querySelector(".lesson-card").hidden = ["home", "learn"].includes(mode);
+    $("#playerAvatar").textContent = "DU";
+    $("#playerName").textContent = "Dein Training";
     $("#opponentAvatar").textContent = mode === "match" ? "KI" : mode === "practice" ? "AN" : mode === "mistakes" ? "FE" : ["home", "learn"].includes(mode) ? "LOS" : "LE";
     $("#opponentName").textContent = mode === "match" ? "Trainingspartner" : mode === "practice" ? "Analysebrett" : mode === "mistakes" ? "Fehlertrainer" : ["home", "learn"].includes(mode) ? "Dein Lernbrett" : "Lerneinheit";
     $("#opponentDetail").textContent = mode === "match" ? `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating}` : mode === "tactics" ? "Muster erkennen · Zug berechnen" : mode === "endgame" ? "Technik gegen beste Verteidigung" : mode === "strategy" ? "Verstehen, bevor du ziehst" : mode === "openings" ? "Zugfolge und Pläne lernen" : mode === "home" ? "Hier beginnt dein Training" : mode === "learn" ? "Wähle dein nächstes Lernziel" : "Varianten ohne Zeitdruck";
@@ -1048,7 +1148,7 @@
       home: ["WILLKOMMEN", "Schach lernen – Schritt für Schritt.", "Du brauchst kein Vorwissen. Die Werkstatt zeigt dir immer, was als Nächstes sinnvoll ist."],
       learn: ["DEIN LERNWEG", "Was möchtest du heute lernen?", "Jeder Bereich erklärt zuerst die Idee und lässt dich danach selbst auf dem Brett üben."],
       basics: ["GRUNDLAGEN", "Schach ohne Vorwissen.", "Vier kurze Schritte erklären dir das Spielziel, die Figuren und deinen ersten einfachen Plan."],
-      match: ["TRANSFER IN DIE PARTIE", "Spiel mit Plan.", "Wende deine Muster in einer ruhigen Trainingspartie an."],
+      match: isHotSeat() ? ["HOT SEAT", "Zwei Spieler. Ein Brett.", "Spieler 1 führt Weiß, Spieler 2 Schwarz. Nach jedem Zug dreht sich das Brett zur nächsten Person."] : ["TRANSFER IN DIE PARTIE", "Spiel mit Plan.", "Wende deine Muster in einer ruhigen Trainingspartie an."],
       tactics: ["DEIN TAGESPLAN", "Muster sehen. Besser spielen.", "Verstehe das Motiv, berechne den Zug und wiederhole gezielt deine Fehler."],
       endgame: ["ENDSPIEL-FUNDAMENTE", "Gewinnen mit Technik.", "Übe elementare Gewinnstellungen gegen eine regelbasierte Verteidigung."],
       strategy: ["DIE WARUM-EBENE", "Plane wie ein Meister.", "Entscheide an kritischen Stellen und verstehe Aktivität, Initiative und offene Linien."],
@@ -1077,9 +1177,9 @@
   function resetGame() {
     beginPositionSession();
     if (state.mode === "match") state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    if (state.mode === "match") state.playerColor = state.colorChoice === "random" ? (Math.random() < .5 ? "w" : "b") : state.colorChoice;
+    if (state.mode === "match") state.playerColor = isHotSeat() ? "w" : state.colorChoice === "random" ? (Math.random() < .5 ? "w" : "b") : state.colorChoice;
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.puzzleSolved = false; state.thinking = false; state.matchRated = false; state.matchResult = null;
-    if (state.mode === "match" && $("#personalizedMatch").checked) {
+    if (state.mode === "match" && !isHotSeat() && $("#personalizedMatch").checked) {
       const due = dueGameMistakes();
       for (let offset = 0; offset < due.length; offset++) {
         const candidate = due[(state.personalMatchCursor + offset) % due.length];
@@ -1095,12 +1195,12 @@
     $("#lessonText").textContent = state.mode === "practice" ? "Prüfe zuerst Material, Königssicherheit und Bauernstruktur – erst danach einzelne Varianten." : "Entwickle zuerst deine Figuren, bringe den König in Sicherheit und kämpfe dann um das Zentrum.";
     $("#fenInput").value = E.START_FEN;
     $("#coachReview").hidden = true;
+    if (state.mode === "match") startMatchClock();
     render();
     if (state.mode === "match") {
-      $("#playerDetail").textContent = `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
-      $("#opponentDetail").textContent = state.personalMatchMistake ? "Persönlicher Lerngegner · startet aus deinem gespeicherten Fehler" : `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
-      if (state.personalMatchPending && $("#automaticCoach").checked) preparePersonalMatchHint(1);
-      if (state.game.turn !== state.playerColor) requestAiMove();
+      renderMatchPlayers();
+      if (!isHotSeat() && state.personalMatchPending && $("#automaticCoach").checked) preparePersonalMatchHint(1);
+      if (!isHotSeat() && state.game.turn !== state.playerColor) requestAiMove();
     }
   }
 
@@ -1463,8 +1563,9 @@
 
   function recordMatchResult(status) {
     if (state.matchRated || !status.over) return;
-    if (state.personalMatchMistake) {
+    if (isHotSeat() || state.personalMatchMistake) {
       state.matchRated = true;
+      if (isHotSeat()) return;
       const completedSession = state.sessionId;
       window.setTimeout(() => {
         if (state.mode === "match" && state.sessionId === completedSession && E.gameStatus(state.game).over && !state.analysisRunning && !state.gameAnalysis.length) startGameAnalysis();
@@ -1649,7 +1750,7 @@
     $("#difficultyName").textContent = `Stufe ${levelIndex + 1} · ${config.name}`;
     $("#difficultyDepth").textContent = `Computer-Elo ${config.rating}`;
     $("#difficultyDescription").textContent = `${config.description} Gegen diese Stufe: Sieg ${win.change >= 0 ? "+" : ""}${win.change}, Niederlage ${loss.change}.`;
-    if (state.mode === "match") $("#opponentDetail").textContent = `${config.name} · Elo ${config.rating}`;
+    if (state.mode === "match" && !isHotSeat()) $("#opponentDetail").textContent = `${config.name} · Elo ${config.rating}`;
     renderMatchRating();
     if (restart) resetGame();
   }
@@ -1663,6 +1764,48 @@
       button.setAttribute("aria-checked", String(active));
     });
     resetGame();
+  }
+
+  function syncOpponentControls() {
+    const ai = state.opponentMode === "ai";
+    all("[data-opponent]").forEach((button) => {
+      const active = button.dataset.opponent === state.opponentMode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-checked", String(active));
+    });
+    $("#personalCoachCard").hidden = !ai;
+    $("#matchRatingCard").hidden = !ai;
+    $("#colorChoiceLabel").hidden = !ai;
+    $("#colorChoice").hidden = !ai;
+    $("#difficultyLabel").hidden = !ai;
+    $("#difficultyControl").hidden = !ai;
+    $("#matchHintButton").hidden = !ai;
+    if (!ai) $("#matchHint").hidden = true;
+  }
+
+  function setOpponentMode(mode, restart = true) {
+    if (!['ai', 'hotseat'].includes(mode)) return;
+    state.opponentMode = mode;
+    try { localStorage.setItem("schachwerkstatt-opponent", mode); } catch { /* Auswahl gilt mindestens für diese Sitzung. */ }
+    syncOpponentControls();
+    if (restart && state.mode === "match") {
+      const copy = mode === 'hotseat' ? ["HOT SEAT", "Zwei Spieler. Ein Brett.", "Spieler 1 führt Weiß, Spieler 2 Schwarz. Nach jedem Zug dreht sich das Brett zur nächsten Person."] : ["TRANSFER IN DIE PARTIE", "Spiel mit Plan.", "Wende deine Muster in einer ruhigen Trainingspartie an."];
+      $("#panelEyebrow").textContent = copy[0]; $("#panelTitle").textContent = copy[1]; $("#panelIntro").textContent = copy[2];
+      resetGame();
+    }
+  }
+
+  function setTimeChoice(minutes, restart = true) {
+    const value = Number(minutes);
+    if (![0, 3, 5, 10].includes(value)) return;
+    state.clockMinutes = value;
+    all("[data-time]").forEach((button) => {
+      const active = Number(button.dataset.time) === value;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-checked", String(active));
+    });
+    try { localStorage.setItem("schachwerkstatt-time-control", String(value)); } catch { /* Auswahl gilt mindestens für diese Sitzung. */ }
+    if (restart && state.mode === "match") resetGame();
   }
 
   all(".mode-tab").forEach((button) => button.addEventListener("click", () => {
@@ -1701,6 +1844,8 @@
   $("#difficulty").addEventListener("input", (event) => setDifficulty(event.target.value));
   $("#difficulty").addEventListener("change", (event) => setDifficulty(event.target.value, true));
   all("[data-color]").forEach((button) => button.addEventListener("click", () => setColorChoice(button.dataset.color)));
+  all("[data-opponent]").forEach((button) => button.addEventListener("click", () => setOpponentMode(button.dataset.opponent)));
+  all("[data-time]").forEach((button) => button.addEventListener("click", () => setTimeChoice(button.dataset.time)));
   $("#recommendedDifficulty").addEventListener("click", (event) => setDifficulty(event.currentTarget.dataset.index, true));
   $("#newGame").addEventListener("click", resetGame);
   $("#resetProfileElo").addEventListener("click", resetProfileElo);
@@ -1935,5 +2080,5 @@
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 
-  populateOpeningSelect(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
+  populateOpeningSelect(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
 })();

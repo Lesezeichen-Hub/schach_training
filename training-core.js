@@ -352,6 +352,22 @@
     const oneDay = addReviewDays(date, 1);
     return item.nextReview === oneDay ? "morgen fällig" : `fällig am ${item.nextReview.split("-").reverse().join(".")}`;
   }
+  function advanceClock(clock, color, now) {
+    const current = clock && typeof clock === "object" ? clock : {};
+    const next = { ...current };
+    if (!['w', 'b'].includes(color) || !Number.isFinite(next.initialMs) || next.initialMs <= 0 || next.flagged) return next;
+    const timestamp = Number.isFinite(now) ? now : Date.now();
+    const lastTick = Number.isFinite(next.lastTick) ? next.lastTick : timestamp;
+    const remaining = Number.isFinite(next[color]) ? next[color] : next.initialMs;
+    next[color] = Math.max(0, remaining - Math.max(0, timestamp - lastTick));
+    next.lastTick = timestamp;
+    if (next[color] === 0) next.flagged = color;
+    return next;
+  }
+  function matchViewColor(opponentMode, playerColor, turn) {
+    if (opponentMode === 'hotseat') return turn === 'b' ? 'b' : 'w';
+    return playerColor === 'b' ? 'b' : 'w';
+  }
   function normalizeReviewItem(item) {
     item.reviewStage = Number.isInteger(item.reviewStage) ? Math.max(0, Math.min(REVIEW_INTERVALS.length - 1, item.reviewStage)) : (item.mastered ? 3 : 0);
     item.reviewStreak = Number.isFinite(item.reviewStreak) && item.reviewStreak >= 0 ? item.reviewStreak : 0;
@@ -404,5 +420,5 @@
     }
     return saved;
   }
-  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel };
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel, advanceClock, matchViewColor };
 })(typeof window !== "undefined" ? window : globalThis);

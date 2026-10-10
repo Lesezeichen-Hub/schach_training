@@ -30,6 +30,7 @@
         <div class="player-strip opponent">
           <div class="avatar dark" id="opponentAvatar">LE</div>
           <div><strong id="opponentName">Lerneinheit</strong><small id="opponentDetail">Motiv erkennen · Zug berechnen</small></div>
+          <time class="chess-clock" id="opponentClock" hidden>05:00</time>
           <div class="turn-indicator" id="blackTurn">am Zug</div>
         </div>
         <div class="board-wrap">
@@ -51,8 +52,9 @@
         </div>
         <small class="board-help" id="boardHelp">Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen</small>
         <div class="player-strip">
-          <div class="avatar light">DU</div>
-          <div><strong>Dein Training</strong><small id="playerDetail">Weiß · konzentriert</small></div>
+          <div class="avatar light" id="playerAvatar">DU</div>
+          <div><strong id="playerName">Dein Training</strong><small id="playerDetail">Weiß · konzentriert</small></div>
+          <time class="chess-clock" id="playerClock" hidden>05:00</time>
           <div class="turn-indicator active" id="whiteTurn">am Zug</div>
         </div>
       </section>
@@ -108,7 +110,7 @@
         </section>
 
         <section id="matchControls" class="control-section" hidden>
-          <div class="match-rating-card" aria-label="Deine Spiel-Elo">
+          <div class="match-rating-card" id="matchRatingCard" aria-label="Deine Spiel-Elo">
             <div class="match-rating-main"><span>DEINE SPIEL-ELO</span><strong id="matchElo">0</strong><small id="matchEloTrend">Noch keine gewertete Partie</small></div>
             <div class="match-record">
               <span><strong id="matchGames">0</strong> Partien</span>
@@ -117,20 +119,32 @@
               <span><strong id="matchLosses">0</strong> Niederlagen</span>
             </div>
           </div>
-          <div class="personal-coach-card">
+          <label>Spielmodus</label>
+          <div class="segmented opponent-choice" id="opponentChoice" role="radiogroup" aria-label="Spielmodus">
+            <button class="active" type="button" data-opponent="ai" role="radio" aria-checked="true">Gegen Computer<small>mit Spiel-Elo</small></button>
+            <button type="button" data-opponent="hotseat" role="radio" aria-checked="false">2 Spieler<small>an einem PC</small></button>
+          </div>
+          <div class="personal-coach-card" id="personalCoachCard">
             <div><strong>Persönlicher Lerngegner</strong><span id="personalCoachStatus">Noch keine gespeicherten Fehler</span></div>
             <label class="check-option"><input type="checkbox" id="personalizedMatch" checked> Übungspartien aus meinen fälligen Fehlerstellungen starten</label>
             <label class="check-option"><input type="checkbox" id="automaticCoach" checked> Beim Einstieg automatisch einen ersten Denkanstoß geben</label>
             <small>Eigene Züge werden lokal im Hintergrund geprüft. Neue kritische Fehler landen automatisch im Wiederholungsplan. Persönliche Fehlerpartien sind ungewertet; Zugfarbe und Stellung stammen aus dem gespeicherten Moment.</small>
           </div>
-          <label>Deine Farbe</label>
+          <label id="colorChoiceLabel">Deine Farbe</label>
           <div class="segmented color-choice" id="colorChoice" role="radiogroup" aria-label="Deine Spielfarbe">
             <button class="active" type="button" data-color="w" role="radio" aria-checked="true">Weiß<small>du beginnst</small></button>
             <button type="button" data-color="b" role="radio" aria-checked="false">Schwarz<small>KI beginnt</small></button>
             <button type="button" data-color="random" role="radio" aria-checked="false">Zufall<small>neu ausgelost</small></button>
           </div>
-          <label for="difficulty">Spielstärke</label>
-          <div class="difficulty-control">
+          <label>Bedenkzeit je Spieler</label>
+          <div class="segmented time-choice" id="timeChoice" role="radiogroup" aria-label="Bedenkzeit je Spieler">
+            <button class="active" type="button" data-time="0" role="radio" aria-checked="true">Ohne Uhr</button>
+            <button type="button" data-time="3" role="radio" aria-checked="false">3 min</button>
+            <button type="button" data-time="5" role="radio" aria-checked="false">5 min</button>
+            <button type="button" data-time="10" role="radio" aria-checked="false">10 min</button>
+          </div>
+          <label for="difficulty" id="difficultyLabel">Spielstärke</label>
+          <div class="difficulty-control" id="difficultyControl">
             <div class="difficulty-heading"><strong id="difficultyName">Stufe 3 · Lernpartner</strong><span id="difficultyDepth">Computer-Elo 800</span></div>
             <input id="difficulty" type="range" min="1" max="8" value="3" step="1" aria-describedby="difficultyDescription">
             <div class="difficulty-scale" aria-hidden="true"><span>450</span><span>800</span><span>1.350</span><span>1.800</span></div>
