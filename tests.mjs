@@ -47,6 +47,36 @@ assert.ok(E.legalMoves(castle).some((m) => m.from === "e1" && m.to === "g1" && m
 castle = play(castle, "e1g1");
 assert.equal(castle.board[7][5], "R", "Turm zieht bei der Rochade mit");
 
+let seed = 960;
+const seededRandom = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+const chess960Setups = new Set();
+for (let sample = 0; sample < 250; sample++) {
+  const fen = E.chess960FEN(seededRandom);
+  const backRank = fen.split("/")[7].split(" ")[0];
+  chess960Setups.add(backRank);
+  const kingFile = backRank.indexOf("K");
+  const rookFiles = [...backRank].map((piece, file) => piece === "R" ? file : -1).filter((file) => file >= 0);
+  const bishopFiles = [...backRank].map((piece, file) => piece === "B" ? file : -1).filter((file) => file >= 0);
+  assert.ok(rookFiles[0] < kingFile && kingFile < rookFiles[1], "Schach960-König steht zwischen den Türmen");
+  assert.notEqual(bishopFiles[0] % 2, bishopFiles[1] % 2, "Schach960-Läufer stehen auf unterschiedlichen Feldfarben");
+  assert.equal(backRank.split("").sort().join(""), "BBKNNQRR", "Schach960 enthält den vollständigen Figurensatz");
+}
+assert.ok(chess960Setups.size > 100, "Neue Schach960-Partien erzeugen vielfältige Aufstellungen");
+
+let castle960 = E.fromFEN("k7/8/8/8/8/8/8/1R1K1R2 w KQ - 0 1");
+const short960 = E.legalMoves(castle960).find((move) => move.castle === "K");
+assert.ok(short960 && short960.from === "d1" && short960.to === "g1", "Kurze Schach960-Rochade wird angeboten");
+castle960 = E.applyMove(castle960, short960);
+assert.equal(castle960.board[7][6], "K", "Schach960-Rochade setzt den König auf g1");
+assert.equal(castle960.board[7][5], "R", "Schach960-Rochade setzt den Turm auf f1");
+
+castle960 = E.fromFEN("k7/8/8/8/8/8/8/1R4KR w KQ - 0 1");
+const stationaryKingCastle = E.legalMoves(castle960).find((move) => move.castle === "K");
+assert.ok(stationaryKingCastle && stationaryKingCastle.from === "g1" && stationaryKingCastle.to === "h1", "Rochade bleibt bedienbar, wenn der König bereits auf g1 steht");
+castle960 = E.applyMove(castle960, stationaryKingCastle);
+assert.equal(castle960.board[7][6], "K");
+assert.equal(castle960.board[7][5], "R");
+
 let ep = E.fromFEN();
 ep = play(ep, "e2e4"); ep = play(ep, "a7a6"); ep = play(ep, "e4e5"); ep = play(ep, "d7d5");
 assert.ok(E.legalMoves(ep).some((m) => m.from === "e5" && m.to === "d6" && m.enPassant));

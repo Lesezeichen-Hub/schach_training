@@ -35,6 +35,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Pläne, typische Fehler, ECO-Codes und schrittweise Zugkontrolle zu jeder Eröffnung
 - Lokale Lern-Elo für Taktik, Endspiel, Strategie und Eröffnungen
 - Freie Partien wahlweise ohne Uhr oder mit 3, 5 beziehungsweise 10 Minuten Bedenkzeit je Spieler
+- Schach960 als Spielvariante gegen alle acht Computerstufen oder im Hot-Seat-Modus; jede neue Partie erhält eine regelkonforme Zufallsaufstellung samt vollständiger Schach960-Rochade
 - Hot-Seat-Modus für zwei Personen an einem PC; nach jedem Zug dreht sich das Brett automatisch zur am Zug befindlichen Seite
 - Manueller Profil-Elo-Reset auf 0, ohne Fehlerstellungen, Wiederholungen oder Lektionsfortschritt zu löschen
 - Aufbaustufen Bauer, Springer, Läufer, Turm, Dame und Meister

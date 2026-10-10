@@ -9,7 +9,7 @@
   const board3dEl = document.querySelector("#board3d");
   const statusCard = document.querySelector(".status-card");
   const state = {
-    game: E.fromFEN(), mode: "home", level: "learner", colorChoice: "w", playerColor: "w", selected: null,
+    game: E.fromFEN(), mode: "home", level: "learner", gameVariant: "standard", colorChoice: "w", playerColor: "w", selected: null,
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null, tacticDifficulty: "all",
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
@@ -39,6 +39,7 @@
     if ([0, 2, 3, 5].includes(savedIncrement)) state.clockIncrementSeconds = savedMinutes ? savedIncrement : 0;
     if (!timeControlKeys.has(`${state.clockMinutes}+${state.clockIncrementSeconds}`)) state.clockIncrementSeconds = 0;
     if (localStorage.getItem("schachwerkstatt-opponent") === "hotseat") state.opponentMode = "hotseat";
+    if (localStorage.getItem("schachwerkstatt-variant") === "chess960") state.gameVariant = "chess960";
     const savedTacticDifficulty = localStorage.getItem("schachwerkstatt-tactic-difficulty");
     if (["all", "easy", "medium", "hard"].includes(savedTacticDifficulty)) state.tacticDifficulty = savedTacticDifficulty;
   } catch { /* Zeitauswahl bleibt für diese Sitzung verfügbar. */ }
@@ -595,7 +596,7 @@
     $("#playerDetail").textContent = `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"}`;
     $("#opponentAvatar").textContent = "KI";
     $("#opponentName").textContent = "Trainingspartner";
-    $("#opponentDetail").textContent = state.positionTraining ? "Stellungstraining · ungewertet" : state.personalMatchMistake ? "Persönlicher Lerngegner · startet aus deinem gespeicherten Fehler" : `${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
+    $("#opponentDetail").textContent = state.positionTraining ? "Stellungstraining · ungewertet" : state.personalMatchMistake ? "Persönlicher Lerngegner · startet aus deinem gespeicherten Fehler" : `${state.gameVariant === "chess960" ? "Schach960 · " : ""}${E.difficultyConfig(state.level).name} · Elo ${E.difficultyConfig(state.level).rating} · spielt ${state.playerColor === "w" ? "Schwarz" : "Weiß"}`;
   }
 
   function updateMatchClock(now = Date.now()) {
@@ -1403,8 +1404,9 @@
     if (state.mode === "match") syncOpponentControls();
     if (state.mode === "match") state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     if (state.mode === "match") state.playerColor = isHotSeat() ? "w" : state.colorChoice === "random" ? (Math.random() < .5 ? "w" : "b") : state.colorChoice;
-    state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.puzzleSolved = false; state.thinking = false; state.matchRated = false; state.matchResult = null;
-    if (state.mode === "match" && !isHotSeat() && $("#personalizedMatch").checked) {
+    const startFen = state.mode === "match" && state.gameVariant === "chess960" ? E.chess960FEN() : E.START_FEN;
+    state.game = E.fromFEN(startFen); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = state.mode === "match" && state.gameVariant === "chess960" ? { kind: "", title: "Neue Schach960-Aufstellung", text: "Läufer stehen auf verschiedenfarbigen Feldern, der König zwischen den Türmen. Rochaden enden wie gewohnt auf c/d beziehungsweise g/f." } : null; state.puzzleSolved = false; state.thinking = false; state.matchRated = false; state.matchResult = null;
+    if (state.mode === "match" && state.gameVariant === "standard" && !isHotSeat() && $("#personalizedMatch").checked) {
       const due = dueGameMistakes();
       for (let offset = 0; offset < due.length; offset++) {
         const candidate = due[(state.personalMatchCursor + offset) % due.length];
@@ -1418,7 +1420,7 @@
       }
     }
     $("#lessonText").textContent = state.mode === "practice" ? "Prüfe zuerst Material, Königssicherheit und Bauernstruktur – erst danach einzelne Varianten." : "Entwickle zuerst deine Figuren, bringe den König in Sicherheit und kämpfe dann um das Zentrum.";
-    $("#fenInput").value = E.START_FEN;
+    $("#fenInput").value = startFen;
     $("#coachReview").hidden = true;
     if (state.mode === "match") startMatchClock();
     render();
@@ -1998,7 +2000,7 @@
     $("#difficultyName").textContent = `Stufe ${levelIndex + 1} · ${config.name}`;
     $("#difficultyDepth").textContent = `Computer-Elo ${config.rating}`;
     $("#difficultyDescription").textContent = `${config.description} Gegen diese Stufe: Sieg ${win.change >= 0 ? "+" : ""}${win.change}, Niederlage ${loss.change}.`;
-    if (state.mode === "match" && !isHotSeat()) $("#opponentDetail").textContent = `${config.name} · Elo ${config.rating}`;
+    if (state.mode === "match" && !isHotSeat()) $("#opponentDetail").textContent = `${state.gameVariant === "chess960" ? "Schach960 · " : ""}${config.name} · Elo ${config.rating}`;
     renderMatchRating();
     if (restart) resetGame();
   }
@@ -2021,7 +2023,12 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-checked", String(active));
     });
-    $("#personalCoachCard").hidden = !ai;
+    all("[data-variant]").forEach((button) => {
+      const active = button.dataset.variant === state.gameVariant;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-checked", String(active));
+    });
+    $("#personalCoachCard").hidden = !ai || state.gameVariant === "chess960";
     $("#matchRatingCard").hidden = !ai;
     $("#colorChoiceLabel").hidden = !ai;
     $("#colorChoice").hidden = !ai;
@@ -2029,6 +2036,14 @@
     $("#difficultyControl").hidden = !ai;
     $("#matchHintButton").hidden = !ai;
     if (!ai) $("#matchHint").hidden = true;
+  }
+
+  function setGameVariant(variant, restart = true) {
+    if (!["standard", "chess960"].includes(variant)) return;
+    state.gameVariant = variant;
+    try { localStorage.setItem("schachwerkstatt-variant", variant); } catch { /* Auswahl gilt mindestens für diese Sitzung. */ }
+    syncOpponentControls();
+    if (restart && state.mode === "match") resetGame();
   }
 
   function setOpponentMode(mode, restart = true) {
@@ -2098,6 +2113,7 @@
   $("#difficulty").addEventListener("change", (event) => setDifficulty(event.target.value, true));
   all("[data-color]").forEach((button) => button.addEventListener("click", () => setColorChoice(button.dataset.color)));
   all("[data-opponent]").forEach((button) => button.addEventListener("click", () => setOpponentMode(button.dataset.opponent)));
+  all("[data-variant]").forEach((button) => button.addEventListener("click", () => setGameVariant(button.dataset.variant)));
   all("[data-time]").forEach((button) => button.addEventListener("click", () => setTimeChoice(button.dataset.time, button.dataset.increment)));
   $("#recommendedDifficulty").addEventListener("click", (event) => setDifficulty(event.currentTarget.dataset.index, true));
   $("#newGame").addEventListener("click", resetGame);

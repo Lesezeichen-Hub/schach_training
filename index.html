@@ -132,6 +132,11 @@
             <button class="active" type="button" data-opponent="ai" role="radio" aria-checked="true">Gegen Computer<small>mit Spiel-Elo</small></button>
             <button type="button" data-opponent="hotseat" role="radio" aria-checked="false">2 Spieler<small>an einem PC</small></button>
           </div>
+          <label>Schachvariante</label>
+          <div class="segmented variant-choice" id="variantChoice" role="radiogroup" aria-label="Schachvariante">
+            <button class="active" type="button" data-variant="standard" role="radio" aria-checked="true">Standard<small>klassische Aufstellung</small></button>
+            <button type="button" data-variant="chess960" role="radio" aria-checked="false">Schach960<small>bei jeder Partie neu</small></button>
+          </div>
           <div class="personal-coach-card" id="personalCoachCard">
             <div><strong>Persönlicher Lerngegner</strong><span id="personalCoachStatus">Noch keine gespeicherten Fehler</span></div>
             <label class="check-option"><input type="checkbox" id="personalizedMatch" checked> Übungspartien aus meinen fälligen Fehlerstellungen starten</label>

@@ -18,6 +18,7 @@
       board: state.board.map((row) => row.slice()),
       turn: state.turn,
       castling: { ...state.castling },
+      castleRooks: { ...(state.castleRooks || {}) },
       ep: state.ep,
       halfmove: state.halfmove,
       fullmove: state.fullmove,
@@ -37,7 +38,7 @@
       return row;
     });
     if (board.length !== 8) throw new Error("Ungültige FEN");
-    return {
+    const state = {
       board,
       turn,
       castling: { K: castle.includes("K"), Q: castle.includes("Q"), k: castle.includes("k"), q: castle.includes("q") },
@@ -46,6 +47,43 @@
       fullmove: Number(full),
       history: []
     };
+    state.castleRooks = deriveCastleRooks(state);
+    return state;
+  }
+
+  function deriveCastleRooks(state) {
+    const result = {};
+    for (const color of ["w", "b"]) {
+      const home = color === "w" ? 7 : 0;
+      const king = color === "w" ? "K" : "k";
+      const rook = color === "w" ? "R" : "r";
+      const kingFile = state.board[home].indexOf(king);
+      if (kingFile < 0) continue;
+      const left = [], right = [];
+      for (let file = 0; file < 8; file++) if (state.board[home][file] === rook) (file < kingFile ? left : right).push(file);
+      const shortRight = color === "w" ? "K" : "k";
+      const longRight = color === "w" ? "Q" : "q";
+      if (state.castling[shortRight] && right.length) result[shortRight] = sq(home, Math.min(...right));
+      if (state.castling[longRight] && left.length) result[longRight] = sq(home, Math.max(...left));
+    }
+    return result;
+  }
+
+  function chess960FEN(random = Math.random) {
+    const pieces = Array(8).fill(null);
+    const pick = (values) => values.splice(Math.floor(random() * values.length), 1)[0];
+    const dark = [0, 2, 4, 6], light = [1, 3, 5, 7];
+    pieces[pick(dark)] = "B";
+    pieces[pick(light)] = "B";
+    let empty = pieces.map((piece, file) => piece ? null : file).filter((file) => file !== null);
+    pieces[pick(empty)] = "Q";
+    empty = pieces.map((piece, file) => piece ? null : file).filter((file) => file !== null);
+    pieces[pick(empty)] = "N";
+    pieces[pick(empty)] = "N";
+    empty.sort((a, b) => a - b);
+    pieces[empty[0]] = "R"; pieces[empty[1]] = "K"; pieces[empty[2]] = "R";
+    const white = pieces.join("");
+    return `${white.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${white} w KQkq - 0 1`;
   }
 
   function toFEN(state) {
@@ -160,36 +198,76 @@
           if (!target || (colorOf(target) !== color && typeOf(target) !== "k")) pushMove(moves, r, c, rr, cc, target ? { capture: target } : {});
         }
         const home = color === "w" ? 7 : 0;
-        const enemy = opposite(color);
-        if (r === home && c === 4 && !inCheck(state, color)) {
-          const kRight = color === "w" ? "K" : "k";
-          const qRight = color === "w" ? "Q" : "q";
-          const rook = color === "w" ? "R" : "r";
-          if (state.castling[kRight] && state.board[home][7] === rook && !state.board[home][5] && !state.board[home][6] && !isAttacked(state, home, 5, enemy) && !isAttacked(state, home, 6, enemy)) pushMove(moves, r, c, home, 6, { castle: "K" });
-          if (state.castling[qRight] && state.board[home][0] === rook && !state.board[home][1] && !state.board[home][2] && !state.board[home][3] && !isAttacked(state, home, 3, enemy) && !isAttacked(state, home, 2, enemy)) pushMove(moves, r, c, home, 2, { castle: "Q" });
+        if (r === home) {
+          const shortRight = color === "w" ? "K" : "k";
+          const longRight = color === "w" ? "Q" : "q";
+          addCastleMove(state, moves, color, home, c, shortRight, 6, 5, "K");
+          addCastleMove(state, moves, color, home, c, longRight, 2, 3, "Q");
         }
       }
     }
     return moves;
   }
 
+  function filesBetween(from, to) {
+    const files = [];
+    const step = from === to ? 0 : from < to ? 1 : -1;
+    for (let file = from; ; file += step) {
+      files.push(file);
+      if (file === to) return files;
+    }
+  }
+
+  function addCastleMove(state, moves, color, home, kingFile, right, kingTarget, rookTarget, side) {
+    if (!state.castling[right]) return;
+    const rookSquare = state.castleRooks?.[right] || deriveCastleRooks(state)[right];
+    if (!rookSquare) return;
+    const [, rookFile] = coords(rookSquare);
+    const rook = color === "w" ? "R" : "r";
+    if (state.board[home][rookFile] !== rook || inCheck(state, color)) return;
+    const occupiedExceptPartners = (file) => file !== kingFile && file !== rookFile && state.board[home][file];
+    if (filesBetween(kingFile, kingTarget).some(occupiedExceptPartners)) return;
+    if (filesBetween(rookFile, rookTarget).some(occupiedExceptPartners)) return;
+
+    const enemy = opposite(color);
+    const kingPath = filesBetween(kingFile, kingTarget);
+    const attackedPath = kingFile === kingTarget ? kingPath : kingPath.slice(1);
+    for (const file of attackedPath) {
+      const probe = cloneState(state);
+      probe.board[home][kingFile] = null;
+      probe.board[home][rookFile] = null;
+      if (rookTarget !== file) probe.board[home][rookTarget] = rook;
+      probe.board[home][file] = color === "w" ? "K" : "k";
+      if (isAttacked(probe, home, file, enemy)) return;
+    }
+    const targetFile = (kingTarget === kingFile || state.board[home][kingTarget] === rook) ? rookFile : kingTarget;
+    pushMove(moves, home, kingFile, home, targetFile, { castle: side, kingTo: sq(home, kingTarget), rookFrom: rookSquare, rookTo: sq(home, rookTarget) });
+  }
+
   function applyMove(state, move, record = true) {
     const next = cloneState(state);
     const [fr, fc] = coords(move.from), [tr, tc] = coords(move.to);
     const piece = next.board[fr][fc];
-    const captured = move.enPassant ? next.board[fr][tc] : next.board[tr][tc];
-    next.board[fr][fc] = null;
-    next.board[tr][tc] = move.promotion ? (colorOf(piece) === "w" ? move.promotion.toUpperCase() : move.promotion) : piece;
-    if (move.enPassant) next.board[fr][tc] = null;
-    if (move.castle === "K") { next.board[tr][5] = next.board[tr][7]; next.board[tr][7] = null; }
-    if (move.castle === "Q") { next.board[tr][3] = next.board[tr][0]; next.board[tr][0] = null; }
+    const captured = move.castle ? null : move.enPassant ? next.board[fr][tc] : next.board[tr][tc];
+    if (move.castle) {
+      const [kr, kc] = coords(move.kingTo || (move.castle === "K" ? sq(tr, 6) : sq(tr, 2)));
+      const [rr, rc] = coords(move.rookFrom || (move.castle === "K" ? sq(tr, 7) : sq(tr, 0)));
+      const [rtr, rtc] = coords(move.rookTo || (move.castle === "K" ? sq(tr, 5) : sq(tr, 3)));
+      const rook = next.board[rr][rc];
+      next.board[fr][fc] = null; next.board[rr][rc] = null;
+      next.board[kr][kc] = piece; next.board[rtr][rtc] = rook;
+    } else {
+      next.board[fr][fc] = null;
+      next.board[tr][tc] = move.promotion ? (colorOf(piece) === "w" ? move.promotion.toUpperCase() : move.promotion) : piece;
+      if (move.enPassant) next.board[fr][tc] = null;
+    }
 
     if (piece === "K") { next.castling.K = false; next.castling.Q = false; }
     if (piece === "k") { next.castling.k = false; next.castling.q = false; }
-    if (move.from === "a1" || move.to === "a1") next.castling.Q = false;
-    if (move.from === "h1" || move.to === "h1") next.castling.K = false;
-    if (move.from === "a8" || move.to === "a8") next.castling.q = false;
-    if (move.from === "h8" || move.to === "h8") next.castling.k = false;
+    for (const right of ["K", "Q", "k", "q"]) {
+      const rookSquare = state.castleRooks?.[right];
+      if (rookSquare && (move.from === rookSquare || (!move.castle && move.to === rookSquare))) next.castling[right] = false;
+    }
 
     next.ep = move.doublePawn ? sq((fr + tr) / 2, fc) : null;
     next.halfmove = typeOf(piece) === "p" || captured ? 0 : state.halfmove + 1;
@@ -423,5 +501,5 @@
     return value;
   }
 
-  root.ChessEngine = { START_FEN, DIFFICULTY_LEVELS, fromFEN, toFEN, cloneState, legalMoves, applyMove, gameStatus, notation, undo, chooseMove, analyzePosition, difficultyConfig, inCheck, coords, sq, colorOf, typeOf, evaluate };
+  root.ChessEngine = { START_FEN, DIFFICULTY_LEVELS, chess960FEN, fromFEN, toFEN, cloneState, legalMoves, applyMove, gameStatus, notation, undo, chooseMove, analyzePosition, difficultyConfig, inCheck, coords, sq, colorOf, typeOf, evaluate };
 })(typeof window !== "undefined" ? window : globalThis);
