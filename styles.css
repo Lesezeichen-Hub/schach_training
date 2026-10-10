@@ -111,6 +111,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .square.legal::after { content: ""; width: 21%; aspect-ratio: 1; border-radius: 50%; background: rgba(16, 26, 18, .38); position: absolute; }
 .square.legal.capture::after { width: 74%; background: transparent; border: clamp(4px, .55vw, 7px) solid rgba(16, 26, 18, .36); }
 .square .piece { position: relative; z-index: 2; display: grid; width: 82%; height: 82%; place-items: center; transform: translateY(-1%); }
+.square.auto-move-source .piece { visibility: hidden; }
+.auto-move-piece { position: absolute; z-index: 12; display: grid; place-items: center; pointer-events: none; will-change: transform; filter: drop-shadow(0 8px 7px rgba(0,0,0,.34)); }
 .square.training-piece { box-shadow: inset 0 0 0 4px rgba(107, 174, 214, .8); }
 .square.training-target { box-shadow: inset 0 0 0 4px rgba(231, 182, 93, .84); }
 .square.solution-from { animation: solutionPulse .7s ease-in-out 3; box-shadow: inset 0 0 0 5px #6baed6; }

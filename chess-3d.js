@@ -232,7 +232,7 @@ void main(){
     const shadowsAvailable=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE&&gl.getProgramParameter(depthProgram,gl.LINK_STATUS);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     let shadowPass=false,shadowDirty=true;
-    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9];
+    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,motion=null,motionFrame=0,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9];
     function resize(){const d=Math.min(2,devicePixelRatio||1),w=Math.round(canvas.clientWidth*d),h=Math.round(canvas.clientHeight*d);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}gl.viewport(0,0,w,h);const distance=13.7,horizontal=Math.cos(cameraPitch)*distance;cameraEye=[Math.sin(cameraAngle)*horizontal,.3+Math.sin(cameraPitch)*distance,Math.cos(cameraAngle)*horizontal];const proj=perspective(Math.PI/4,w/h,.1,40),view=lookAt(cameraEye,[0,.3,0],[0,1,0]);vp=multiply(proj,view);invVP=inverse(vp);}
     function drawMesh(which,m,c,gloss=.18){const me=meshes[which];gl.uniformMatrix4fv(shadowPass?depthModel:uModel,false,m);if(!shadowPass){gl.uniform3fv(uColor,c);gl.uniform1f(uGloss,gloss);}gl.bindVertexArray(me.vao);gl.drawElements(gl.TRIANGLES,me.count,gl.UNSIGNED_SHORT,0);}
     function squarePosition(r,c){const vr=data.flipped?7-r:r,vc=data.flipped?7-c:c;return[vc-3.5,vr-3.5];}
@@ -296,8 +296,9 @@ void main(){
       drawMesh("cube",model(0,-.22,0,4.55,.14,4.55),[.19,.12,.07]);
       if(!shadowPass)drawCoordinates();
       for(let r=0;r<8;r++)for(let c=0;c<8;c++){const [x,z]=squarePosition(r,c),name="abcdefgh"[c]+(8-r);drawMesh("cube",model(x,-.055,z,.495,.055,.495),colorForSquare(name,r,c));}
-      for(let r=0;r<8;r++)for(let c=0;c<8;c++){const piece=data.board[r][c],name="abcdefgh"[c]+(8-r);if(!piece||(drag?.world&&drag.movable&&drag.from===name))continue;const[x,z]=squarePosition(r,c);drawPiece(piece,x,z);}
+      for(let r=0;r<8;r++)for(let c=0;c<8;c++){const piece=data.board[r][c],name="abcdefgh"[c]+(8-r);if(!piece||(drag?.world&&drag.movable&&drag.from===name)||motion?.from===name)continue;const[x,z]=squarePosition(r,c);drawPiece(piece,x,z);}
       if(drag?.world){const[r,c]=drag.fromRC,piece=data.board[r][c];drawPiece(piece,drag.world[0],drag.world[2],.16,1.06);}
+      if(motion){const fr=8-Number(motion.from[1]),fc=motion.from.charCodeAt(0)-97,tr=8-Number(motion.to[1]),tc=motion.to.charCodeAt(0)-97,[fx,fz]=squarePosition(fr,fc),[tx,tz]=squarePosition(tr,tc),raw=Math.min(1,(performance.now()-motion.start)/motion.duration),t=raw*raw*(3-2*raw);drawPiece(motion.piece,fx+(tx-fx)*t,fz+(tz-fz)*t,Math.sin(Math.PI*t)*.16,1+Math.sin(Math.PI*t)*.045);}
     }
     function render(){
       if(canvas.hidden||!data.board)return;
@@ -322,7 +323,7 @@ void main(){
     canvas.addEventListener("pointercancel",()=>{if(drag?.world)shadowDirty=true;drag=null;canvas.classList.remove("dragging","rotating");render();});
     canvas.addEventListener("contextmenu",(e)=>e.preventDefault());
     new ResizeObserver(render).observe(canvas);
-    return { available:true, update(next){data=next;shadowDirty=true;render();}, rotate(){cameraAngle=(cameraAngle+Math.PI/2)%(Math.PI*2);render();}, render };
+    return { available:true, update(next){data=next;shadowDirty=true;render();}, animateMove(next,done){cancelAnimationFrame(motionFrame);motion={...next,start:performance.now()};let cancelled=false;const step=()=>{if(cancelled)return;shadowDirty=true;render();if(performance.now()-motion.start<motion.duration)motionFrame=requestAnimationFrame(step);else{motion=null;motionFrame=0;done?.();}};motionFrame=requestAnimationFrame(step);return{cancel(){cancelled=true;cancelAnimationFrame(motionFrame);motionFrame=0;motion=null;shadowDirty=true;render();}};}, rotate(){cameraAngle=(cameraAngle+Math.PI/2)%(Math.PI*2);render();}, render };
   }
   root.Chess3DView={create};
 })(typeof window!=="undefined"?window:globalThis);

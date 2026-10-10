@@ -21,11 +21,12 @@
     thinkingCheck: { runId: 0, ply: -1, resolved: false, attempted: false, selected: "", correct: "" },
     analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null,
     activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
-    mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set()
+    mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set(), moveAnimating: false
   };
   let analysisWorker = null, analysisJobId = 0;
   const analysisJobs = new Map();
   let matchClockTimer = null;
+  let automaticMoveAnimation = null;
   let moveAudioContext = null, soundEnabled = true;
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
   try {
@@ -232,6 +233,7 @@
   function beginPositionSession() {
     if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
     cancelLessonTimer(); clearMatchHint(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null;
+    automaticMoveAnimation?.cancel?.(); automaticMoveAnimation = null; state.moveAnimating = false;
     state.personalMatchMistake = null; state.personalMatchPending = false;
     state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
     state.redoFrames = [];
@@ -365,7 +367,8 @@
     state.lessonTimer = window.setTimeout(() => {
       if (!isLessonMode() || state.sessionId !== token.sessionId || state.lesson.runId !== token.runId || state.lesson.scenario.id !== token.scenario || state.lesson.phase !== token.phase || state.lesson.ply !== token.ply || E.toFEN(state.game) !== token.fen) return;
       state.lessonTimer = null; state.thinking = false;
-      lessonAdvance();
+      const move = T.legalUci(E, state.game, view.expected);
+      if (move) animateAutomaticMove(move, "lesson", () => lessonAdvance()); else lessonAdvance();
     }, session.phase === "demo" ? 1600 : 900);
   }
   function finishLesson(result) {
@@ -555,6 +558,7 @@
     state.clock = T.advanceClock(state.clock, color, now);
     if (!state.clock.flagged) return;
     state.thinking = false;
+    automaticMoveAnimation?.cancel?.(); automaticMoveAnimation = null; state.moveAnimating = false;
     clearMatchHint();
     window.clearInterval(matchClockTimer); matchClockTimer = null;
   }
@@ -732,7 +736,7 @@
   }
 
   function boardInputAllowed() {
-    if (state.reviewPosition || state.thinking || (state.mode === "match" && state.clock.flagged) || E.gameStatus(state.game).over) return false;
+    if (state.reviewPosition || state.thinking || state.moveAnimating || (state.mode === "match" && state.clock.flagged) || E.gameStatus(state.game).over) return false;
     if (["home", "learn", "basics", "strategy"].includes(state.mode)) return false;
     if (state.mode === "tactics" && state.puzzleSolved) return false;
     if (state.mode === "mistakes" && (state.mistakeSolved || !state.activeMistake)) return false;
@@ -877,6 +881,53 @@
     window.setTimeout(() => boardEl.classList.remove(className), 2100);
   }
 
+  function animateAutomaticMove(move, actor, complete = () => makeMove(move, actor)) {
+    if (!move || state.moveAnimating) return;
+    const sessionId = state.sessionId;
+    const [fromRow, fromCol] = E.coords(move.from);
+    const piece = state.game.board[fromRow][fromCol];
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const duration = reduced ? 0 : 420;
+    const finish = () => {
+      if (!state.moveAnimating) return;
+      automaticMoveAnimation = null;
+      state.moveAnimating = false;
+      if (state.sessionId === sessionId) complete();
+    };
+    state.thinking = false;
+    state.moveAnimating = true;
+    render();
+    if (!duration) { finish(); return; }
+    if (boardView === "3d" && board3d?.animateMove) {
+      automaticMoveAnimation = board3d.animateMove({ from: move.from, to: move.to, piece, duration }, finish);
+      return;
+    }
+    const from = boardEl.querySelector(`[data-square="${move.from}"]`);
+    const to = boardEl.querySelector(`[data-square="${move.to}"]`);
+    const stage = document.querySelector(".board-stage");
+    if (!from || !to || !stage) { finish(); return; }
+    const stageRect = stage.getBoundingClientRect(), fromRect = from.getBoundingClientRect(), toRect = to.getBoundingClientRect();
+    const computed = getComputedStyle(from);
+    const ghost = document.createElement("span");
+    ghost.className = "auto-move-piece";
+    ghost.textContent = glyph[piece];
+    Object.assign(ghost.style, {
+      left: `${fromRect.left - stageRect.left}px`, top: `${fromRect.top - stageRect.top}px`,
+      width: `${fromRect.width}px`, height: `${fromRect.height}px`, fontFamily: computed.fontFamily,
+      fontSize: computed.fontSize, lineHeight: computed.lineHeight, color: computed.color, textShadow: computed.textShadow
+    });
+    from.classList.add("auto-move-source"); stage.appendChild(ghost);
+    const dx = toRect.left - fromRect.left, dy = toRect.top - fromRect.top;
+    const animation = ghost.animate([
+      { transform: "translate(0, 0) scale(1)", offset: 0 },
+      { transform: `translate(${dx * .52}px, ${dy * .52}px) scale(1.08)`, offset: .52 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1)`, offset: 1 }
+    ], { duration, easing: "cubic-bezier(.22,.75,.25,1)", fill: "forwards" });
+    const cleanup = () => { ghost.remove(); from.classList.remove("auto-move-source"); };
+    automaticMoveAnimation = { cancel() { animation.cancel(); cleanup(); state.moveAnimating = false; } };
+    animation.finished.then(() => { cleanup(); finish(); }).catch(() => {});
+  }
+
   function requestEndgameDefense() {
     const sessionId = state.sessionId;
     const expectedFen = E.toFEN(state.game);
@@ -885,7 +936,7 @@
       if (state.sessionId !== sessionId || state.mode !== "endgame" || E.toFEN(state.game) !== expectedFen) return;
       const move = T.chooseEndgameDefense(E, state.game, state.endgameId);
       state.thinking = false;
-      if (move) makeMove(move, "defense"); else render();
+      if (move) animateAutomaticMove(move, "defense"); else render();
     }, 420);
   }
 
@@ -900,7 +951,7 @@
       if (state.sessionId !== sessionId || state.mode !== "match" || state.clock.flagged || E.toFEN(state.game) !== expectedFen) return;
       const move = E.chooseMove(state.game, state.level);
       state.thinking = false;
-      if (move) makeMove(move, "ai"); else render();
+      if (move) animateAutomaticMove(move, "ai"); else render();
     }, delay);
   }
 
