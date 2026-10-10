@@ -146,6 +146,17 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .learning-menu strong { font-size: .82rem; }
 .learning-menu small { color: var(--muted); font-size: .67rem; line-height: 1.35; }
 .learning-menu em { grid-column: 3; grid-row: 1 / 3; color: var(--gold); font-size: .72rem; font-style: normal; }
+.guided-course-head { margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); }
+.guided-course-head p { margin: 7px 0 11px; color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.guided-course { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.course-unit { min-width: 0; padding: 11px; border: 1px solid var(--line); background: #111713; text-align: left; cursor: pointer; }
+.course-unit:hover { border-color: var(--gold-dark); background: #182019; transform: translateY(-1px); }
+.course-unit-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: var(--gold); font-size: .59rem; font-weight: 800; letter-spacing: .08em; }
+.course-unit strong, .course-unit small { display: block; }
+.course-unit strong { font-size: .76rem; line-height: 1.25; }
+.course-unit small { margin-top: 4px; color: var(--muted); font-size: .62rem; line-height: 1.35; }
+.course-unit.done { border-color: #46604c; background: #142019; }
+.course-unit.done .course-state { color: #9ed0a8; }
 .mixed-session-bar { margin: 0 18px 14px; padding: 11px 12px; border: 1px solid var(--gold-dark); background: #201f17; }
 .mixed-session-bar > div:first-child { display: flex; justify-content: space-between; gap: 12px; color: var(--gold); font-size: .67rem; font-weight: 800; letter-spacing: .1em; }
 .mixed-session-bar p { margin: 5px 0 0; color: #c6cbc7; font-size: .7rem; line-height: 1.4; }
@@ -319,5 +330,6 @@ dialog h2 { font-family: Georgia, serif; margin: 0; } dialog p { color: var(--mu
   .board-3d-controls button { padding: 6px 8px; font-size: .62rem; }
   .square { font-size: 10.5vw; }
   .coach-panel { padding-left: 5px; padding-right: 5px; }
+  .guided-course { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

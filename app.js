@@ -27,6 +27,85 @@
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
 
   const trainingData = window.CHESS_TRAINING_DATA;
+  const guidedStep = (move, before, after, kind = "move") => ({
+    before, after, hint: `${move.slice(0, 2)} → ${move.slice(2, 4)}`,
+    visual: { arrows: [{ from: move.slice(0, 2), to: move.slice(2, 4), kind, label: "Zug" }] }
+  });
+  const scholarMateOpening = {
+    id: "scholar-mate", name: "Schäfermatt erkennen und abwehren", eco: "C20", side: "w", rating: 650,
+    line: ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"],
+    ideas: ["Dame und Läufer greifen f7 gemeinsam an", "Mattdrohungen vor jedem Zug prüfen", "Mit Schwarz entwickeln und gleichzeitig verteidigen"],
+    warning: "Die frühe Dame kann leicht angegriffen werden. Das Schäfermatt ist ein Lernmuster, kein verlässlicher Eröffnungsplan.",
+    lesson: {
+      revision: 1,
+      goal: "Erkenne den gemeinsamen Angriff auf f7 und lerne die ruhige Verteidigung.",
+      intro: "Beim Schäfermatt zielen Dame und Läufer auf f7. Du übst zuerst das Muster und verteidigst es danach mit Schwarz.",
+      scenarios: [
+        {
+          id: "main", title: "Mattmuster mit Weiß", learnerSide: "w",
+          purpose: "Baue den Doppelangriff auf f7 auf und setze nach dem schwarzen Fehler matt.",
+          line: ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"],
+          steps: [
+            guidedStep("e2e4", "Öffne Linien für Dame und Läufer.", "Der e-Bauer besetzt das Zentrum und macht dem Läufer Platz."),
+            guidedStep("e7e5", "Schwarz antwortet im Zentrum.", "Auch Schwarz öffnet Figurenlinien."),
+            guidedStep("f1c4", "Richte den Läufer auf den schwachen Punkt f7.", "f7 wird zu Beginn nur vom König gedeckt.", "attack"),
+            guidedStep("b8c6", "Schwarz entwickelt den Damenspringer.", "Die Mattdrohung ist noch nicht vollständig."),
+            guidedStep("d1h5", "Die Dame greift f7 ein zweites Mal an.", "Dame und Läufer bilden jetzt eine konkrete Mattdrohung.", "attack"),
+            guidedStep("g8f6", "Schwarz entwickelt unachtsam.", "Der Springer greift die Dame an, verhindert Qxf7# aber nicht."),
+            guidedStep("h5f7", "Nutze die ungedeckte Mattstellung.", "Qxf7 ist Schachmatt: Dame und Läufer decken sich.", "attack")
+          ],
+          outcome: "Mattmuster erkannt. Merke dir nicht nur die Zugfolge, sondern das gemeinsame Ziel f7."
+        },
+        {
+          id: "defense", title: "Schäfermatt mit Schwarz abwehren", learnerSide: "b",
+          purpose: "Erkenne die Drohung rechtzeitig, greife die Dame an und entwickle danach weiter.",
+          line: ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g7g6", "h5f3", "g8f6"],
+          steps: [
+            guidedStep("e2e4", "Weiß öffnet das Zentrum.", "Achte früh auf Dame und Läufer."),
+            guidedStep("e7e5", "Antworte im Zentrum.", "Du hältst Raum und öffnest deine Figuren."),
+            guidedStep("f1c4", "Der Läufer zielt auf f7.", "Noch droht kein Matt, aber das Zielfeld ist erkennbar.", "attack"),
+            guidedStep("b8c6", "Entwickle und kontrolliere das Zentrum.", "Der Springer unterstützt e5 und d4."),
+            guidedStep("d1h5", "Jetzt droht Qxf7 matt.", "Reagiere auf die konkrete Drohung, bevor du deinen Plan fortsetzt.", "attack"),
+            guidedStep("g7g6", "Greife die Dame an und nimm ihr h5.", "Die Dame muss ziehen; f7 fällt nicht mit Matt.", "defense"),
+            guidedStep("h5f3", "Weiß zieht die Dame zurück.", "Der frühe Damenausflug hat Zeit gekostet."),
+            guidedStep("g8f6", "Entwickle mit Tempo weiter.", "Du hast abgewehrt und eine Figur ins Spiel gebracht.", "defense")
+          ],
+          outcome: "Schäfermatt abgewehrt: Drohung erkennen, Dame vertreiben, Figuren entwickeln."
+        },
+        {
+          id: "counter", title: "Frühe Dame ruhig bestrafen", learnerSide: "b",
+          purpose: "Antworte auf den verfrühten Damenausflug mit Entwicklung und einem Angriff auf die Dame.",
+          line: ["e2e4", "e7e5", "d1h5", "b8c6", "f1c4", "g7g6", "h5f3", "g8f6"],
+          steps: [
+            guidedStep("e2e4", "Weiß öffnet das Zentrum.", "Halte den Blick auf Entwicklung und Königssicherheit."),
+            guidedStep("e7e5", "Besetze ebenfalls das Zentrum.", "Du schaffst Platz für Läufer und Dame."),
+            guidedStep("d1h5", "Die Dame kommt sehr früh heraus.", "Prüfe die Drohung auf f7, aber gerate nicht in Panik.", "attack"),
+            guidedStep("b8c6", "Entwickle und decke e5.", "Ein nützlicher Zug, der nichts schwächt."),
+            guidedStep("f1c4", "Nun ist Qxf7 eine echte Drohung.", "Jetzt ist eine konkrete Verteidigung nötig.", "attack"),
+            guidedStep("g7g6", "Gewinne ein Tempo gegen die Dame.", "Die Angreiferin muss zurückweichen.", "counter"),
+            guidedStep("h5f3", "Die Dame zieht zurück.", "Schwarz kann seine Entwicklung fortsetzen."),
+            guidedStep("g8f6", "Entwickle den Königspringer.", "Du kontrollierst das Zentrum und bereitest die Rochade vor.", "defense")
+          ],
+          outcome: "Du hast die frühe Dame ohne Materialrisiko zurückgedrängt und dabei sinnvoll entwickelt."
+        }
+      ]
+    }
+  };
+  trainingData.openings.push(scholarMateOpening);
+  const guidedCourse = [
+    { number: "01", title: "Schäfermatt spielen", detail: "Mattbild auf f7 selbst aufbauen", type: "opening", id: "scholar-mate", scenario: "main" },
+    { number: "02", title: "Schäfermatt abwehren", detail: "Drohung erkennen und Dame vertreiben", type: "opening", id: "scholar-mate", scenario: "defense" },
+    { number: "03", title: "Sizilianische Verteidigung", detail: "Mit Schwarz asymmetrisch kontern", type: "opening", id: "sicilian-open" },
+    { number: "04", title: "Alapin gegen Sizilianisch", detail: "Mit c3 ein starkes Zentrum bauen", type: "opening", id: "sicilian-alapin" },
+    { number: "05", title: "Italienische Partie", detail: "Schnell entwickeln und f7 im Blick behalten", type: "opening", id: "italian" },
+    { number: "06", title: "Französische Verteidigung", detail: "Die Bauernkette richtig angreifen", type: "opening", id: "french" },
+    { number: "07", title: "Caro-Kann", detail: "Solide entwickeln und das Zentrum fordern", type: "opening", id: "caro-kann" },
+    { number: "08", title: "London-System", detail: "Einen stabilen Aufbau verstehen", type: "opening", id: "london" },
+    { number: "09", title: "Springergabel", detail: "Zwei Ziele mit einem Zug angreifen", type: "tactic", id: "fork-01" },
+    { number: "10", title: "Fesselung", detail: "Eine Figur an den König binden", type: "tactic", id: "pin-01" },
+    { number: "11", title: "Treppenmatt", detail: "Mit zwei Türmen selbst mattsetzen", type: "endgame", id: "ladder-mate" },
+    { number: "12", title: "Opposition", detail: "König und Bauer sicher verwerten", type: "endgame", id: "pawn-opposition" }
+  ];
   const puzzles = trainingData.tactics;
   let boardView = "2d";
   try { boardView = new URLSearchParams(location.search).get("view") === "3d" || localStorage.getItem("schachwerkstatt-board-view") === "3d" ? "3d" : "2d"; } catch { boardView = "2d"; }
@@ -210,6 +289,7 @@
       if (puzzle) puzzle.openError = entry.openError;
     }
     saved.lessons[key] = entry; saveProgress(saved);
+    renderGuidedCourse();
     state.seenLessons.add(exposureKey());
     if (event.scored) {
       if (state.mode === "tactics") recordPuzzleAttempt(event.mistakes === 0);
@@ -899,6 +979,7 @@
       state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.thinking = false;
       state.messageOverride = mode === "home" ? { kind: "", title: "Bereit für deine erste Einheit?", text: "Starte mit der Empfehlung. Es gibt keinen Zeitdruck und jeder Fehler wird erklärt." } : { kind: "", title: "Fünf Bausteine für gutes Schach", text: "Beginne ohne Vorwissen bei den Grundlagen. Danach folgen Taktik, Eröffnungen, Endspiel und Strategie." };
       updateHomeRecommendation(); render();
+      if (mode === "learn") renderGuidedCourse();
     }
     else resetGame();
     renderMixedSession();
@@ -1010,6 +1091,49 @@
         const option = document.createElement("option"); option.value = opening.id; option.textContent = `${opening.eco} · ${opening.name}`; group.appendChild(option);
       });
       select.appendChild(group);
+    }
+  }
+
+  function renderGuidedCourse() {
+    const container = $("#guidedCourse");
+    if (!container) return;
+    const lessons = getProgress().lessons || {};
+    container.innerHTML = "";
+    for (const unit of guidedCourse) {
+      const key = unit.type === "tactic" ? `tactics:${unit.id}` : `openings:${unit.id}`;
+      const completions = lessons[key]?.completions || {};
+      const scenario = unit.scenario || "main";
+      const done = unit.type !== "endgame" && Object.keys(completions).some((name) => name.startsWith(`${scenario}:guided:`) || name.startsWith(`${scenario}:practice:`));
+      const button = document.createElement("button");
+      button.type = "button"; button.className = `course-unit${done ? " done" : ""}`;
+      button.innerHTML = `<span class="course-unit-top"><span>EINHEIT ${unit.number}</span><span class="course-state">${done ? "✓ GEÜBT" : "STARTEN →"}</span></span><strong>${unit.title}</strong><small>${unit.detail}</small>`;
+      button.addEventListener("click", () => launchGuidedUnit(unit));
+      container.appendChild(button);
+    }
+  }
+
+  function launchGuidedUnit(unit) {
+    if (unit.type === "opening") {
+      const record = trainingData.openings.find((item) => item.id === unit.id);
+      if (!record) return;
+      $("#openingSelect").value = record.id;
+      switchMode("openings");
+      startLesson(record, { phase: "guided", scenario: unit.scenario || "main" });
+      $("#openingSide").textContent = `Training mit ${state.lesson.learnerSide === "w" ? "Weiß" : "Schwarz"}`;
+      return;
+    }
+    if (unit.type === "tactic") {
+      const record = puzzles.find((item) => item.id === unit.id);
+      if (!record) return;
+      $("#themeFilter").value = "all";
+      state.puzzlePosition = puzzles.indexOf(record);
+      switchMode("tactics");
+      startLesson(record, { phase: "guided", scenario: unit.scenario || "main" });
+      return;
+    }
+    if (unit.type === "endgame") {
+      $("#endgameSelect").value = unit.id;
+      switchMode("endgame");
     }
   }
 
@@ -1722,5 +1846,5 @@
     } catch { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 
-  populateOpeningSelect(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
+  populateOpeningSelect(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); switchMode("home"); setBoardView(boardView, false);
 })();
