@@ -13,6 +13,9 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Eigene Brettstellungen im Analysebrett oder direkt während einer Partie lokal benennen, speichern, laden und löschen
 - Visueller Stellungseditor mit Figurenpalette, Radierer, Zugrecht, Rochaderechten und Gültigkeitsprüfung
 - PGN-Import mit legaler Zugrekonstruktion, Farbauswahl und automatischer lokaler Zug-für-Zug-Analyse
+- Variantenlabor für geladene PGNs und FENs: beliebige Hauptvarianten-Stellung wählen, frei mit Engine-Hinweisen weiterspielen und zum festen Ausgangspunkt zurückspringen
+- Komplette PGN-Partien und FEN-Stellungen lokal benennen, speichern und wieder laden
+- Laufendes Weiß-Schwarz-Gewinnverhältnis mit lokaler Neuberechnung nach jedem Zug in Trainingspartien und freien Varianten
 - Engine-Pfeile für den besten Zug und zwei Alternativen; in der Partieanalyse werden gespielter und besserer Zug gegenübergestellt
 - Gespeicherte Positionen frei analysieren oder als ungewertete Partie gegen die Engine weiterspielen
 - Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug

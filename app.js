@@ -21,6 +21,8 @@
     thinkingCheck: { runId: 0, ply: -1, resolved: false, attempted: false, selected: "", correct: "" },
     analysisRequest: 0, analysisRunning: false, gameAnalysis: [], reviewPosition: null, reviewMove: null, practiceHint: null, practiceHintThinking: false, practiceHintRequest: 0,
     positionEditorActive: false, editorPiece: "P", editorSnapshot: null, engineArrows: [], engineArrowsThinking: false, engineArrowsRequest: 0, importedPgn: false,
+    analysisSource: null, variationStart: null,
+    positionEvaluation: { fen: null, white: 50, black: 50, score: 0, depth: 0, thinking: false, error: false }, positionEvaluationRequest: 0,
     activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
     mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set(), moveAnimating: false
   };
@@ -236,6 +238,56 @@
       analysisWorker.postMessage({ id, fen, options });
     });
   }
+  function evaluationRatio(score) {
+    if (!Number.isFinite(score)) return { white: 50, black: 50 };
+    const white = Math.max(1, Math.min(99, Math.round(100 / (1 + Math.exp(-score / 240)))));
+    return { white, black: 100 - white };
+  }
+  function evaluationPosition() { return state.reviewPosition || state.game; }
+  function renderLiveEvaluation() {
+    const evaluation = state.positionEvaluation;
+    all("[data-live-evaluation]").forEach((card) => {
+      const editing = state.positionEditorActive;
+      const white = editing ? 50 : evaluation.white, black = editing ? 50 : evaluation.black;
+      card.classList.toggle("thinking", evaluation.thinking && !editing);
+      card.querySelector("[data-eval-summary]").textContent = evaluation.thinking && !editing ? "wird berechnet …" : `${white} : ${black}`;
+      card.querySelector("[data-eval-white]").textContent = `${white}%`;
+      card.querySelector("[data-eval-black]").textContent = `${black}%`;
+      card.querySelector("[data-eval-white-bar]").style.width = `${white}%`;
+      const bar = card.querySelector("[data-eval-bar]");
+      bar.setAttribute("aria-label", `Geschätztes Gewinnverhältnis: Weiß ${white} Prozent, Schwarz ${black} Prozent`);
+      const detail = card.querySelector("[data-eval-detail]");
+      if (editing) detail.textContent = "Die Bewertung pausiert, solange der Stellungseditor geöffnet ist.";
+      else if (evaluation.thinking) detail.textContent = "Die lokale Engine berechnet die Stellung nach diesem Zug neu.";
+      else if (evaluation.error) detail.textContent = "Die Stellung konnte gerade nicht bewertet werden.";
+      else if (Math.abs(evaluation.score) > 90000) detail.textContent = `${evaluation.score > 0 ? "Weiß" : "Schwarz"} hat nach lokaler Berechnung entscheidenden Vorteil.`;
+      else detail.textContent = `Engine-Schätzung aus weißer Sicht: ${evaluation.score >= 0 ? "+" : ""}${(evaluation.score / 100).toFixed(2)} · Suchtiefe ${evaluation.depth || 1}.`;
+    });
+  }
+  function ensureLiveEvaluation() {
+    if (!['match', 'practice'].includes(state.mode) || state.positionEditorActive) return;
+    const position = evaluationPosition(), fen = E.toFEN(position);
+    if (state.positionEvaluation.fen === fen) return;
+    const status = E.gameStatus(position), requestId = ++state.positionEvaluationRequest;
+    if (status.over || (state.mode === "match" && state.clock.flagged)) {
+      const winner = state.clock.flagged ? (state.clock.flagged === "w" ? "b" : "w") : status.winner;
+      const ratio = winner === "w" ? { white: 100, black: 0 } : winner === "b" ? { white: 0, black: 100 } : { white: 50, black: 50 };
+      state.positionEvaluation = { fen, ...ratio, score: winner === "w" ? 100000 : winner === "b" ? -100000 : 0, depth: 0, thinking: false, error: false };
+      renderLiveEvaluation(); return;
+    }
+    state.positionEvaluation = { fen, white: state.positionEvaluation.white, black: state.positionEvaluation.black, score: state.positionEvaluation.score, depth: state.positionEvaluation.depth, thinking: true, error: false };
+    renderLiveEvaluation();
+    analyzeInBackground(position, { depth: 5, timeMs: 700, quiescence: 3, multiPv: 1 }).then((analysis) => {
+      if (requestId !== state.positionEvaluationRequest || E.toFEN(evaluationPosition()) !== fen) return;
+      const score = Number(analysis.score) || 0, ratio = evaluationRatio(score);
+      state.positionEvaluation = { fen, ...ratio, score, depth: analysis.depth || 1, thinking: false, error: false };
+      renderLiveEvaluation();
+    }).catch(() => {
+      if (requestId !== state.positionEvaluationRequest) return;
+      state.positionEvaluation = { ...state.positionEvaluation, thinking: false, error: true };
+      renderLiveEvaluation();
+    });
+  }
   function clearMatchHint() {
     state.hintRequest += 1;
     state.matchHint = null;
@@ -276,7 +328,7 @@
   }
   function beginPositionSession() {
     if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
-    cancelLessonTimer(); clearMatchHint(); clearPracticeHint(); clearEngineArrows(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.thinking = false; state.lesson = null; state.positionTraining = false; state.positionEditorActive = false; state.editorSnapshot = null; state.importedPgn = false;
+    cancelLessonTimer(); clearMatchHint(); clearPracticeHint(); clearEngineArrows(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.positionEvaluationRequest += 1; state.positionEvaluation = { fen: null, white: 50, black: 50, score: 0, depth: 0, thinking: false, error: false }; state.thinking = false; state.lesson = null; state.positionTraining = false; state.positionEditorActive = false; state.editorSnapshot = null; state.importedPgn = false; state.analysisSource = null; state.variationStart = null;
     automaticMoveAnimation?.cancel?.(); automaticMoveAnimation = null; state.moveAnimating = false;
     state.personalMatchMistake = null; state.personalMatchPending = false;
     state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
@@ -550,9 +602,12 @@
     renderPracticeHintControls();
     renderPositionEditorControls();
     renderEngineArrowControls();
+    renderVariationLab();
     renderMatchRating();
     renderMatchClocks();
     renderMatchPlayers();
+    renderLiveEvaluation();
+    ensureLiveEvaluation();
     if (state.mode === "match" && currentStatus.over) showCoachReviewSummary();
   }
 
@@ -2170,13 +2225,15 @@
       const fenHeader = source.match(/^\s*\[FEN\s+"([^"]+)"\]\s*$/mi)?.[1];
       let position = fenHeader ? validPracticePosition(fenHeader) : E.fromFEN();
       if (!position) throw new Error("Die FEN-Ausgangsstellung im PGN ist ungültig.");
-      const playerColor = $("#pgnPlayerColor").value === "b" ? "b" : "w", records = [], tokens = T.pgnMoveTokens(source);
+      const playerColor = $("#pgnPlayerColor").value === "b" ? "b" : "w", records = [], line = [], positions = [E.toFEN(position)], tokens = T.pgnMoveTokens(source);
       if (!tokens.length) throw new Error("Im PGN wurden keine Züge gefunden.");
       for (let ply = 0; ply < tokens.length; ply++) {
         const before = position, move = T.resolvePgnMove(E, before, tokens[ply]);
         if (!move) throw new Error(`Zug ${ply + 1} (${tokens[ply]}) ist in der erreichten Stellung nicht eindeutig oder nicht legal.`);
         const san = E.notation(before, move);
         position = E.applyMove(before, move);
+        line.push({ uci: move.from + move.to + (move.promotion || ""), san, color: before.turn });
+        positions.push(E.toFEN(position));
         records.push({
           color: before.turn, san,
           whiteMaterialBefore: T.materialFor(E, before, "w"), whiteMaterialAfter: T.materialFor(E, position, "w"),
@@ -2186,6 +2243,8 @@
       beginPositionSession();
       state.game = position; state.moves = records; state.lastMove = position.history.at(-1)?.move || null; state.opponentLastMove = null;
       state.playerColor = playerColor; state.importedPgn = true; state.matchLearningId = `pgn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      state.analysisSource = { id: `${Date.now()}-${Math.random()}`, kind: "pgn", pgn: source, playerColor, initialFen: positions[0], line, positions };
+      state.variationStart = null;
       state.messageOverride = { kind: "success", title: "PGN importiert", text: `${records.length} Halbzüge wurden legal rekonstruiert. Die lokale Engine analysiert jetzt ${playerColor === "w" ? "Weiß" : "Schwarz"}.` };
       $("#fenInput").value = E.toFEN(position);
       status.textContent = `${records.length} Halbzüge geladen · Analyse für ${playerColor === "w" ? "Weiß" : "Schwarz"} gestartet.`;
@@ -2195,6 +2254,74 @@
       status.textContent = error.message || "Das PGN konnte nicht gelesen werden."; status.classList.add("error");
       $("#pgnAnalysis").hidden = true;
     }
+  }
+
+  function sourcePositionLabel(index) {
+    const source = state.analysisSource;
+    if (!source || index === 0) return "Ausgangsstellung";
+    const move = source.line[index - 1];
+    const fullmove = E.fromFEN(source.positions[index - 1]).fullmove;
+    return `${fullmove}.${move.color === "b" ? "…" : ""} ${move.san}`;
+  }
+
+  function renderVariationLab() {
+    const lab = $("#variationLab");
+    if (!lab) return;
+    const source = state.mode === "practice" ? state.analysisSource : null;
+    lab.hidden = !source;
+    if (!source) return;
+    const select = $("#sourcePositionSelect"), previous = Number(select.value);
+    if (select.dataset.sourceId !== source.id || select.options.length !== source.positions.length) {
+      const changedSource = select.dataset.sourceId !== source.id;
+      select.replaceChildren();
+      source.positions.forEach((fen, index) => {
+        const option = document.createElement("option");
+        option.value = String(index); option.textContent = sourcePositionLabel(index); select.appendChild(option);
+      });
+      select.value = String(!changedSource && Number.isInteger(previous) && previous >= 0 && previous < source.positions.length ? previous : source.positions.length - 1);
+      select.dataset.sourceId = source.id;
+    }
+    const status = $("#variationLabStatus");
+    status.textContent = state.variationStart
+      ? `Ausgangspunkt: ${state.variationStart.label}. Ziehe frei, nutze Engine-Hinweise und springe jederzeit zurück.`
+      : `${source.kind === "pgn" ? `${source.line.length} Halbzüge geladen` : "FEN-Stellung geladen"}. Wähle die gewünschte Stellung der Hauptvariante.`;
+    $("#returnToVariationStart").disabled = !state.variationStart;
+  }
+
+  function previewSourcePosition() {
+    const source = state.analysisSource;
+    if (!source) return;
+    const index = Math.max(0, Math.min(source.positions.length - 1, Number($("#sourcePositionSelect").value) || 0));
+    state.reviewPosition = E.fromFEN(source.positions[index]); state.reviewMove = null;
+    clearEngineArrows(); render();
+    state.messageOverride = { kind: "", title: sourcePositionLabel(index), text: "Diese Stellung ist nur als Vorschau geöffnet. Mit „Ab hier weiterspielen“ wird sie zum neuen Ausgangspunkt." };
+    renderStatus();
+  }
+
+  function startVariation() {
+    const source = state.analysisSource;
+    if (!source) return;
+    const index = Math.max(0, Math.min(source.positions.length - 1, Number($("#sourcePositionSelect").value) || 0));
+    const fen = source.positions[index], label = sourcePositionLabel(index);
+    if (state.analysisRunning) {
+      state.analysisRequest += 1; state.analysisRunning = false;
+      $("#importPgn").disabled = false; $("#importPgn").textContent = "PGN erneut laden und analysieren";
+    }
+    clearPracticeHint(); clearEngineArrows(); state.reviewPosition = null; state.reviewMove = null;
+    state.game = E.fromFEN(fen); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.redoFrames = [];
+    state.variationStart = { fen, index, label }; state.importedPgn = source.kind === "pgn";
+    $("#fenInput").value = fen;
+    state.messageOverride = { kind: "success", title: "Ausgangspunkt gesetzt", text: `${label}: Spiele jetzt beliebige Varianten und fordere dabei Engine-Hinweise oder Engine-Pfeile an.` };
+    render();
+  }
+
+  function returnToVariationStart() {
+    if (!state.variationStart) return;
+    clearPracticeHint(); clearEngineArrows();
+    state.game = E.fromFEN(state.variationStart.fen); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.redoFrames = []; state.reviewPosition = null; state.reviewMove = null;
+    $("#fenInput").value = state.variationStart.fen;
+    state.messageOverride = { kind: "success", title: "Zurück am Ausgangspunkt", text: `${state.variationStart.label} ist wiederhergestellt. Du kannst jetzt einen anderen Zug ausprobieren.` };
+    render();
   }
 
   function analysisBox() { return state.mode === "practice" ? $("#pgnAnalysis") : $("#coachReview"); }
@@ -2283,7 +2410,7 @@
     const problems = results.filter((item) => ["inaccuracy", "mistake", "blunder"].includes(item.classification.id)).length;
     const heading = document.createElement("div"); heading.className = "analysis-summary";
     heading.innerHTML = `<span>ZUGQUALITÄT</span><strong>${averageQuality}%</strong><small>${problems ? (problems === 1 ? "1 kritischer Moment" : `${problems} kritische Momente`) : "Keine deutlichen Fehler gefunden"}</small>`;
-    const note = document.createElement("p"); note.textContent = "Bewertet wird der Verlust gegenüber dem stärksten lokal gefundenen Zug. Wähle einen Zug, um Stellung und Alternative zu sehen.";
+    const note = document.createElement("p"); note.textContent = `Bewertet wird der Verlust gegenüber dem stärksten lokal gefundenen Zug. Wähle einen Zug, um Stellung und Alternative zu sehen.${state.mode === "practice" ? " Im Variantenlabor kannst du genau von dort weiterspielen." : ""}`;
     const list = document.createElement("div"); list.className = "analysis-list";
     results.forEach((item, index) => {
       const button = document.createElement("button"); button.type = "button"; button.className = `analysis-row ${item.classification.id}`;
@@ -2293,7 +2420,12 @@
     });
     const detail = document.createElement("div"); detail.id = "analysisDetail"; detail.className = "analysis-detail"; detail.textContent = "Wähle einen Zug aus der Liste.";
     const finalButton = document.createElement("button"); finalButton.type = "button"; finalButton.className = "text-button analysis-final"; finalButton.textContent = "Endstellung auf dem Brett zeigen";
-    finalButton.addEventListener("click", () => { state.reviewPosition = null; state.reviewMove = null; clearEngineArrows(); renderBoard(); all(".analysis-row").forEach((row) => row.classList.remove("active")); detail.textContent = "Endstellung der Partie."; });
+    finalButton.addEventListener("click", () => {
+      state.reviewPosition = null; state.reviewMove = null; clearEngineArrows(); renderBoard();
+      if (state.mode === "practice" && state.analysisSource) $("#sourcePositionSelect").value = String(state.analysisSource.positions.length - 1);
+      all(".analysis-row").forEach((row) => row.classList.remove("active")); detail.textContent = "Endstellung der Partie.";
+      renderLiveEvaluation(); ensureLiveEvaluation();
+    });
     box.append(heading, note, list, detail, finalButton);
     const firstCritical = results.findIndex((item) => ["mistake", "blunder"].includes(item.classification.id));
     showAnalysisPosition(firstCritical >= 0 ? firstCritical : 0);
@@ -2304,6 +2436,7 @@
     if (!item) return;
     state.reviewPosition = E.fromFEN(item.fen);
     state.reviewMove = { played: item.played, best: item.best };
+    if (state.mode === "practice" && state.analysisSource?.positions[item.ply]) $("#sourcePositionSelect").value = String(item.ply);
     state.engineArrows = sameMove(item.played, item.best)
       ? [{ from: item.best.from, to: item.best.to, color: "#62be77", label: `Stärkster Zug: ${item.bestSan}` }]
       : [{ from: item.played.from, to: item.played.to, color: "#e06459", label: `Gespielt: ${item.playedSan}` }, { from: item.best.from, to: item.best.to, color: "#e7b65d", label: `Besser: ${item.bestSan}` }];
@@ -2311,6 +2444,7 @@
     all(".analysis-row").forEach((row, rowIndex) => row.classList.toggle("active", rowIndex === index));
     const detail = $("#analysisDetail");
     if (detail) detail.innerHTML = `<strong>${item.playedSan}: ${item.classification.label}</strong><p>${explainAnalysisMove(item)}</p><small>Bewertung danach: ${formatPlayerEvaluation(item.evaluation)} · Rot: gespielt · Gold: stärkste Alternative · Suchtiefe ${item.depth || 1}</small>`;
+    renderLiveEvaluation(); ensureLiveEvaluation();
   }
 
   function explainAnalysisMove(item) {
@@ -2330,6 +2464,10 @@
 
   $("#reviewGame").addEventListener("click", startGameAnalysis);
   $("#importPgn").addEventListener("click", importPgn);
+  $("#previewSourcePosition").addEventListener("click", previewSourcePosition);
+  $("#startVariation").addEventListener("click", startVariation);
+  $("#returnToVariationStart").addEventListener("click", returnToVariationStart);
+  $("#sourcePositionSelect").addEventListener("change", previewSourcePosition);
   $("#trainGameMistakes").addEventListener("click", () => switchMode("mistakes"));
   $("#mistakeHint").addEventListener("click", showMistakeHint);
   $("#nextMistake").addEventListener("click", () => state.mixed.active ? advanceMixedTraining() : loadGameMistake(0));
@@ -2532,7 +2670,7 @@
     try {
       const value = JSON.parse(localStorage.getItem(savedPositionsKey) || "[]");
       if (!Array.isArray(value)) return [];
-      return value.filter((item) => item && typeof item.id === "string" && typeof item.name === "string" && typeof item.fen === "string" && validPracticePosition(item.fen)).slice(-50);
+      return value.filter((item) => item && typeof item.id === "string" && typeof item.name === "string" && typeof item.fen === "string" && validPracticePosition(item.fen) && (!item.pgn || typeof item.pgn === "string")).slice(-50);
     } catch { return []; }
   }
 
@@ -2546,11 +2684,11 @@
     const selectedId = preferredId || select.value;
     select.replaceChildren();
     const placeholder = document.createElement("option");
-    placeholder.value = ""; placeholder.textContent = positions.length ? "Gespeicherte Stellung wählen" : "Noch keine Stellung gespeichert";
+    placeholder.value = ""; placeholder.textContent = positions.length ? "Gespeicherte Analyse wählen" : "Noch keine Analyse gespeichert";
     select.appendChild(placeholder);
     for (const item of positions) {
       const option = document.createElement("option");
-      option.value = item.id; option.textContent = item.name.slice(0, 60);
+      option.value = item.id; option.textContent = `${item.kind === "pgn" || item.pgn ? "PGN" : "FEN"} · ${item.name.slice(0, 60)}`;
       select.appendChild(option);
     }
     if (positions.some((item) => item.id === selectedId)) select.value = selectedId;
@@ -2563,20 +2701,27 @@
     const input = $(inputSelector);
     const enteredName = input.value.trim();
     const name = (enteredName || `Stellung ${positions.length + 1}`).slice(0, 60);
-    const fen = E.toFEN(state.game);
+    const source = inputSelector === "#positionName" ? state.analysisSource : null;
+    const fen = source?.initialFen || E.toFEN(state.game);
     if (!validPracticePosition(fen)) {
       state.messageOverride = { kind: "error", title: "Stellung noch nicht gültig", text: positionProblem(state.game) || "Prüfe die Figuren und das Zugrecht." };
       if (state.positionEditorActive) { renderPositionEditorControls(); return; }
       render(); return;
     }
-    const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, fen, createdAt: new Date().toISOString() };
+    const item = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, fen,
+      kind: source?.kind === "pgn" ? "pgn" : "fen",
+      pgn: source?.kind === "pgn" ? source.pgn : undefined,
+      playerColor: source?.kind === "pgn" ? source.playerColor : undefined,
+      createdAt: new Date().toISOString()
+    };
     if (!storeSavedPositions([...positions, item])) {
       state.messageOverride = { kind: "error", title: "Speichern nicht möglich", text: "Der Browser hat den lokalen Speicher nicht freigegeben." };
       render(); return;
     }
     input.value = "";
     renderSavedPositions(item.id);
-    state.messageOverride = { kind: "success", title: "Stellung gespeichert", text: `„${name}“ kann jederzeit auf diesem Gerät wieder geladen werden.` };
+    state.messageOverride = { kind: "success", title: source?.kind === "pgn" ? "Partie gespeichert" : "Stellung gespeichert", text: `„${name}“ kann jederzeit auf diesem Gerät wieder geladen werden.` };
     render();
   }
 
@@ -2588,6 +2733,12 @@
   function loadSelectedPosition() {
     const item = selectedSavedPosition();
     if (!item) return;
+    if (item.pgn) {
+      $("#pgnInput").value = item.pgn;
+      $("#pgnPlayerColor").value = item.playerColor === "b" ? "b" : "w";
+      importPgn();
+      return;
+    }
     $("#fenInput").value = item.fen;
     loadFen();
     state.messageOverride = { kind: "success", title: `„${item.name}“ geladen`, text: `${state.game.turn === "w" ? "Weiß" : "Schwarz"} ist am Zug. Du kannst Varianten ziehen oder einen Engine-Hinweis anfordern.` };
@@ -2625,7 +2776,10 @@
     const parsed = validPracticePosition($("#fenInput").value.trim());
     if (parsed) {
       beginPositionSession();
-      state.game = parsed; state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = { kind: "success", title: "Stellung geladen", text: `${parsed.turn === "w" ? "Weiß" : "Schwarz"} ist am Zug.` }; render();
+      const fen = E.toFEN(parsed);
+      state.game = parsed; state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = [];
+      state.analysisSource = { id: `${Date.now()}-${Math.random()}`, kind: "fen", initialFen: fen, line: [], positions: [fen] }; state.variationStart = { fen, index: 0, label: "FEN-Ausgangsstellung" };
+      state.messageOverride = { kind: "success", title: "Stellung geladen", text: `${parsed.turn === "w" ? "Weiß" : "Schwarz"} ist am Zug. Du kannst Varianten ziehen und jederzeit zum Ausgangspunkt zurückkehren.` }; render();
     } else { state.messageOverride = { kind: "error", title: "FEN nicht lesbar", text: "Prüfe die Stellung. Beide Könige müssen vorhanden sein und dürfen nicht gleichzeitig bedroht sein." }; render(); }
   }
 

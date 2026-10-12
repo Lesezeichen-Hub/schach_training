@@ -177,6 +177,12 @@
             <p id="difficultyDescription">Prüft deinen nächsten direkten Gegenzug.</p>
             <button class="difficulty-recommendation" id="recommendedDifficulty" type="button"></button>
           </div>
+          <div class="live-evaluation" data-live-evaluation aria-live="polite">
+            <div class="live-evaluation-head"><span>PARTIEANALYSE</span><strong data-eval-summary>50 : 50</strong></div>
+            <div class="live-evaluation-labels"><span>Weiß <strong data-eval-white>50%</strong></span><span>Schwarz <strong data-eval-black>50%</strong></span></div>
+            <div class="live-evaluation-bar" data-eval-bar role="img" aria-label="Gewinnverhältnis: Weiß 50 Prozent, Schwarz 50 Prozent"><span class="eval-white" data-eval-white-bar></span><span class="eval-black"></span></div>
+            <small data-eval-detail>Die lokale Engine bewertet die Stellung nach jedem Zug neu.</small>
+          </div>
           <button class="hint-action" id="matchHintButton" type="button">
             <span aria-hidden="true">✦</span>
             <strong>Zughilfe anfordern</strong>
@@ -317,6 +323,7 @@
         </section>
 
         <section id="practiceControls" class="control-section" hidden>
+          <div class="analysis-section-heading"><span>STELLUNGSANALYSE</span><strong>Eine Position untersuchen</strong><small>FEN laden, Figuren bearbeiten und konkrete Engine-Hinweise abrufen.</small></div>
           <button class="secondary-button full-button" id="togglePositionEditor" type="button">Visuellen Stellungseditor öffnen</button>
           <div class="position-editor" id="positionEditor" hidden>
             <div class="position-editor-head"><span>FIGUR AUSWÄHLEN</span><small>Danach Zielfeld auf dem Brett anklicken</small></div>
@@ -355,12 +362,19 @@
           <textarea id="fenInput" rows="3" spellcheck="false" aria-describedby="fenHelp"></textarea>
           <small id="fenHelp">FEN einfügen oder eine Beispielstellung laden.</small>
           <div class="button-row"><button class="secondary-button" id="loadStart">Grundstellung</button><button class="primary-button" id="loadFen">Stellung laden</button></div>
+          <div class="analysis-section-heading"><span>PARTIEANALYSE</span><strong>Partie und Varianten vergleichen</strong><small>PGN laden, jede Stellung anspringen und von einem festen Ausgangspunkt weiterspielen.</small></div>
+          <div class="live-evaluation" data-live-evaluation aria-live="polite">
+            <div class="live-evaluation-head"><span>GEWINNVERHÄLTNIS</span><strong data-eval-summary>50 : 50</strong></div>
+            <div class="live-evaluation-labels"><span>Weiß <strong data-eval-white>50%</strong></span><span>Schwarz <strong data-eval-black>50%</strong></span></div>
+            <div class="live-evaluation-bar" data-eval-bar role="img" aria-label="Gewinnverhältnis: Weiß 50 Prozent, Schwarz 50 Prozent"><span class="eval-white" data-eval-white-bar></span><span class="eval-black"></span></div>
+            <small data-eval-detail>Die lokale Engine bewertet die Stellung nach jedem Zug neu.</small>
+          </div>
           <div class="position-library">
-            <span>MEINE STELLUNGEN</span>
-            <label for="positionName">Name der aktuellen Stellung</label>
-            <input id="positionName" type="text" maxlength="60" placeholder="z. B. Angriff am Königsflügel">
-            <button class="secondary-button full-button" id="savePosition">Aktuelle Stellung speichern</button>
-            <label for="savedPositionSelect">Gespeicherte Stellung</label>
+            <span>MEINE ANALYSEN</span>
+            <label for="positionName">Name der geladenen Partie oder Stellung</label>
+            <input id="positionName" type="text" maxlength="60" placeholder="z. B. Vereinsabend oder Königsangriff">
+            <button class="secondary-button full-button" id="savePosition">Partie / Stellung speichern</button>
+            <label for="savedPositionSelect">Gespeicherte Partie oder Stellung</label>
             <select id="savedPositionSelect"></select>
             <div class="button-row"><button class="secondary-button" id="deletePosition">Löschen</button><button class="primary-button" id="loadPosition">Laden</button></div>
           </div>
@@ -373,6 +387,14 @@
             <button class="primary-button full-button" id="importPgn" type="button">PGN laden und analysieren</button>
             <p id="pgnImportStatus" aria-live="polite"></p>
             <div id="pgnAnalysis" class="coach-review" hidden></div>
+          </div>
+          <div class="variation-lab" id="variationLab" hidden>
+            <span>VARIANTENLABOR</span>
+            <label for="sourcePositionSelect">Stellung aus der geladenen Hauptvariante</label>
+            <select id="sourcePositionSelect"></select>
+            <small id="variationLabStatus">Wähle eine Stellung und spiele von dort eigene Varianten.</small>
+            <div class="button-row"><button class="secondary-button" id="previewSourcePosition" type="button">Auf Brett zeigen</button><button class="primary-button" id="startVariation" type="button">Ab hier weiterspielen</button></div>
+            <button class="secondary-button full-button" id="returnToVariationStart" type="button" disabled>Zum Ausgangspunkt zurück</button>
           </div>
           <button class="primary-button full-button" id="trainPosition">Aus dieser Stellung gegen die Engine üben</button>
           <button class="hint-action" id="practiceHintButton" type="button">
