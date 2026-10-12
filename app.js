@@ -1268,6 +1268,8 @@
     calculate.disabled = state.mode !== "practice" || state.engineArrowsThinking || state.positionEditorActive || E.gameStatus(position).over;
     calculate.textContent = state.engineArrowsThinking ? "Engine berechnet Pfeile …" : state.engineArrows.length ? "Engine-Pfeile neu berechnen" : "Engine-Pfeile berechnen";
     clear.disabled = !state.engineArrows.length && !state.engineArrowsThinking;
+    const reviewToggle = $("#toggleReviewArrows");
+    if (reviewToggle) reviewToggle.textContent = state.engineArrows.length ? "Vergleichspfeile ausblenden" : "Vergleichspfeile einblenden";
   }
 
   async function requestEngineArrows() {
@@ -2437,14 +2439,29 @@
     state.reviewPosition = E.fromFEN(item.fen);
     state.reviewMove = { played: item.played, best: item.best };
     if (state.mode === "practice" && state.analysisSource?.positions[item.ply]) $("#sourcePositionSelect").value = String(item.ply);
-    state.engineArrows = sameMove(item.played, item.best)
-      ? [{ from: item.best.from, to: item.best.to, color: "#62be77", label: `Stärkster Zug: ${item.bestSan}` }]
-      : [{ from: item.played.from, to: item.played.to, color: "#e06459", label: `Gespielt: ${item.playedSan}` }, { from: item.best.from, to: item.best.to, color: "#e7b65d", label: `Besser: ${item.bestSan}` }];
+    state.engineArrows = analysisReviewArrows(item);
     renderBoard();
     all(".analysis-row").forEach((row, rowIndex) => row.classList.toggle("active", rowIndex === index));
     const detail = $("#analysisDetail");
-    if (detail) detail.innerHTML = `<strong>${item.playedSan}: ${item.classification.label}</strong><p>${explainAnalysisMove(item)}</p><small>Bewertung danach: ${formatPlayerEvaluation(item.evaluation)} · Rot: gespielt · Gold: stärkste Alternative · Suchtiefe ${item.depth || 1}</small>`;
+    if (detail) {
+      detail.innerHTML = `<strong>${item.playedSan}: ${item.classification.label}</strong><p>${explainAnalysisMove(item)}</p><small>Bewertung danach: ${formatPlayerEvaluation(item.evaluation)} · Rot: gespielt · Gold: stärkste Alternative · Suchtiefe ${item.depth || 1}</small>`;
+      const toggleArrows = document.createElement("button");
+      toggleArrows.type = "button"; toggleArrows.id = "toggleReviewArrows"; toggleArrows.className = "secondary-button analysis-arrow-toggle";
+      toggleArrows.textContent = "Vergleichspfeile ausblenden";
+      toggleArrows.addEventListener("click", () => {
+        if (state.engineArrows.length) clearEngineArrows(); else state.engineArrows = analysisReviewArrows(item);
+        renderBoard(); renderEngineArrowControls();
+      });
+      detail.appendChild(toggleArrows);
+    }
+    renderEngineArrowControls();
     renderLiveEvaluation(); ensureLiveEvaluation();
+  }
+
+  function analysisReviewArrows(item) {
+    return sameMove(item.played, item.best)
+      ? [{ from: item.best.from, to: item.best.to, color: "#62be77", label: `Stärkster Zug: ${item.bestSan}` }]
+      : [{ from: item.played.from, to: item.played.to, color: "#e06459", label: `Gespielt: ${item.playedSan}` }, { from: item.best.from, to: item.best.to, color: "#e7b65d", label: `Besser: ${item.bestSan}` }];
   }
 
   function explainAnalysisMove(item) {
@@ -2755,7 +2772,8 @@
   }
 
   function startPositionTraining() {
-    const fen = E.toFEN(state.game), parsed = validPracticePosition(fen);
+    const displayedPosition = state.reviewPosition || state.game;
+    const fen = E.toFEN(displayedPosition), parsed = validPracticePosition(fen);
     if (!parsed) return;
     setOpponentMode("ai", false);
     switchMode("match");
@@ -2763,7 +2781,7 @@
     state.game = parsed; state.positionTraining = true; state.playerColor = parsed.turn;
     state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = [];
     state.matchRated = false; state.matchResult = null; state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    state.messageOverride = { kind: "", title: "Stellungstraining gestartet", text: `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"} ab der gewählten Stellung. Der Trainingspartner antwortet nach deinem Zug; die Partie ist ungewertet.` };
+    state.messageOverride = { kind: "", title: "Stellungstraining gestartet", text: `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"} exakt ab der zuvor auf dem Analysebrett angezeigten Stellung. Der Trainingspartner antwortet nach deinem Zug; die Partie ist ungewertet.` };
     $("#panelEyebrow").textContent = "STELLUNGSTRAINING";
     $("#panelTitle").textContent = "Eine Position. Viele Pläne.";
     $("#panelIntro").textContent = "Probiere deine Idee gegen die lokale Engine aus. Diese Partie verändert deine Wertung nicht.";

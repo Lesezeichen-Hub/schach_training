@@ -356,6 +356,7 @@ textarea { width: 100%; resize: vertical; padding: 11px; background: #0e130f; co
 .analysis-detail strong { color: var(--ink); }
 .analysis-detail p { margin: 5px 0; }
 .analysis-detail small { color: var(--muted); font-size: .62rem; }
+.analysis-arrow-toggle { width: 100%; margin-top: 9px; padding: 7px 9px; font-size: .68rem; }
 .analysis-final { width: 100%; margin-top: 7px; }
 #mistakeControls .step-explanation { margin-top: 12px; }
 .review-schedule { margin-top: 9px !important; padding: 7px 9px; border-left: 2px solid var(--gold-dark); background: #171d18; color: #b8c0b9 !important; font-size: .7rem !important; }
