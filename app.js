@@ -789,7 +789,7 @@
   function renderEngineArrows(flipped) {
     const svg = $("#engineArrows");
     svg.replaceChildren();
-    if (!state.engineArrows.length || state.positionEditorActive) { svg.setAttribute("hidden", ""); return; }
+    if (boardView === "3d" || !state.engineArrows.length || state.positionEditorActive) { svg.setAttribute("hidden", ""); return; }
     const ns = "http://www.w3.org/2000/svg";
     const colors = ["#62be77", "#e7b65d", "#329de2", "#be83ef"];
     const makeSvg = (tag, attributes) => {
