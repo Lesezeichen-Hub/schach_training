@@ -18,7 +18,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Laufende Trainingspartien nach jedem Zug lokal sichern, später fortsetzen und abgeschlossene Partien archivieren
 - PGN-Dateiexport für aktuelle und gespeicherte Partien inklusive Ergebnis und Schach960-Ausgangsstellung
 - Laufendes Weiß-Schwarz-Gewinnverhältnis mit lokaler Neuberechnung nach jedem Zug in Trainingspartien und freien Varianten
-- Engine-Pfeile für den besten Zug und zwei Alternativen; in der Partieanalyse werden gespielter und besserer Zug gegenübergestellt
+- Engine-Zugvorschläge als Textliste; in der Partieanalyse werden gespielter und besserer Zug gegenübergestellt
 - Gespeicherte Positionen frei analysieren oder als ungewertete Partie gegen die Engine weiterspielen
 - Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug
 - Filterbare Taktikstufen Leicht, Mittel und Schwer, kombinierbar mit dem gewünschten Motiv
@@ -30,7 +30,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien
 - Vier jederzeit wählbare Lernphasen für alle 45 Eröffnungs- und Taktiklektionen
 - 147 Szenarien (45 Hauptlinien, 45 Abwehrausschnitte, 45 Gegenspiel-/Konterabläufe und 12 direkte Praxisaufgaben), insgesamt 627 erklärte Halbzüge
-- Ausführliche Texterklärungen zu Lektionszügen; die nicht an die Brettdrehung gebundenen Engine-Analyse-Pfeile bleiben im Analysebrett verfügbar
+- Ausführliche Texterklärungen zu Lektionszügen; Zugvorschläge bleiben als Text statt als festes Brett-Overlay lesbar
 - Zurück, Weiter, Neustart sowie Abspielen/Pause in Vorführungen
 - Konkrete geprüfte Planabweichungen mit Antwort; unbekannte legale Abweichungen werden nicht als automatisch schlechte Züge bezeichnet
 - Interaktive Endspiele: Treppenmatt und König-Bauer gegen König mit Opposition

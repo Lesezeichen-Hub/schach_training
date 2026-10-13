@@ -78,9 +78,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .board-wrap:fullscreen .board-view-toggle { top: 18px; right: 18px; }
 .board-wrap:fullscreen .board-sound-toggle { top: 18px; left: 18px; }
 .board-wrap:fullscreen .board-3d-controls { left: 18px; bottom: 18px; }
-.lesson-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible; }
-.engine-arrows { z-index: 6; }
-.lesson-arrows text { font: bold .17px ui-sans-serif, system-ui; paint-order: stroke; stroke: #101411; stroke-width: .045; fill: white; }
 .lesson-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
 .lesson-navigation button { padding: 9px 6px; font-size: .76rem; }
 button:disabled { opacity: .55; cursor: not-allowed; }
@@ -292,7 +289,9 @@ textarea { width: 100%; resize: vertical; padding: 11px; background: #0e130f; co
 .variation-lab > span { display: block; margin-bottom: 10px; color: var(--gold); font-size: .65rem; font-weight: 800; letter-spacing: .13em; }
 .variation-lab small { display: block; margin-top: 8px; color: var(--muted); line-height: 1.4; }
 .engine-arrow-actions { margin-top: 10px; }
-.engine-arrow-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 7px; color: var(--muted); font-size: .65rem; }
+.engine-arrow-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.engine-arrow-item { padding: 5px 8px; border: 1px solid var(--line); background: #111713; color: var(--ink); font-size: .72rem; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.engine-arrow-legend { display: block; margin-top: 7px; color: var(--muted); font-size: .65rem; }
 .position-editor { margin: 10px 0 16px; padding: 12px; border: 1px solid var(--gold-dark); background: #151a16; }
 .position-editor-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-bottom: 9px; }
 .position-editor-head span { color: var(--gold); font-size: .65rem; font-weight: 800; letter-spacing: .12em; }

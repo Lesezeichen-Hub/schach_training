@@ -308,8 +308,8 @@
     state.engineArrowsRequest += 1;
     state.engineArrowsThinking = false;
     state.engineArrows = [];
-    const svg = $("#engineArrows");
-    if (svg) { svg.replaceChildren(); svg.setAttribute("hidden", ""); }
+    const list = $("#engineArrowList");
+    if (list) { list.replaceChildren(); list.setAttribute("hidden", ""); }
   }
   function cancelLessonTimer() {
     window.clearTimeout(state.lessonTimer); state.lessonTimer = null;
@@ -786,30 +786,19 @@
     if (restoreBoardFocus) boardEl.querySelector(`[data-square="${state.focusedSquare}"]`)?.focus();
   }
 
-  function renderEngineArrows(flipped) {
-    const svg = $("#engineArrows");
-    svg.replaceChildren();
-    if (boardView === "3d" || !state.engineArrows.length || state.positionEditorActive) { svg.setAttribute("hidden", ""); return; }
-    const ns = "http://www.w3.org/2000/svg";
-    const colors = ["#62be77", "#e7b65d", "#329de2", "#be83ef"];
-    const makeSvg = (tag, attributes) => {
-      const element = document.createElementNS(ns, tag);
-      for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
-      return element;
-    };
-    const defs = makeSvg("defs", {}); svg.appendChild(defs);
-    state.engineArrows.forEach((arrow, index) => {
-      const color = arrow.color || colors[index] || colors.at(-1), markerId = `engine-arrow-${index}`;
-      const marker = makeSvg("marker", { id: markerId, markerWidth: 4, markerHeight: 4, refX: 3, refY: 2, orient: "auto", markerUnits: "strokeWidth" });
-      marker.appendChild(makeSvg("path", { d: "M0,0 L4,2 L0,4 Z", fill: color })); defs.appendChild(marker);
-      const from = T.arrowPoint(E, arrow.from, flipped), to = T.arrowPoint(E, arrow.to, flipped);
-      const line = makeSvg("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: color, "stroke-width": index ? .075 : .105, "stroke-opacity": .88, "marker-end": `url(#${markerId})` });
-      if (index) line.setAttribute("stroke-dasharray", ".16 .07");
-      const title = makeSvg("title", {}); title.textContent = arrow.label || `Engine-Vorschlag ${index + 1}`; line.appendChild(title); svg.appendChild(line);
-      const label = makeSvg("text", { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - .1, "text-anchor": "middle" }); label.textContent = String(index + 1); svg.appendChild(label);
-    });
-    svg.setAttribute("aria-label", state.engineArrows.map((arrow, index) => `${index + 1}: ${arrow.from} nach ${arrow.to}`).join("; "));
-    svg.removeAttribute("hidden");
+  function renderEngineArrows() {
+    const list = $("#engineArrowList");
+    if (!list) return;
+    list.replaceChildren();
+    if (!state.engineArrows.length || state.positionEditorActive) { list.setAttribute("hidden", ""); return; }
+    for (const [index, arrow] of state.engineArrows.entries()) {
+      const item = document.createElement("span");
+      item.className = "engine-arrow-item";
+      item.setAttribute("role", "listitem");
+      item.textContent = arrow.label || `${index + 1}. ${arrow.from} → ${arrow.to}`;
+      list.appendChild(item);
+    }
+    list.removeAttribute("hidden");
   }
 
   function handleBoardKey(event, square, flipped) {
@@ -1278,10 +1267,10 @@
     if (!calculate || !clear) return;
     const position = state.reviewPosition || state.game;
     calculate.disabled = state.mode !== "practice" || state.engineArrowsThinking || state.positionEditorActive || E.gameStatus(position).over;
-    calculate.textContent = state.engineArrowsThinking ? "Engine berechnet Pfeile …" : state.engineArrows.length ? "Engine-Pfeile neu berechnen" : "Engine-Pfeile berechnen";
+    calculate.textContent = state.engineArrowsThinking ? "Engine berechnet Vorschläge …" : state.engineArrows.length ? "Zugvorschläge neu berechnen" : "Zugvorschläge berechnen";
     clear.disabled = !state.engineArrows.length && !state.engineArrowsThinking;
     const reviewToggle = $("#toggleReviewArrows");
-    if (reviewToggle) reviewToggle.textContent = state.engineArrows.length ? "Vergleichspfeile ausblenden" : "Vergleichspfeile einblenden";
+    if (reviewToggle) reviewToggle.textContent = state.engineArrows.length ? "Vergleichszüge ausblenden" : "Vergleichszüge einblenden";
   }
 
   async function requestEngineArrows() {
@@ -1302,7 +1291,7 @@
     } catch {
       if (requestId !== state.engineArrowsRequest) return;
       state.engineArrowsThinking = false; renderEngineArrowControls();
-      state.messageOverride = { kind: "error", title: "Engine-Pfeile nicht verfügbar", text: "Die Stellung konnte gerade nicht berechnet werden." }; render();
+      state.messageOverride = { kind: "error", title: "Engine-Vorschläge nicht verfügbar", text: "Die Stellung konnte gerade nicht berechnet werden." }; render();
     }
   }
 
@@ -2633,7 +2622,7 @@
       detail.innerHTML = `<strong>${item.playedSan}: ${item.classification.label}</strong><p>${explainAnalysisMove(item)}</p><small>Bewertung danach: ${formatPlayerEvaluation(item.evaluation)} · Rot: gespielt · Gold: stärkste Alternative · Suchtiefe ${item.depth || 1}</small>`;
       const toggleArrows = document.createElement("button");
       toggleArrows.type = "button"; toggleArrows.id = "toggleReviewArrows"; toggleArrows.className = "secondary-button analysis-arrow-toggle";
-      toggleArrows.textContent = "Vergleichspfeile ausblenden";
+      toggleArrows.textContent = "Vergleichszüge ausblenden";
       toggleArrows.addEventListener("click", () => {
         if (state.engineArrows.length) clearEngineArrows(); else state.engineArrows = analysisReviewArrows(item);
         renderBoard(); renderEngineArrowControls();

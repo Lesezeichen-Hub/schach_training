@@ -53,7 +53,7 @@
           <div class="board-stage">
             <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
             <canvas id="board3d" class="board-3d" aria-label="Interaktives 3D-Schachbrett mit Feldkoordinaten am Rand" tabindex="0" hidden></canvas>
-            <svg id="engineArrows" class="lesson-arrows engine-arrows" viewBox="0 0 8 8" role="img" aria-label="Engine-Zugvorschläge" hidden></svg>
+            <div id="engineArrowList" class="engine-arrow-list" role="list" aria-label="Engine-Zugvorschläge" hidden></div>
           </div>
           <div id="thinking" class="thinking" hidden><span></span><span></span><span></span> KI rechnet</div>
         </div>
@@ -413,10 +413,10 @@
             <p id="practiceHintText"></p><small id="practiceHintMeta"></small>
           </div>
           <div class="button-row engine-arrow-actions">
-            <button class="secondary-button" id="calculateEngineArrows" type="button">Engine-Pfeile berechnen</button>
-            <button class="secondary-button" id="clearEngineArrows" type="button" disabled>Pfeile ausblenden</button>
+            <button class="secondary-button" id="calculateEngineArrows" type="button">Zugvorschläge berechnen</button>
+            <button class="secondary-button" id="clearEngineArrows" type="button" disabled>Vorschläge ausblenden</button>
           </div>
-          <small class="engine-arrow-legend"><span>1 Grün: bester Zug</span><span>2 Gold / 3 Blau: Alternativen</span></small>
+          <small class="engine-arrow-legend"><span>Engine-Ideen erscheinen als Textliste, nicht als Brett-Pfeile.</span></small>
         </section>
 
         <section class="status-card" aria-live="polite">
