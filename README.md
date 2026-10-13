@@ -15,6 +15,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - PGN-Import mit legaler Zugrekonstruktion, Farbauswahl und automatischer lokaler Zug-für-Zug-Analyse
 - Variantenlabor für geladene PGNs und FENs: beliebige Hauptvarianten-Stellung wählen, gegen automatische KI-Antworten weiterspielen und zum festen Ausgangspunkt zurückspringen
 - Komplette PGN-Partien und FEN-Stellungen lokal benennen, speichern und wieder laden
+- Laufende Trainingspartien nach jedem Zug lokal sichern, später fortsetzen und abgeschlossene Partien archivieren
+- PGN-Dateiexport für aktuelle und gespeicherte Partien inklusive Ergebnis und Schach960-Ausgangsstellung
 - Laufendes Weiß-Schwarz-Gewinnverhältnis mit lokaler Neuberechnung nach jedem Zug in Trainingspartien und freien Varianten
 - Engine-Pfeile für den besten Zug und zwei Alternativen; in der Partieanalyse werden gespielter und besserer Zug gegenübergestellt
 - Gespeicherte Positionen frei analysieren oder als ungewertete Partie gegen die Engine weiterspielen
@@ -28,7 +30,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien
 - Vier jederzeit wählbare Lernphasen für alle 45 Eröffnungs- und Taktiklektionen
 - 147 Szenarien (45 Hauptlinien, 45 Abwehrausschnitte, 45 Gegenspiel-/Konterabläufe und 12 direkte Praxisaufgaben), insgesamt 627 erklärte Halbzüge
-- SVG-Zug- und Angriffspfeile mit Labels und Legende, korrekt gedreht mit der Lernfarbe und responsiv skaliert
+- Ausführliche Texterklärungen zu Lektionszügen; die nicht an die Brettdrehung gebundenen Engine-Analyse-Pfeile bleiben im Analysebrett verfügbar
 - Zurück, Weiter, Neustart sowie Abspielen/Pause in Vorführungen
 - Konkrete geprüfte Planabweichungen mit Antwort; unbekannte legale Abweichungen werden nicht als automatisch schlechte Züge bezeichnet
 - Interaktive Endspiele: Treppenmatt und König-Bauer gegen König mit Opposition
@@ -76,14 +78,16 @@ Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gew
 
 Für die Installation als Offline-App muss die Schachwerkstatt einmal über `https://` oder lokal über `http://localhost` geöffnet werden. Sobald der Browser die Installation anbietet, erscheint oben „App installieren“. Ein direkter Aufruf als `file://` unterstützt aus Sicherheitsgründen keine Service Worker.
 
+Partien werden unter `schachwerkstatt-games` getrennt vom Lernfortschritt auf diesem Gerät gespeichert. Jeder Halbzug aktualisiert den Zwischenstand; das Archiv behält bis zu 50 Partien. Laufende Partien lassen sich mit Zug-Historie, Variante und ggf. Schachuhr fortsetzen. Abgeschlossene Partien bleiben für den PGN-Export verfügbar.
+
 ## Lernphasen und Szenarien
 
-- **Erklären:** Konzept, Voraussetzungen, Ausführung, Abwehr und Konter kennenlernen; das Brett zeigt die Ausgangsstellung und nummerierte Zug-/Motivpfeile mit Textlegende. Keine Wertung.
-- **Vorführen:** Eine Folge Halbzug für Halbzug oder automatisch ansehen. Zurück rekonstruiert Brett, Text und Pfeile. Keine Wertung.
-- **Geführt:** Die ausgewählte Lernfarbe selbst ziehen; Gegnerantworten werden einzeln ausgeführt. Erklärungen und Pfeile bleiben sichtbar. Abschlüsse werden getrennt gespeichert, ohne Lern-Elo und Tageszielpunkte.
+- **Erklären:** Konzept, Voraussetzungen, Ausführung, Abwehr und Konter kennenlernen; das Brett zeigt die Ausgangsstellung und passende Texterklärungen. Keine Wertung.
+- **Vorführen:** Eine Folge Halbzug für Halbzug oder automatisch ansehen. Zurück rekonstruiert Brett und Text. Keine Wertung.
+- **Geführt:** Die ausgewählte Lernfarbe selbst ziehen; Gegnerantworten werden einzeln ausgeführt. Erklärungen bleiben sichtbar. Abschlüsse werden getrennt gespeichert, ohne Lern-Elo und Tageszielpunkte.
 - **Selbst üben:** Die ganze Folge ohne Lösungshinweise spielen. Erst der vollständige, nicht unterstützte Versuch wird einmal gewertet; nicht jeder Halbzug. Eine Folge mit Fehlversuchen zählt nicht als fehlerfrei gelöst.
 
-„Weiter“ überspringt keinen eigenen Übungszug. Hinweise, Lösungspfeile, Rückwärtsnavigation und Wiederholungen bereits gesehener Folgen kennzeichnen den Versuch als **unterstützt**. In einer Vorführung ist Abspielen/Pause verfügbar; in einer Übung werden nur die kuratierten Gegnerzüge automatisch gespielt. Bei Wechseln werden laufende Lektions-Timer abgebrochen und ihre Sitzungs-/Stellungskennung erneut geprüft. Eine offene Umwandlung wird abgebrochen; Escape wandelt nicht stillschweigend in eine Dame um.
+„Weiter“ überspringt keinen eigenen Übungszug. Hinweise, Rückwärtsnavigation und Wiederholungen bereits gesehener Folgen kennzeichnen den Versuch als **unterstützt**. In einer Vorführung ist Abspielen/Pause verfügbar; in einer Übung werden nur die kuratierten Gegnerzüge automatisch gespielt. Bei Wechseln werden laufende Lektions-Timer abgebrochen und ihre Sitzungs-/Stellungskennung erneut geprüft. Eine offene Umwandlung wird abgebrochen; Escape wandelt nicht stillschweigend in eine Dame um.
 
 Die 45 Motiv- und Eröffnungslektionen bieten **Hauptlinie, Abwehr und Konter/Gegenspiel**. Die 12 direkten Matt- und Materialaufgaben konzentrieren sich dagegen auf genau eine konkrete Lösungsfolge. Eröffnungszweige beginnen nach `startPly` Halbzügen der Hauptlinie. Die Taktikabwehr beginnt ausdrücklich **einen Zug früher mit Schwarz am Zug**. Taktikkonter sind gekennzeichnete, verwandte **Vergleichsstellungen**: Die 20 Konterabläufe nutzen vier gemeinsame Motivvergleiche (zusätzlicher Verteidiger, relative Fesselung, ungedeckter Spieß, rettende Damenantwort). Es sind nicht 20 verschiedene erzwungene Widerlegungen der Hauptstellungen.
 
@@ -121,6 +125,6 @@ Mit installiertem Node.js:
 node tests.mjs
 ```
 
-Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 147 vollständigen Szenarien und Vergleichsantworten, 441 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, echte Mattenden in der angegebenen Zugzahl, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Pfeilkoordinaten in beiden Orientierungen und beschädigten/alten Fortschritt. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
+Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 147 vollständigen Szenarien und Vergleichsantworten, 441 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, echte Mattenden in der angegebenen Zugzahl, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Engine-Pfeilkoordinaten in beiden Orientierungen, PGN-Header/Export und legale Wiederaufnahme gespeicherter Zugfolgen. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
 
 Lern- und Spiel-Elo beginnen bei neuen Profilen bei **0** und werden ausschließlich durch absolvierte Übungen beziehungsweise gewertete Partien aufgebaut. Werte können nicht negativ werden. Bereits erspielte Wertungen bleiben erhalten; lediglich unberührte alte 800-Standardwerte ohne gewertete Aktivität werden auf 0 migriert. Die Lern-Elo reagiert ähnlich einer Elo-Wertung auf richtige und falsche Entscheidungen sowie die Schwierigkeit der Übung; sie ist keine offizielle Spielstärke.

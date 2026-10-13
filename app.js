@@ -15,6 +15,7 @@
     endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
     openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
     matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null, positionTraining: false,
+    matchSaveId: null, matchStartFen: E.START_FEN, selectedSavedGameId: null,
     opponentMode: "ai", clockMinutes: 0, clockIncrementSeconds: 0, clock: { initialMs: 0, incrementMs: 0, w: 0, b: 0, lastTick: 0, flagged: null },
     personalMatchMistake: null, personalMatchPending: false, personalMatchCursor: 0, matchLearningId: "", liveAnalysisRequest: 0, liveAnalysisPending: 0,
     lesson: null, lessonTimer: null, lessonPlaying: false, lessonHint: false, seenLessons: new Set(),
@@ -32,6 +33,7 @@
   let automaticMoveAnimation = null;
   let moveAudioContext = null, soundEnabled = true;
   const savedPositionsKey = "schachwerkstatt-saved-positions";
+  const savedMatchesKey = "schachwerkstatt-games";
   const timeControlKeys = new Set(["0+0", "3+0", "3+2", "5+0", "5+3", "10+0", "10+5"]);
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
   try {
@@ -506,7 +508,7 @@
     const before = state.lesson.game;
     const result = T.advanceLesson(state.lesson, assistance);
     if (result.needsHelp) {
-      state.messageOverride = { kind: "", title: "Dein Zug wird nicht übersprungen", text: "Ziehe selbst. Mit „Hinweis und Pfeil“ kannst du ausdrücklich Unterstützung anfordern." }; render(); return;
+      state.messageOverride = { kind: "", title: "Dein Zug wird nicht übersprungen", text: "Ziehe selbst. Mit „Hinweis mit Erklärung“ kannst du ausdrücklich Unterstützung anfordern." }; render(); return;
     }
     if (result.correct) { playMoveSound(before, result.move); state.messageOverride = null; state.lessonHint = false; syncLesson(); finishLesson(result); render(); scheduleLesson(); }
   }
@@ -520,8 +522,6 @@
   function renderLesson() {
     $("#lessonControls").hidden = !isLessonMode();
     $("#thinkingCoach").hidden = true;
-    const svg = $("#lessonArrows"); svg.innerHTML = ""; svg.setAttribute('hidden', '');
-    $("#arrowDescriptions").textContent = '';
     if (!isLessonMode()) return;
     const session = state.lesson, view = T.getLessonView(session);
     renderThinkingCoach(view);
@@ -553,30 +553,8 @@
     $("#lessonPlay").textContent = state.lessonPlaying ? 'Pause' : 'Abspielen';
     $("#lessonPlay").setAttribute('aria-pressed', String(state.lessonPlaying));
     $("#lessonHelp").disabled = !view.step || view.status === 'invalid-data';
-    $("#arrowLegend").hidden = !visible;
     $("#revealSolution").disabled = !view.step;
     if (state.mode === "openings") $("#openingLineProgress").textContent = `${view.ply} / ${view.total} Halbzüge · ${session.scenario.title}`;
-    if (!visible || boardView === "3d") return;
-    const step = view.step || view.previous;
-    const arrows = step?.visual?.arrows || [];
-    if (!arrows.length) return;
-    const ns = 'http://www.w3.org/2000/svg';
-    const makeSvg = (tag, attrs) => { const el = document.createElementNS(ns, tag); for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value); return el; };
-    const colors = { move: '#e7b65d', attack: '#ee6457', defense: '#329de2', counter: '#be83ef' };
-    const defs = makeSvg('defs', {}); svg.appendChild(defs);
-    for (const [index, arrow] of arrows.entries()) {
-      const color = colors[arrow.kind] || colors.move;
-      const id = `lesson-arrow-${index}`;
-      const marker = makeSvg('marker', { id, markerWidth: 4, markerHeight: 4, refX: 3, refY: 2, orient: 'auto', markerUnits: 'strokeWidth' });
-      marker.appendChild(makeSvg('path', { d: 'M0,0 L4,2 L0,4 Z', fill: color })); defs.appendChild(marker);
-      const from = T.arrowPoint(E, arrow.from, view.flipped), to = T.arrowPoint(E, arrow.to, view.flipped);
-      const line = makeSvg('line', { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: color, 'stroke-width': .095, 'stroke-opacity': .86, 'marker-end': `url(#${id})` });
-      if (arrow.kind !== 'move') line.setAttribute('stroke-dasharray', '.18 .08');
-      const title = makeSvg('title', {}); title.textContent = arrow.label; line.appendChild(title); svg.appendChild(line);
-      const label = makeSvg('text', { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - .12, 'text-anchor': 'middle' }); label.textContent = `${index + 1}`; svg.appendChild(label);
-    }
-    $("#arrowDescriptions").textContent = arrows.map((a, index) => `${index + 1}. ${a.label}: ${a.from} → ${a.to}`).join(' · ');
-    svg.setAttribute('aria-label', arrows.map((a) => `${a.label}, ${a.from} nach ${a.to}`).join('; ')); svg.removeAttribute('hidden');
   }
 
   function render() {
@@ -586,6 +564,7 @@
       window.clearInterval(matchClockTimer); matchClockTimer = null;
       recordMatchResult(matchStatus);
     }
+    if (state.mode === "match") persistActiveMatch(matchStatus);
     renderBoard();
     renderMoves();
     renderStatus();
@@ -674,12 +653,13 @@
     window.clearInterval(matchClockTimer); matchClockTimer = null;
   }
 
-  function startMatchClock() {
+  function startMatchClock(reset = true) {
     window.clearInterval(matchClockTimer); matchClockTimer = null;
     const initialMs = state.clockMinutes * 60000;
     const incrementMs = state.clockIncrementSeconds * 1000;
-    state.clock = { initialMs, incrementMs, w: initialMs, b: initialMs, lastTick: Date.now(), flagged: null };
-    if (!initialMs) return;
+    if (reset) state.clock = { initialMs, incrementMs, w: initialMs, b: initialMs, lastTick: Date.now(), flagged: null };
+    else state.clock.lastTick = Date.now();
+    if (!state.clock.initialMs || state.clock.flagged) return;
     matchClockTimer = window.setInterval(() => {
       updateMatchClock();
       if (state.clock.flagged) render();
@@ -983,6 +963,7 @@
     state.moves.push({
       color: before.turn,
       san,
+      uci: move.from + move.to + (move.promotion || ""),
       whiteMaterialBefore: T.materialFor(E, before, "w"),
       whiteMaterialAfter: T.materialFor(E, state.game, "w"),
       playerMaterialBefore: T.materialFor(E, before, state.playerColor),
@@ -1439,6 +1420,7 @@
 
   function switchMode(mode) {
     state.mode = mode;
+    if (mode === "match") refreshSavedMatches();
     const learningModes = ["basics", "tactics", "endgame", "strategy", "openings", "mistakes"];
     const navigationMode = learningModes.includes(mode) ? "learn" : mode;
     all(".mode-tab").forEach((button) => button.classList.toggle("active", button.dataset.mode === navigationMode));
@@ -1495,7 +1477,10 @@
   function resetGame() {
     beginPositionSession();
     if (state.mode === "match") syncOpponentControls();
-    if (state.mode === "match") state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    if (state.mode === "match") {
+      state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      state.matchSaveId = createMatchSaveId();
+    }
     if (state.mode === "match") state.playerColor = isHotSeat() ? "w" : state.colorChoice === "random" ? (Math.random() < .5 ? "w" : "b") : state.colorChoice;
     const startFen = state.mode === "match" && state.gameVariant === "chess960" ? E.chess960FEN() : E.START_FEN;
     state.game = E.fromFEN(startFen); state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = []; state.messageOverride = state.mode === "match" && state.gameVariant === "chess960" ? { kind: "", title: "Neue Schach960-Aufstellung", text: "Läufer stehen auf verschiedenfarbigen Feldern, der König zwischen den Türmen. Rochaden enden wie gewohnt auf c/d beziehungsweise g/f." } : null; state.puzzleSolved = false; state.thinking = false; state.matchRated = false; state.matchResult = null;
@@ -1512,6 +1497,7 @@
         break;
       }
     }
+    if (state.mode === "match") { state.matchStartFen = E.toFEN(state.game); state.selectedSavedGameId = state.matchSaveId; }
     $("#lessonText").textContent = state.mode === "practice" ? "Prüfe zuerst Material, Königssicherheit und Bauernstruktur – erst danach einzelne Varianten." : "Entwickle zuerst deine Figuren, bringe den König in Sicherheit und kämpfe dann um das Zentrum.";
     $("#fenInput").value = startFen;
     $("#coachReview").hidden = true;
@@ -2379,6 +2365,164 @@
     box.append(title, summary);
   }
 
+  function createMatchSaveId() { return `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
+  function readSavedMatches() {
+    try {
+      const records = JSON.parse(localStorage.getItem(savedMatchesKey) || "[]");
+      return Array.isArray(records) ? records.filter((item) => item && typeof item.id === "string" && Array.isArray(item.moves)) : [];
+    } catch { return []; }
+  }
+  function writeSavedMatches(records) {
+    try { localStorage.setItem(savedMatchesKey, JSON.stringify(records.slice(0, 50))); return true; }
+    catch { $("#storageWarning").hidden = false; return false; }
+  }
+  function resultForStatus(status) {
+    if (!status?.over) return "*";
+    if (status.type === "checkmate" || status.type === "timeout") return status.winner === "w" ? "1-0" : "0-1";
+    return "1/2-1/2";
+  }
+  function persistActiveMatch(status = E.gameStatus(state.game), force = false) {
+    if (state.mode !== "match" || (!state.moves.length && !force)) return null;
+    state.matchSaveId ||= createMatchSaveId();
+    const records = readSavedMatches(), previous = records.find((item) => item.id === state.matchSaveId), now = new Date().toISOString();
+    const clock = {
+      initialMs: state.clock.initialMs,
+      incrementMs: state.clock.incrementMs,
+      w: state.clock.w,
+      b: state.clock.b,
+      flagged: state.clock.flagged
+    };
+    const record = {
+      id: state.matchSaveId, createdAt: previous?.createdAt || now, updatedAt: now,
+      startFen: state.matchStartFen || E.START_FEN,
+      playerColor: state.playerColor, level: state.level, opponentMode: state.opponentMode,
+      gameVariant: state.gameVariant, clockMinutes: state.clockMinutes,
+      clockIncrementSeconds: state.clockIncrementSeconds, clock,
+      positionTraining: state.positionTraining,
+      personalMatchMistake: state.personalMatchMistake,
+      personalMatchPending: state.personalMatchPending,
+      matchLearningId: state.matchLearningId,
+      moves: state.moves.map((move) => ({ color: move.color, san: move.san, uci: move.uci })),
+      result: resultForStatus(status), status: status?.over ? status.type : "ongoing"
+    };
+    const signature = (item) => JSON.stringify({ ...item, updatedAt: undefined });
+    if (previous && signature(previous) === signature(record)) return previous;
+    const updated = [record, ...records.filter((item) => item.id !== record.id)].slice(0, 50);
+    if (!writeSavedMatches(updated)) return null;
+    refreshSavedMatches(state.selectedSavedGameId || record.id);
+    return record;
+  }
+  function refreshSavedMatches(preferredId = state.selectedSavedGameId) {
+    const select = $("#savedMatches");
+    if (!select) return;
+    const records = readSavedMatches();
+    select.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = ""; placeholder.textContent = records.length ? "Gespeicherte Partie wählen" : "Noch keine Partie gespeichert";
+    select.appendChild(placeholder);
+    for (const record of records) {
+      const option = document.createElement("option");
+      option.value = record.id;
+      const date = new Date(record.updatedAt || record.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+      const result = record.status === "ongoing" ? "läuft" : record.result || "beendet";
+      option.textContent = `${date} · ${record.moves.length} Halbzüge · ${result}${record.gameVariant === "chess960" ? " · 960" : ""}`;
+      select.appendChild(option);
+    }
+    const chosen = records.find((record) => record.id === preferredId) || records[0];
+    if (chosen) { select.value = chosen.id; state.selectedSavedGameId = chosen.id; }
+    else state.selectedSavedGameId = null;
+    updateSavedMatchButtons();
+  }
+  function selectedSavedMatch() {
+    return readSavedMatches().find((record) => record.id === $("#savedMatches").value) || null;
+  }
+  function updateSavedMatchButtons() {
+    const record = selectedSavedMatch();
+    $("#loadSavedMatch").disabled = !record || record.status !== "ongoing";
+    $("#exportSavedMatch").disabled = !record;
+    $("#exportCurrentMatch").disabled = state.mode !== "match" || !state.moves.length;
+    $("#savedMatches").disabled = !record;
+  }
+  function matchPgn(record) {
+    const date = (record.createdAt || new Date().toISOString()).slice(0, 10).replaceAll("-", ".");
+    const white = record.opponentMode === "hotseat" ? "Spieler 1" : record.playerColor === "w" ? "Spieler" : "Schachwerkstatt KI";
+    const black = record.opponentMode === "hotseat" ? "Spieler 2" : record.playerColor === "b" ? "Spieler" : "Schachwerkstatt KI";
+    const headers = { Event: "Schachwerkstatt – Trainingspartie", Site: "Local", Date: date, White: white, Black: black };
+    if (record.gameVariant === "chess960") headers.Variant = "Chess960";
+    if (record.startFen && record.startFen !== E.START_FEN) { headers.SetUp = "1"; headers.FEN = record.startFen; }
+    return T.formatPgn(record.moves, headers, record.result || "*");
+  }
+  function exportMatch(record) {
+    if (!record) return;
+    const date = (record.createdAt || new Date().toISOString()).slice(0, 10);
+    const url = URL.createObjectURL(new Blob([matchPgn(record)], { type: "application/x-chess-pgn;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = url; link.download = `schachwerkstatt-${date}.pgn`; link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function loadSavedMatch() {
+    const record = selectedSavedMatch();
+    if (!record || record.status !== "ongoing") return;
+    if (state.mode !== "match") switchMode("match");
+    beginPositionSession();
+    try {
+      const startFen = record.startFen || E.START_FEN;
+      let game = E.fromFEN(startFen), moves = [], opponentLastMove = null;
+      for (const saved of record.moves) {
+        const move = E.legalMoves(game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === saved.uci);
+        if (!move) throw new Error(`Der gespeicherte Zug ${saved.uci} ist nicht legal.`);
+        const before = game, after = E.applyMove(before, move);
+        moves.push({ color: before.turn, san: E.notation(before, move), uci: saved.uci, whiteMaterialBefore: T.materialFor(E, before, "w"), whiteMaterialAfter: T.materialFor(E, after, "w"), playerMaterialBefore: T.materialFor(E, before, record.playerColor), playerMaterialAfter: T.materialFor(E, after, record.playerColor) });
+        game = after;
+        if (before.turn !== record.playerColor) opponentLastMove = move;
+      }
+      state.game = game; state.moves = moves; state.matchStartFen = startFen; state.matchSaveId = record.id;
+      state.playerColor = ["w", "b"].includes(record.playerColor) ? record.playerColor : "w";
+      state.colorChoice = state.playerColor; state.level = difficulties.some((item) => item.id === record.level) ? record.level : "learner";
+      state.opponentMode = record.opponentMode === "hotseat" ? "hotseat" : "ai";
+      state.gameVariant = record.gameVariant === "chess960" ? "chess960" : "standard";
+      state.clockMinutes = Number(record.clockMinutes) || 0; state.clockIncrementSeconds = Number(record.clockIncrementSeconds) || 0;
+      const initialMs = Number(record.clock?.initialMs) || state.clockMinutes * 60000;
+      state.clock = { initialMs, incrementMs: Number(record.clock?.incrementMs) || state.clockIncrementSeconds * 1000, w: Number(record.clock?.w) || initialMs, b: Number(record.clock?.b) || initialMs, lastTick: Date.now(), flagged: record.clock?.flagged || null };
+      state.positionTraining = Boolean(record.positionTraining); state.personalMatchMistake = record.personalMatchMistake || null;
+      state.personalMatchPending = Boolean(record.personalMatchPending); state.matchLearningId = record.matchLearningId || "";
+      state.lastMove = game.history.at(-1)?.move || null; state.opponentLastMove = opponentLastMove;
+      state.selected = null; state.legal = []; state.redoFrames = []; state.messageOverride = null;
+      const result = E.gameStatus(game), isFinished = result.over || Boolean(state.clock.flagged);
+      state.matchRated = isFinished; state.matchResult = null;
+      all("[data-color]").forEach((button) => { const active = button.dataset.color === state.playerColor; button.classList.toggle("active", active); button.setAttribute("aria-checked", String(active)); });
+      setOpponentMode(state.opponentMode, false); setGameVariant(state.gameVariant, false);
+      setTimeChoice(state.clockMinutes, state.clockIncrementSeconds, false);
+      setDifficulty(difficulties.findIndex((item) => item.id === state.level) + 1, false);
+      if (state.opponentMode === "hotseat") {
+        $("#panelEyebrow").textContent = "HOT SEAT"; $("#panelTitle").textContent = "Zwei Spieler. Ein Brett.";
+        $("#panelIntro").textContent = "Spieler 1 führt Weiß, Spieler 2 Schwarz. Nach jedem Zug dreht sich das Brett zur am Zug befindlichen Seite.";
+      }
+      startMatchClock(false); refreshSavedMatches(record.id); render(); renderMatchPlayers();
+      if (!isFinished && state.opponentMode === "ai" && state.game.turn !== state.playerColor) requestAiMove();
+    } catch (error) {
+      state.messageOverride = { kind: "error", title: "Partie konnte nicht geladen werden", text: error.message };
+      render();
+    }
+  }
+  $("#saveMatch").addEventListener("click", () => {
+    if (!state.moves.length) { state.messageOverride = { kind: "", title: "Noch keine Züge", text: "Die Partie wird automatisch gespeichert, sobald der erste Zug gespielt ist." }; render(); return; }
+    if (persistActiveMatch(E.gameStatus(state.game), true)) {
+      state.messageOverride = { kind: "success", title: "Spielstand gesichert", text: "Die Partie ist lokal gespeichert und kann später fortgesetzt oder exportiert werden." }; render();
+    }
+  });
+  $("#savedMatches").addEventListener("change", (event) => { state.selectedSavedGameId = event.target.value; updateSavedMatchButtons(); });
+  $("#loadSavedMatch").addEventListener("click", loadSavedMatch);
+  $("#exportSavedMatch").addEventListener("click", () => exportMatch(selectedSavedMatch()));
+  $("#exportCurrentMatch").addEventListener("click", () => exportMatch({
+    createdAt: new Date().toISOString(), startFen: state.matchStartFen, playerColor: state.playerColor,
+    opponentMode: state.opponentMode, gameVariant: state.gameVariant, moves: state.moves,
+    result: resultForStatus(state.clock.flagged ? { over: true, type: "timeout", winner: state.clock.flagged === "w" ? "b" : "w" } : E.gameStatus(state.game))
+  }));
+  window.addEventListener("pagehide", () => {
+    if (state.mode !== "match" || !state.moves.length) return;
+    updateMatchClock(); persistActiveMatch(state.clock.flagged ? { over: true, type: "timeout", winner: state.clock.flagged === "w" ? "b" : "w" } : E.gameStatus(state.game));
+  });
+
   function startGameAnalysis() {
     if (state.analysisRunning) return;
     const positions = state.game.history.map((entry, ply) => ({ entry, ply })).filter(({ entry }) => E.fromFEN(entry.fen).turn === state.playerColor);
@@ -2824,6 +2968,7 @@
     switchMode("match");
     beginPositionSession();
     state.game = parsed; state.positionTraining = true; state.playerColor = parsed.turn;
+    state.matchStartFen = E.toFEN(parsed); state.matchSaveId = createMatchSaveId(); state.selectedSavedGameId = state.matchSaveId;
     state.moves = []; state.lastMove = null; state.opponentLastMove = null; state.selected = null; state.legal = [];
     state.matchRated = false; state.matchResult = null; state.matchLearningId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     state.messageOverride = { kind: "", title: "Stellungstraining gestartet", text: `Du spielst ${state.playerColor === "w" ? "Weiß" : "Schwarz"} exakt ab der zuvor auf dem Analysebrett angezeigten Stellung. Der Trainingspartner antwortet nach deinem Zug; die Partie ist ungewertet.` };

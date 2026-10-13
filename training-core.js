@@ -161,6 +161,23 @@
     return `${turns.join(" ")} ${result}`.trim();
   }
 
+  function formatPgn(records, headers = {}, result = "*") {
+    const tags = Object.entries({ ...headers, Result: result }).map(([key, value]) => {
+      const escaped = String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]+/g, " ");
+      return `[${key} "${escaped}"]`;
+    });
+    return `${tags.join("\n")}\n\n${toPgn(records, result)}`;
+  }
+
+  function replayMoves(engine, startFen, moves) {
+    let game = engine.fromFEN(startFen);
+    for (const code of moves) {
+      const move = engine.legalMoves(game).find((candidate) => candidate.from + candidate.to + (candidate.promotion || "") === code);
+      if (!move) throw new Error(`Ungültiger gespeicherter Zug: ${code}`);
+      game = engine.applyMove(game, move);
+    }
+    return game;
+  }
   function pgnMoveTokens(pgn) {
     let body = String(pgn || "").replace(/^\s*\[[^\r\n]*\]\s*$/gm, " ").replace(/\{[^}]*\}/gs, " ").replace(/;[^\r\n]*/g, " ");
     let mainline = "", variationDepth = 0;
@@ -463,5 +480,5 @@
     }
     return saved;
   }
-  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, pgnMoveTokens, resolvePgnMove, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel, advanceClock, addClockIncrement, matchViewColor };
+  root.ChessTraining = { validateTactic, updateRating, calculateMatchElo, classifyMoveLoss, ratingStage, materialFor, kingsInOpposition, canForcePawnWin, chooseEndgameDefense, reviewEndgameMove, toPgn, formatPgn, replayMoves, pgnMoveTokens, resolvePgnMove, coachReview, PHASES, legalUci, arrowPoint, normalizeLesson, scenarioStart, validateLesson, createLessonSession, getLessonView, submitLessonMove, advanceLesson, seekLesson, restartLesson, normalizeProgress, setLessonReviewState, moveRows, REVIEW_INTERVALS, addReviewDays, scheduleReview, isReviewDue, reviewDueLabel, advanceClock, addClockIncrement, matchViewColor };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -53,7 +53,6 @@
           <div class="board-stage">
             <div id="board" class="board" role="grid" aria-label="Schachbrett, Weiß unten"></div>
             <canvas id="board3d" class="board-3d" aria-label="Interaktives 3D-Schachbrett mit Feldkoordinaten am Rand" tabindex="0" hidden></canvas>
-            <svg id="lessonArrows" class="lesson-arrows" viewBox="0 0 8 8" role="img" aria-label="Zug- und Angriffspfeile" hidden></svg>
             <svg id="engineArrows" class="lesson-arrows engine-arrows" viewBox="0 0 8 8" role="img" aria-label="Engine-Zugvorschläge" hidden></svg>
           </div>
           <div id="thinking" class="thinking" hidden><span></span><span></span><span></span> KI rechnet</div>
@@ -201,6 +200,17 @@
             <small>Später unter Analyse → Meine Stellungen laden.</small>
           </div>
           <button class="primary-button" id="newGame">Neue Partie</button>
+          <p class="match-save-note">Partien werden nach jedem Zug automatisch lokal gespeichert.</p>
+          <div class="button-row match-actions">
+            <button class="secondary-button" id="saveMatch" type="button">Spielstand sichern</button>
+            <button class="secondary-button" id="exportCurrentMatch" type="button">Aktuelle PGN exportieren</button>
+          </div>
+          <label for="savedMatches">Gespeicherte Partien</label>
+          <select id="savedMatches" aria-label="Gespeicherte Partie auswählen"></select>
+          <div class="button-row match-actions">
+            <button class="secondary-button" id="loadSavedMatch" type="button">Partie fortsetzen</button>
+            <button class="secondary-button" id="exportSavedMatch" type="button">Auswahl exportieren</button>
+          </div>
           <button class="secondary-button full-button" id="reviewGame">Partie analysieren</button>
           <button class="secondary-button full-button" id="trainGameMistakes">Fehler aus Partien trainieren · <span id="gameMistakeCount">0</span></button>
           <div id="coachReview" class="coach-review" hidden></div>
@@ -306,9 +316,7 @@
             <button type="button" id="lessonRestart" class="secondary-button">Neustart</button>
             <button type="button" id="lessonPlay" class="secondary-button" aria-pressed="false">Abspielen</button>
           </div>
-          <button type="button" id="lessonHelp" class="solution-button">Hinweis und Pfeil · unterstützt</button>
-          <p id="arrowLegend" class="arrow-legend">→ Gold: Zug · ⇢ Rot: Angriff · ⇢ Blau: Abwehr · ⇢ Violett: Konter. Die Nummern auf dem Brett gehören zur folgenden Legende.</p>
-          <p id="arrowDescriptions" class="arrow-legend"></p>
+          <button type="button" id="lessonHelp" class="solution-button">Hinweis mit Erklärung · unterstützt</button>
           <p class="coverage-note">Du führst die Züge selbst aus. Falsche legale Züge verändern die Stellung nicht; stattdessen bekommst du eine Erklärung und kannst direkt korrigieren.</p>
         </section>
 
