@@ -73,7 +73,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Responsive Bedienung für Desktop und Mobilgeräte
 - Lokaler Lernfortschritt im Browser
 
-Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gewechselt werden. In 3D lässt sich der Blickwinkel durch Ziehen auf einer freien Stelle oder überall mit der rechten Maustaste frei horizontal und vertikal drehen. Zusätzlich kann das Brett schrittweise gedreht und bildschirmfüllend angezeigt werden; Escape beendet das Vollbild. `?view=3d` erzwingt die 3D-Ansicht für einen direkten Aufruf. Ist WebGL 2 nicht verfügbar, bleibt der Schalter deaktiviert und die vollständige 2D-Bedienung aktiv.
+Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gewechselt werden. Das Brett kann sowohl in 2D als auch in 3D bildschirmfüllend angezeigt werden; Escape beendet das Vollbild. In 3D lässt sich der Blickwinkel durch Ziehen auf einer freien Stelle oder überall mit der rechten Maustaste frei horizontal und vertikal drehen. Zusätzlich kann das Brett schrittweise gedreht werden. `?view=3d` erzwingt die 3D-Ansicht für einen direkten Aufruf. Ist WebGL 2 nicht verfügbar, bleibt der Schalter deaktiviert und die vollständige 2D-Bedienung aktiv.
 
 Für die Installation als Offline-App muss die Schachwerkstatt einmal über `https://` oder lokal über `http://localhost` geöffnet werden. Sobald der Browser die Installation anbietet, erscheint oben „App installieren“. Ein direkter Aufruf als `file://` unterstützt aus Sicherheitsgründen keine Service Worker.
 
