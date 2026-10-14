@@ -101,11 +101,16 @@
             <button type="button" data-learning-mode="endgame"><span class="learning-number">03</span><strong>Partien sicher beenden</strong><small>Mattsetzen, Bauern umwandeln, Opposition</small><em id="menuRatingEndgame">0</em></button>
             <button type="button" data-learning-mode="strategy"><span class="learning-number">04</span><strong>Einen Plan finden</strong><small>Gute und schlechte Entscheidungen vergleichen</small><em id="menuRatingStrategy">0</em></button>
           </div>
-          <div class="guided-course-head">
-            <span class="card-kicker">12 EINHEITEN · DU ZIEHST SELBST</span>
-            <p>Starte direkt im geführten Modus. Der Coach erklärt den Plan, du führst deine Züge auf dem Brett aus.</p>
-          </div>
-          <div id="guidedCourse" class="guided-course" aria-label="Geführter Schachkurs"></div>
+          <details class="workspace-disclosure learning-course-disclosure">
+            <summary>Geführter Kurs · 12 Einheiten</summary>
+            <div class="workspace-disclosure-content">
+              <div class="guided-course-head">
+                <span class="card-kicker">DU ZIEHST SELBST</span>
+                <p>Der Coach erklärt den Plan, du führst deine Züge auf dem Brett aus.</p>
+              </div>
+              <div id="guidedCourse" class="guided-course" aria-label="Geführter Schachkurs"></div>
+            </div>
+          </details>
         </section>
 
         <section id="basicsControls" class="control-section" hidden>
@@ -126,94 +131,109 @@
               <span><strong id="matchLosses">0</strong> Niederlagen</span>
             </div>
           </div>
-          <label>Spielmodus</label>
-          <div class="segmented opponent-choice" id="opponentChoice" role="radiogroup" aria-label="Spielmodus">
-            <button class="active" type="button" data-opponent="ai" role="radio" aria-checked="true">Gegen Computer<small>mit Spiel-Elo</small></button>
-            <button type="button" data-opponent="hotseat" role="radio" aria-checked="false">2 Spieler<small>an einem PC</small></button>
-          </div>
-          <label>Schachvariante</label>
-          <div class="segmented variant-choice" id="variantChoice" role="radiogroup" aria-label="Schachvariante">
-            <button class="active" type="button" data-variant="standard" role="radio" aria-checked="true">Standard<small>klassische Aufstellung</small></button>
-            <button type="button" data-variant="chess960" role="radio" aria-checked="false">Schach960<small>bei jeder Partie neu</small></button>
-          </div>
-          <div class="personal-coach-card" id="personalCoachCard">
-            <div><strong>Persönlicher Lerngegner</strong><span id="personalCoachStatus">Noch keine gespeicherten Fehler</span></div>
-            <label class="check-option"><input type="checkbox" id="personalizedMatch" checked> Übungspartien aus meinen fälligen Fehlerstellungen starten</label>
-            <label class="check-option"><input type="checkbox" id="automaticCoach" checked> Beim Einstieg automatisch einen ersten Denkanstoß geben</label>
-            <small>Eigene Züge werden lokal im Hintergrund geprüft. Neue kritische Fehler landen automatisch im Wiederholungsplan. Persönliche Fehlerpartien sind ungewertet; Zugfarbe und Stellung stammen aus dem gespeicherten Moment.</small>
-          </div>
-          <label id="colorChoiceLabel">Deine Farbe</label>
-          <div class="segmented color-choice" id="colorChoice" role="radiogroup" aria-label="Deine Spielfarbe">
-            <button class="active" type="button" data-color="w" role="radio" aria-checked="true">Weiß<small>du beginnst</small></button>
-            <button type="button" data-color="b" role="radio" aria-checked="false">Schwarz<small>KI beginnt</small></button>
-            <button type="button" data-color="random" role="radio" aria-checked="false">Zufall<small>neu ausgelost</small></button>
-          </div>
-          <label>Zeitmodus</label>
-          <div class="time-control-options" id="timeChoice" role="radiogroup" aria-label="Zeitmodus und Bedenkzeit je Spieler">
-            <div class="time-control-group">
-              <span>REGULÄR · OHNE INKREMENT</span>
-              <div class="segmented time-choice">
-                <button class="active" type="button" data-time="0" data-increment="0" role="radio" aria-checked="true">Ohne Uhr</button>
-                <button type="button" data-time="3" data-increment="0" role="radio" aria-checked="false">3 Minuten</button>
-                <button type="button" data-time="5" data-increment="0" role="radio" aria-checked="false">5 Minuten</button>
-                <button type="button" data-time="10" data-increment="0" role="radio" aria-checked="false">10 Minuten</button>
-              </div>
-            </div>
-            <div class="time-control-group">
-              <span>MIT INKREMENT · SEKUNDEN PRO ZUG</span>
-              <div class="segmented time-choice increment-choice">
-                <button type="button" data-time="3" data-increment="2" role="radio" aria-checked="false">3 + 2</button>
-                <button type="button" data-time="5" data-increment="3" role="radio" aria-checked="false">5 + 3</button>
-                <button type="button" data-time="10" data-increment="5" role="radio" aria-checked="false">10 + 5</button>
-              </div>
-            </div>
-          </div>
-          <label for="difficulty" id="difficultyLabel">Spielstärke</label>
-          <div class="difficulty-control" id="difficultyControl">
-            <div class="difficulty-heading"><strong id="difficultyName">Stufe 3 · Lernpartner</strong><span id="difficultyDepth">Computer-Elo 800</span></div>
-            <input id="difficulty" type="range" min="1" max="8" value="3" step="1" aria-describedby="difficultyDescription">
-            <div class="difficulty-scale" aria-hidden="true"><span>450</span><span>800</span><span>1.350</span><span>1.800</span></div>
-            <p id="difficultyDescription">Prüft deinen nächsten direkten Gegenzug.</p>
-            <button class="difficulty-recommendation" id="recommendedDifficulty" type="button"></button>
-          </div>
-          <div class="live-evaluation" data-live-evaluation aria-live="polite">
-            <div class="live-evaluation-head"><span>PARTIEANALYSE</span><strong data-eval-summary>50 : 50</strong></div>
-            <div class="live-evaluation-labels"><span>Weiß <strong data-eval-white>50%</strong></span><span>Schwarz <strong data-eval-black>50%</strong></span></div>
-            <div class="live-evaluation-bar" data-eval-bar role="img" aria-label="Gewinnverhältnis: Weiß 50 Prozent, Schwarz 50 Prozent"><span class="eval-white" data-eval-white-bar></span><span class="eval-black"></span></div>
-            <small data-eval-detail>Die lokale Engine bewertet die Stellung nach jedem Zug neu.</small>
-          </div>
-          <button class="hint-action" id="matchHintButton" type="button">
-            <span aria-hidden="true">✦</span>
-            <strong>Zughilfe anfordern</strong>
-            <small>Analysiert deine aktuelle Stellung</small>
-          </button>
-          <div id="matchHint" class="match-hint" aria-live="polite" hidden>
-            <div class="match-hint-head"><span>COACH-HINWEIS</span><strong id="matchHintMove"></strong></div>
-            <p id="matchHintText"></p>
-            <small id="matchHintMeta"></small>
-          </div>
-          <div class="position-library match-position-save">
-            <span>PARTIESTELLUNG MERKEN</span>
-            <label for="matchPositionName">Name der aktuellen Stellung</label>
-            <input id="matchPositionName" type="text" maxlength="60" placeholder="z. B. Stellung nach dem Opfer">
-            <button class="secondary-button full-button" id="saveMatchPosition" type="button">Aktuelle Stellung speichern</button>
-            <small>Später unter Analyse → Meine Stellungen laden.</small>
-          </div>
           <button class="primary-button" id="newGame">Neue Partie</button>
           <p class="match-save-note">Partien werden nach jedem Zug automatisch lokal gespeichert.</p>
-          <div class="button-row match-actions">
-            <button class="secondary-button" id="saveMatch" type="button">Spielstand sichern</button>
-            <button class="secondary-button" id="exportCurrentMatch" type="button">Aktuelle PGN exportieren</button>
-          </div>
-          <label for="savedMatches">Gespeicherte Partien</label>
-          <select id="savedMatches" aria-label="Gespeicherte Partie auswählen"></select>
-          <div class="button-row match-actions">
-            <button class="secondary-button" id="loadSavedMatch" type="button">Partie fortsetzen</button>
-            <button class="secondary-button" id="exportSavedMatch" type="button">Auswahl exportieren</button>
-          </div>
-          <button class="secondary-button full-button" id="reviewGame">Partie analysieren</button>
-          <button class="secondary-button full-button" id="trainGameMistakes">Fehler aus Partien trainieren · <span id="gameMistakeCount">0</span></button>
-          <div id="coachReview" class="coach-review" hidden></div>
+          <details class="workspace-disclosure">
+            <summary>Partie einstellen</summary>
+            <div class="workspace-disclosure-content match-settings">
+              <label>Spielmodus</label>
+              <div class="segmented opponent-choice" id="opponentChoice" role="radiogroup" aria-label="Spielmodus">
+                <button class="active" type="button" data-opponent="ai" role="radio" aria-checked="true">Gegen Computer<small>mit Spiel-Elo</small></button>
+                <button type="button" data-opponent="hotseat" role="radio" aria-checked="false">2 Spieler<small>an einem PC</small></button>
+              </div>
+              <label>Schachvariante</label>
+              <div class="segmented variant-choice" id="variantChoice" role="radiogroup" aria-label="Schachvariante">
+                <button class="active" type="button" data-variant="standard" role="radio" aria-checked="true">Standard<small>klassische Aufstellung</small></button>
+                <button type="button" data-variant="chess960" role="radio" aria-checked="false">Schach960<small>bei jeder Partie neu</small></button>
+              </div>
+              <div class="personal-coach-card" id="personalCoachCard">
+                <div><strong>Persönlicher Lerngegner</strong><span id="personalCoachStatus">Noch keine gespeicherten Fehler</span></div>
+                <label class="check-option"><input type="checkbox" id="personalizedMatch" checked> Übungspartien aus meinen fälligen Fehlerstellungen starten</label>
+                <label class="check-option"><input type="checkbox" id="automaticCoach" checked> Beim Einstieg automatisch einen ersten Denkanstoß geben</label>
+                <small>Eigene Züge werden lokal im Hintergrund geprüft. Neue kritische Fehler landen automatisch im Wiederholungsplan. Persönliche Fehlerpartien sind ungewertet; Zugfarbe und Stellung stammen aus dem gespeicherten Moment.</small>
+              </div>
+              <label id="colorChoiceLabel">Deine Farbe</label>
+              <div class="segmented color-choice" id="colorChoice" role="radiogroup" aria-label="Deine Spielfarbe">
+                <button class="active" type="button" data-color="w" role="radio" aria-checked="true">Weiß<small>du beginnst</small></button>
+                <button type="button" data-color="b" role="radio" aria-checked="false">Schwarz<small>KI beginnt</small></button>
+                <button type="button" data-color="random" role="radio" aria-checked="false">Zufall<small>neu ausgelost</small></button>
+              </div>
+              <label>Zeitmodus</label>
+              <div class="time-control-options" id="timeChoice" role="radiogroup" aria-label="Zeitmodus und Bedenkzeit je Spieler">
+                <div class="time-control-group">
+                  <span>REGULÄR · OHNE INKREMENT</span>
+                  <div class="segmented time-choice">
+                    <button class="active" type="button" data-time="0" data-increment="0" role="radio" aria-checked="true">Ohne Uhr</button>
+                    <button type="button" data-time="3" data-increment="0" role="radio" aria-checked="false">3 Minuten</button>
+                    <button type="button" data-time="5" data-increment="0" role="radio" aria-checked="false">5 Minuten</button>
+                    <button type="button" data-time="10" data-increment="0" role="radio" aria-checked="false">10 Minuten</button>
+                  </div>
+                </div>
+                <div class="time-control-group">
+                  <span>MIT INKREMENT · SEKUNDEN PRO ZUG</span>
+                  <div class="segmented time-choice increment-choice">
+                    <button type="button" data-time="3" data-increment="2" role="radio" aria-checked="false">3 + 2</button>
+                    <button type="button" data-time="5" data-increment="3" role="radio" aria-checked="false">5 + 3</button>
+                    <button type="button" data-time="10" data-increment="5" role="radio" aria-checked="false">10 + 5</button>
+                  </div>
+                </div>
+              </div>
+              <label for="difficulty" id="difficultyLabel">Spielstärke</label>
+              <div class="difficulty-control" id="difficultyControl">
+                <div class="difficulty-heading"><strong id="difficultyName">Stufe 3 · Lernpartner</strong><span id="difficultyDepth">Computer-Elo 800</span></div>
+                <input id="difficulty" type="range" min="1" max="8" value="3" step="1" aria-describedby="difficultyDescription">
+                <div class="difficulty-scale" aria-hidden="true"><span>450</span><span>800</span><span>1.350</span><span>1.800</span></div>
+                <p id="difficultyDescription">Prüft deinen nächsten direkten Gegenzug.</p>
+                <button class="difficulty-recommendation" id="recommendedDifficulty" type="button"></button>
+              </div>
+            </div>
+          </details>
+          <details class="workspace-disclosure">
+            <summary>Partieanalyse und Zughilfe</summary>
+            <div class="workspace-disclosure-content">
+              <div class="live-evaluation" data-live-evaluation aria-live="polite">
+                <div class="live-evaluation-head"><span>PARTIEANALYSE</span><strong data-eval-summary>50 : 50</strong></div>
+                <div class="live-evaluation-labels"><span>Weiß <strong data-eval-white>50%</strong></span><span>Schwarz <strong data-eval-black>50%</strong></span></div>
+                <div class="live-evaluation-bar" data-eval-bar role="img" aria-label="Gewinnverhältnis: Weiß 50 Prozent, Schwarz 50 Prozent"><span class="eval-white" data-eval-white-bar></span><span class="eval-black"></span></div>
+                <small data-eval-detail>Die lokale Engine bewertet die Stellung nach jedem Zug neu.</small>
+              </div>
+              <button class="hint-action" id="matchHintButton" type="button">
+                <span aria-hidden="true">✦</span>
+                <strong>Zughilfe anfordern</strong>
+                <small>Analysiert deine aktuelle Stellung</small>
+              </button>
+              <div id="matchHint" class="match-hint" aria-live="polite" hidden>
+                <div class="match-hint-head"><span>COACH-HINWEIS</span><strong id="matchHintMove"></strong></div>
+                <p id="matchHintText"></p>
+                <small id="matchHintMeta"></small>
+              </div>
+            </div>
+          </details>
+          <details class="workspace-disclosure">
+            <summary>Gespeicherte Partien und Auswertung</summary>
+            <div class="workspace-disclosure-content">
+              <div class="position-library match-position-save">
+                <span>PARTIESTELLUNG MERKEN</span>
+                <label for="matchPositionName">Name der aktuellen Stellung</label>
+                <input id="matchPositionName" type="text" maxlength="60" placeholder="z. B. Stellung nach dem Opfer">
+                <button class="secondary-button full-button" id="saveMatchPosition" type="button">Aktuelle Stellung speichern</button>
+                <small>Später unter Analyse → Meine Stellungen laden.</small>
+              </div>
+              <div class="button-row match-actions">
+                <button class="secondary-button" id="saveMatch" type="button">Spielstand sichern</button>
+                <button class="secondary-button" id="exportCurrentMatch" type="button">Aktuelle PGN exportieren</button>
+              </div>
+              <label for="savedMatches">Gespeicherte Partien</label>
+              <select id="savedMatches" aria-label="Gespeicherte Partie auswählen"></select>
+              <div class="button-row match-actions">
+                <button class="secondary-button" id="loadSavedMatch" type="button">Partie fortsetzen</button>
+                <button class="secondary-button" id="exportSavedMatch" type="button">Auswahl exportieren</button>
+              </div>
+              <button class="secondary-button full-button" id="reviewGame">Partie analysieren</button>
+              <button class="secondary-button full-button" id="trainGameMistakes">Fehler aus Partien trainieren · <span id="gameMistakeCount">0</span></button>
+              <div id="coachReview" class="coach-review" hidden></div>
+            </div>
+          </details>
         </section>
 
         <section id="tacticsControls" class="control-section training-controls">
@@ -221,25 +241,30 @@
             <div><span>HEUTIGES ZIEL</span><strong id="dailyProgressText">0 / 5 Aufgaben</strong></div>
             <div class="goal-track" aria-hidden="true"><span id="dailyProgressBar"></span></div>
           </div>
-          <label for="themeFilter">Trainingsfokus</label>
-          <select id="themeFilter">
-            <option value="all">Gemischt · empfohlen</option>
-            <option value="fork">Gabel</option>
-            <option value="pin">Fesselung</option>
-            <option value="skewer">Spieß</option>
-            <option value="discovered">Abzugsangriff</option>
-            <option value="mate1">Matt in 1</option>
-            <option value="mate2">Matt in 2</option>
-            <option value="material">Material gewinnen</option>
-            <option value="review">Meine Fehler</option>
-          </select>
-          <label for="tacticDifficulty">Schwierigkeitsstufe</label>
-          <select id="tacticDifficulty">
-            <option value="all">Alle Stufen</option>
-            <option value="easy">Leicht · bis etwa 700</option>
-            <option value="medium">Mittel · etwa 701–900</option>
-            <option value="hard">Schwer · ab etwa 901</option>
-          </select>
+          <details class="workspace-disclosure tactic-filter-disclosure">
+            <summary>Aufgaben filtern</summary>
+            <div class="workspace-disclosure-content tactic-filters">
+              <label for="themeFilter">Trainingsfokus</label>
+              <select id="themeFilter">
+                <option value="all">Gemischt · empfohlen</option>
+                <option value="fork">Gabel</option>
+                <option value="pin">Fesselung</option>
+                <option value="skewer">Spieß</option>
+                <option value="discovered">Abzugsangriff</option>
+                <option value="mate1">Matt in 1</option>
+                <option value="mate2">Matt in 2</option>
+                <option value="material">Material gewinnen</option>
+                <option value="review">Meine Fehler</option>
+              </select>
+              <label for="tacticDifficulty">Schwierigkeitsstufe</label>
+              <select id="tacticDifficulty">
+                <option value="all">Alle Stufen</option>
+                <option value="easy">Leicht · bis etwa 700</option>
+                <option value="medium">Mittel · etwa 701–900</option>
+                <option value="hard">Schwer · ab etwa 901</option>
+              </select>
+            </div>
+          </details>
           <div class="concept-card">
             <span>MOTIV VERSTEHEN</span>
             <h2 id="conceptTitle">Springergabel</h2>
@@ -371,9 +396,9 @@
             <div class="live-evaluation-bar" data-eval-bar role="img" aria-label="Gewinnverhältnis: Weiß 50 Prozent, Schwarz 50 Prozent"><span class="eval-white" data-eval-white-bar></span><span class="eval-black"></span></div>
             <small data-eval-detail>Die lokale Engine bewertet die Stellung nach jedem Zug neu.</small>
           </div>
-          <details class="analysis-disclosure">
+          <details class="workspace-disclosure">
             <summary>Gespeicherte Analysen und PGN-Partien</summary>
-            <div class="analysis-disclosure-content">
+            <div class="workspace-disclosure-content">
               <div class="position-library">
                 <span>MEINE ANALYSEN</span>
                 <label for="positionName">Name der geladenen Partie oder Stellung</label>
@@ -396,9 +421,9 @@
             </div>
           </details>
           <button class="primary-button full-button" id="trainPosition">Aus dieser Stellung gegen die Engine üben</button>
-          <details class="analysis-disclosure">
+          <details class="workspace-disclosure">
             <summary>Engine-Hinweise und Varianten</summary>
-            <div class="analysis-disclosure-content">
+            <div class="workspace-disclosure-content">
               <div class="variation-lab" id="variationLab" hidden>
                 <span>VARIANTENLABOR</span>
                 <label for="sourcePositionSelect">Stellung aus der geladenen Hauptvariante</label>

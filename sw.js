@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "schachwerkstatt-4.20.5";
+const CACHE_NAME = "schachwerkstatt-4.20.6";
 const APP_SHELL = [
   "./",
   "./index.html",

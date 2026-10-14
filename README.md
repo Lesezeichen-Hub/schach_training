@@ -70,7 +70,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Freies Analysebrett mit FEN-Import
 - Vollständige Zugprüfung inklusive Rochade, en passant und Bauernumwandlung
 - Erkennung von Schach, Matt, Patt, dreifacher Stellungswiederholung, 50-Züge-Regel und unzureichendem Material
-- Kompakte, responsive Bedienung mit separat scrollbarer Coach-Spalte am Desktop und aufklappbaren Analysewerkzeugen
+- Kompakte, responsive Arbeitsfläche: Das Brett bleibt am Desktop sichtbar, Coach-Inhalte scrollen separat; Spiel, Lernkurs, Taktik und Analyse sind in aufklappbare Bereiche gegliedert
 - Lokaler Lernfortschritt im Browser
 
 Die Brettansicht wird lokal gespeichert und kann über den Schalter am Brett gewechselt werden. Das Brett kann sowohl in 2D als auch in 3D bildschirmfüllend angezeigt werden; Escape beendet das Vollbild. In 3D lässt sich der Blickwinkel durch Ziehen auf einer freien Stelle oder überall mit der rechten Maustaste frei horizontal und vertikal drehen. Zusätzlich kann das Brett schrittweise gedreht werden. `?view=3d` erzwingt die 3D-Ansicht für einen direkten Aufruf. Ist WebGL 2 nicht verfügbar, bleibt der Schalter deaktiviert und die vollständige 2D-Bedienung aktiv.
