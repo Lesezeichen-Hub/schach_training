@@ -33,13 +33,13 @@
   let moveAudioContext = null, soundEnabled = true;
   const savedPositionsKey = "schachwerkstatt-saved-positions";
   const savedMatchesKey = "schachwerkstatt-games";
-  const timeControlKeys = new Set(["0+0", "3+0", "3+2", "5+0", "5+3", "10+0", "10+5"]);
+  const timeControlKeys = new Set(["0+0", "3+0", "3+2", "5+0", "5+3", "10+0", "10+5", "15+20"]);
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
   try {
     const savedMinutes = Number(localStorage.getItem("schachwerkstatt-time-control"));
-    if ([0, 3, 5, 10].includes(savedMinutes)) state.clockMinutes = savedMinutes;
+    if ([0, 3, 5, 10, 15].includes(savedMinutes)) state.clockMinutes = savedMinutes;
     const savedIncrement = Number(localStorage.getItem("schachwerkstatt-time-increment"));
-    if ([0, 2, 3, 5].includes(savedIncrement)) state.clockIncrementSeconds = savedMinutes ? savedIncrement : 0;
+    if ([0, 2, 3, 5, 20].includes(savedIncrement)) state.clockIncrementSeconds = savedMinutes ? savedIncrement : 0;
     if (!timeControlKeys.has(`${state.clockMinutes}+${state.clockIncrementSeconds}`)) state.clockIncrementSeconds = 0;
     if (localStorage.getItem("schachwerkstatt-opponent") === "hotseat") state.opponentMode = "hotseat";
     if (localStorage.getItem("schachwerkstatt-variant") === "chess960") state.gameVariant = "chess960";
