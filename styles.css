@@ -212,6 +212,9 @@ select { width: 100%; min-height: 40px; margin-bottom: 12px; padding: 8px 34px 8
 .personal-coach-card > div strong { color: var(--gold); font-size: .78rem; }
 .personal-coach-card > div span { color: #aeb9b0; font-size: .63rem; text-align: right; }
 .personal-coach-card > small { display: block; margin-top: 8px; color: #839087; font-size: .64rem; line-height: 1.4; }
+.match-start-option { margin: 0 0 12px; border-color: var(--gold-dark); background: #201f17; }
+.match-start-option .check-option { color: var(--ink); font-size: .78rem; }
+.match-start-option > small { color: var(--muted); }
 .check-option { display: flex; align-items: flex-start; gap: 8px; margin: 7px 0; color: #c8d0ca; font-size: .7rem; line-height: 1.35; cursor: pointer; }
 .check-option input { flex: 0 0 auto; margin-top: 2px; accent-color: var(--gold); }
 .difficulty-control { margin-bottom: 14px; padding: 12px; border: 1px solid var(--line); background: #111713; }

@@ -56,7 +56,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Sofortige Fehlerkorrektur: Der richtige Zug muss direkt ausgeführt werden und erscheint in gemischten Einheiten später erneut
 - Gemischte Einheiten mit bis zu zehn fälligen Partiefehlern und Taktikfolgen
 - Selbstlernender Trainingspartner: Eigene Züge werden bereits während der Partie lokal bewertet und neue Fehler sofort gespeichert
-- Ungerankte persönliche Übungspartien starten aus fälligen Fehlerstellungen, verlangen zunächst den Korrekturzug und laufen danach gegen den Computer weiter
+- Persönliche Übungspartien aus fälligen Fehlerstellungen sind optional und standardmäßig aus; nach Aktivierung kommt zuerst der Korrekturzug, danach geht es gegen den Computer weiter
 - Optionaler automatischer Denkanstoß sowie die vorhandenen drei Hinweisstufen für persönliche Fehlerstellungen
 - Hintergrundanalyse per Web Worker mit stärkerer Suchtiefe und Rückfallmodus für lokale Dateien
 - Gestufte Hinweise von der strategischen Idee bis zum konkreten Zug
