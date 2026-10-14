@@ -46,6 +46,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .workspace { width: min(1220px, calc(100% - 32px)); margin: 0 auto; min-height: calc(100vh - 76px); display: grid; grid-template-columns: minmax(480px, 700px) minmax(310px, 390px); gap: clamp(28px, 5vw, 72px); align-items: center; padding: 32px 0 42px; }
 .board-column { width: min(100%, 700px); justify-self: center; }
+@media (min-width: 901px) {
+  .workspace { grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: clamp(22px, 3vw, 42px); align-items: start; }
+  .board-column { position: sticky; top: 92px; }
+  .coach-panel { position: sticky; top: 88px; align-self: start; max-height: calc(100vh - 104px); overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #526056 transparent; scrollbar-width: thin; }
+}
 .player-strip { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 7px 2px; }
 .player-strip .avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; font-size: .72rem; font-weight: 800; letter-spacing: .04em; }
 .avatar.dark { background: #29342c; border: 1px solid #47574b; }
@@ -130,7 +135,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 @keyframes correctFlash { 50% { box-shadow: inset 0 0 0 8px rgba(98, 190, 119, .85); } }
 @keyframes wrongShake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
-.coach-panel { align-self: stretch; padding: clamp(10px, 3vh, 32px) 0; display: flex; flex-direction: column; justify-content: center; }
+.coach-panel { align-self: stretch; padding: clamp(10px, 3vh, 32px) 0 clamp(18px, 3vh, 32px) clamp(12px, 1.5vw, 22px); border-left: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; }
 .panel-head { margin-bottom: 22px; }
 .learning-back { margin: 0 0 13px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: .72rem; cursor: pointer; }
 .learning-back:hover { color: var(--gold); }
@@ -249,6 +254,16 @@ textarea { width: 100%; resize: vertical; padding: 11px; background: #0e130f; co
 .analysis-section-heading span { color: var(--gold); font-size: .64rem; font-weight: 800; letter-spacing: .14em; }
 .analysis-section-heading strong { color: var(--ink); font-family: Georgia, serif; font-size: 1rem; font-weight: 500; }
 .analysis-section-heading small { color: var(--muted); font-size: .68rem; line-height: 1.4; }
+.analysis-disclosure { margin: 12px 0; border: 1px solid var(--line); background: #111713; }
+.analysis-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; color: #dce2dc; font-size: .75rem; font-weight: 750; cursor: pointer; list-style: none; }
+.analysis-disclosure > summary::-webkit-details-marker { display: none; }
+.analysis-disclosure > summary::after { content: "+"; color: var(--gold); font-size: 1.1rem; line-height: 1; }
+.analysis-disclosure[open] { border-color: #46564a; }
+.analysis-disclosure[open] > summary { border-bottom: 1px solid var(--line); color: var(--gold); }
+.analysis-disclosure[open] > summary::after { content: "−"; }
+.analysis-disclosure > summary:focus-visible { outline: 3px solid rgba(231, 182, 93, .55); outline-offset: -3px; }
+.analysis-disclosure-content { padding: 0 10px 10px; }
+.analysis-disclosure-content > :first-child { margin-top: 10px; }
 .live-evaluation { margin: 12px 0; padding: 12px 13px; border: 1px solid var(--line); background: #111713; }
 .live-evaluation-head, .live-evaluation-labels { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .live-evaluation-head span { color: var(--gold); font-size: .64rem; font-weight: 800; letter-spacing: .13em; }
@@ -385,7 +400,7 @@ dialog h2 { font-family: Georgia, serif; margin: 0; } dialog p { color: var(--mu
   .mode-tabs { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; height: auto; }
   .mode-tab { min-width: 0; max-width: none; height: 38px; padding: 0 5px; font-size: .7rem; }
   .workspace { grid-template-columns: 1fr; width: min(680px, calc(100% - 24px)); padding-top: 18px; gap: 12px; }
-  .coach-panel { padding: 8px 0 28px; }
+  .coach-panel { padding: 8px 0 28px; border-left: 0; }
   .panel-head h1 { font-size: 2.1rem; }
 }
 @media (max-width: 480px) {

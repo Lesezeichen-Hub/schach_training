@@ -371,46 +371,56 @@
             <div class="live-evaluation-bar" data-eval-bar role="img" aria-label="Gewinnverhältnis: Weiß 50 Prozent, Schwarz 50 Prozent"><span class="eval-white" data-eval-white-bar></span><span class="eval-black"></span></div>
             <small data-eval-detail>Die lokale Engine bewertet die Stellung nach jedem Zug neu.</small>
           </div>
-          <div class="position-library">
-            <span>MEINE ANALYSEN</span>
-            <label for="positionName">Name der geladenen Partie oder Stellung</label>
-            <input id="positionName" type="text" maxlength="60" placeholder="z. B. Vereinsabend oder Königsangriff">
-            <button class="secondary-button full-button" id="savePosition">Partie / Stellung speichern</button>
-            <label for="savedPositionSelect">Gespeicherte Partie oder Stellung</label>
-            <select id="savedPositionSelect"></select>
-            <div class="button-row"><button class="secondary-button" id="deletePosition">Löschen</button><button class="primary-button" id="loadPosition">Laden</button></div>
-          </div>
-          <div class="pgn-import">
-            <span>PGN-PARTIE IMPORTIEREN</span>
-            <label for="pgnInput">PGN-Text</label>
-            <textarea id="pgnInput" rows="6" spellcheck="false" placeholder="[Event &quot;Trainingspartie&quot;]&#10;&#10;1. e4 e5 2. Nf3 Nc6 …"></textarea>
-            <label for="pgnPlayerColor">Zu analysierende Seite</label>
-            <select id="pgnPlayerColor"><option value="w">Weiß</option><option value="b">Schwarz</option></select>
-            <button class="primary-button full-button" id="importPgn" type="button">PGN laden und analysieren</button>
-            <p id="pgnImportStatus" aria-live="polite"></p>
-            <div id="pgnAnalysis" class="coach-review" hidden></div>
-          </div>
-          <div class="variation-lab" id="variationLab" hidden>
-            <span>VARIANTENLABOR</span>
-            <label for="sourcePositionSelect">Stellung aus der geladenen Hauptvariante</label>
-            <select id="sourcePositionSelect"></select>
-            <small id="variationLabStatus">Wähle eine Stellung und spiele von dort eigene Varianten.</small>
-            <div class="button-row"><button class="secondary-button" id="previewSourcePosition" type="button">Auf Brett zeigen</button><button class="primary-button" id="startVariation" type="button">Ab hier gegen KI spielen</button></div>
-            <button class="secondary-button full-button" id="returnToVariationStart" type="button" disabled>Zum Ausgangspunkt zurück</button>
-          </div>
+          <details class="analysis-disclosure">
+            <summary>Gespeicherte Analysen und PGN-Partien</summary>
+            <div class="analysis-disclosure-content">
+              <div class="position-library">
+                <span>MEINE ANALYSEN</span>
+                <label for="positionName">Name der geladenen Partie oder Stellung</label>
+                <input id="positionName" type="text" maxlength="60" placeholder="z. B. Vereinsabend oder Königsangriff">
+                <button class="secondary-button full-button" id="savePosition">Partie / Stellung speichern</button>
+                <label for="savedPositionSelect">Gespeicherte Partie oder Stellung</label>
+                <select id="savedPositionSelect"></select>
+                <div class="button-row"><button class="secondary-button" id="deletePosition">Löschen</button><button class="primary-button" id="loadPosition">Laden</button></div>
+              </div>
+              <div class="pgn-import">
+                <span>PGN-PARTIE IMPORTIEREN</span>
+                <label for="pgnInput">PGN-Text</label>
+                <textarea id="pgnInput" rows="6" spellcheck="false" placeholder="[Event &quot;Trainingspartie&quot;]&#10;&#10;1. e4 e5 2. Nf3 Nc6 …"></textarea>
+                <label for="pgnPlayerColor">Zu analysierende Seite</label>
+                <select id="pgnPlayerColor"><option value="w">Weiß</option><option value="b">Schwarz</option></select>
+                <button class="primary-button full-button" id="importPgn" type="button">PGN laden und analysieren</button>
+                <p id="pgnImportStatus" aria-live="polite"></p>
+                <div id="pgnAnalysis" class="coach-review" hidden></div>
+              </div>
+            </div>
+          </details>
           <button class="primary-button full-button" id="trainPosition">Aus dieser Stellung gegen die Engine üben</button>
-          <button class="hint-action" id="practiceHintButton" type="button">
-            <span aria-hidden="true">✦</span><strong>Engine-Hinweis anfordern</strong><small>Erst Idee, dann Figur, zuletzt genauer Zug</small>
-          </button>
-          <div id="practiceHint" class="match-hint" aria-live="polite" hidden>
-            <div class="match-hint-head"><span>STELLUNGS-HINWEIS</span><strong id="practiceHintMove"></strong></div>
-            <p id="practiceHintText"></p><small id="practiceHintMeta"></small>
-          </div>
-          <div class="button-row engine-arrow-actions">
-            <button class="secondary-button" id="calculateEngineArrows" type="button">Zugvorschläge berechnen</button>
-            <button class="secondary-button" id="clearEngineArrows" type="button" disabled>Vorschläge ausblenden</button>
-          </div>
-          <small class="engine-arrow-legend"><span>Engine-Ideen erscheinen als Textliste, nicht als Brett-Pfeile.</span></small>
+          <details class="analysis-disclosure">
+            <summary>Engine-Hinweise und Varianten</summary>
+            <div class="analysis-disclosure-content">
+              <div class="variation-lab" id="variationLab" hidden>
+                <span>VARIANTENLABOR</span>
+                <label for="sourcePositionSelect">Stellung aus der geladenen Hauptvariante</label>
+                <select id="sourcePositionSelect"></select>
+                <small id="variationLabStatus">Wähle eine Stellung und spiele von dort eigene Varianten.</small>
+                <div class="button-row"><button class="secondary-button" id="previewSourcePosition" type="button">Auf Brett zeigen</button><button class="primary-button" id="startVariation" type="button">Ab hier gegen KI spielen</button></div>
+                <button class="secondary-button full-button" id="returnToVariationStart" type="button" disabled>Zum Ausgangspunkt zurück</button>
+              </div>
+              <button class="hint-action" id="practiceHintButton" type="button">
+                <span aria-hidden="true">✦</span><strong>Engine-Hinweis anfordern</strong><small>Erst Idee, dann Figur, zuletzt genauer Zug</small>
+              </button>
+              <div id="practiceHint" class="match-hint" aria-live="polite" hidden>
+                <div class="match-hint-head"><span>STELLUNGS-HINWEIS</span><strong id="practiceHintMove"></strong></div>
+                <p id="practiceHintText"></p><small id="practiceHintMeta"></small>
+              </div>
+              <div class="button-row engine-arrow-actions">
+                <button class="secondary-button" id="calculateEngineArrows" type="button">Zugvorschläge berechnen</button>
+                <button class="secondary-button" id="clearEngineArrows" type="button" disabled>Vorschläge ausblenden</button>
+              </div>
+              <small class="engine-arrow-legend"><span>Engine-Ideen erscheinen als Textliste, nicht als Brett-Pfeile.</span></small>
+            </div>
+          </details>
         </section>
 
         <section class="status-card" aria-live="polite">

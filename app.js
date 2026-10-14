@@ -1322,6 +1322,7 @@
 
   function switchMode(mode) {
     state.mode = mode;
+    $(".coach-panel").scrollTop = 0;
     if (mode === "match") refreshSavedMatches();
     const learningModes = ["basics", "tactics", "endgame", "strategy", "openings", "mistakes"];
     const navigationMode = learningModes.includes(mode) ? "learn" : mode;
