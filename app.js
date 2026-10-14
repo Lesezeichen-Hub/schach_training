@@ -2074,14 +2074,14 @@
   document.addEventListener("pointerdown", () => { if (soundEnabled) ensureMoveAudio(); }, { once: true, capture: true });
   $("#rotate3d").addEventListener("click", () => board3d?.rotate());
   $("#fullscreenBoard").addEventListener("click", async () => {
-    const wrap = document.querySelector(".board-wrap");
+    const boardColumn = document.querySelector(".board-column");
     try {
-      if (document.fullscreenElement === wrap) await document.exitFullscreen();
-      else await wrap.requestFullscreen();
+      if (document.fullscreenElement === boardColumn) await document.exitFullscreen();
+      else await boardColumn.requestFullscreen();
     } catch { /* Der Browser kann Vollbild ablehnen; die normale Ansicht bleibt nutzbar. */ }
   });
   document.addEventListener("fullscreenchange", () => {
-    const fullscreen = document.fullscreenElement === document.querySelector(".board-wrap");
+    const fullscreen = document.fullscreenElement === document.querySelector(".board-column");
     $("#fullscreenBoard").textContent = fullscreen ? "\u26F6 Verkleinern" : "\u26F6 Vollbild";
     $("#fullscreenBoard").setAttribute("aria-label", fullscreen ? "Vollbild beenden" : "Schachbrett im Vollbild anzeigen");
     board3d?.render();
