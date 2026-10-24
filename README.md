@@ -37,6 +37,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Strategie-Masterclass mit sieben interaktiven Entscheidungen zu Entwicklung, Initiative, Linien, Freibauern und Königssicherheit
 - Spielbarer Eröffnungstrainer mit 25 sinnvollen Repertoirevarianten für Weiß und Schwarz
 - Pläne, typische Fehler, ECO-Codes und schrittweise Zugkontrolle zu jeder Eröffnung
+- Positionsbasiertes Repertoiretraining: Stammvariante und eigenes Gegenspiel werden als getrennte Äste nach Fälligkeit und Beherrschung abgefragt
+- Eigener Wiederholungsplan pro Repertoire-Ast mit Sofort-Wiederholung nach Fehlern und wachsenden Abständen bis 45 Tage
 - Lokale Lern-Elo für Taktik, Endspiel, Strategie und Eröffnungen
 - Freie Partien wahlweise ohne Uhr oder mit 3, 5 beziehungsweise 10 Minuten Bedenkzeit je Spieler
 - Schach960 als Spielvariante gegen alle acht Computerstufen oder im Hot-Seat-Modus; jede neue Partie erhält eine regelkonforme Zufallsaufstellung samt vollständiger Schach960-Rochade

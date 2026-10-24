@@ -336,6 +336,18 @@ textarea { width: 100%; resize: vertical; padding: 11px; background: #0e130f; co
 .opening-head span { padding: 3px 6px; border: 1px solid var(--gold-dark); color: var(--gold); }
 .opening-head strong { font-weight: 650; }
 .opening-warning { margin: 10px 0 14px !important; padding: 9px 10px; border-left: 2px solid var(--danger); background: #211817; }
+.repertoire-card { margin: 12px 0; padding: 11px; border: 1px solid #3b473e; background: #151a16; }
+.repertoire-card > div:first-child { display: flex; justify-content: space-between; gap: 10px; font-size: .68rem; }
+.repertoire-card > div:first-child span { color: var(--gold); letter-spacing: .1em; }
+.repertoire-card > div:first-child strong { color: var(--ink); text-align: right; }
+.repertoire-branches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 9px 0; }
+.repertoire-branch { padding: 7px 8px; border: 1px solid var(--line); background: #101511; }
+.repertoire-branch strong, .repertoire-branch small { display: block; }
+.repertoire-branch strong { color: var(--ink); font-size: .7rem; }
+.repertoire-branch small { margin-top: 2px; color: var(--muted); font-size: .62rem; }
+.repertoire-branch.due { border-color: var(--gold-dark); }
+.repertoire-branch.mastered strong { color: var(--success); }
+.repertoire-card .primary-button { width: 100%; }
 .opening-line { margin: 12px 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: .7rem; }
 .opening-line span { color: var(--muted); letter-spacing: .1em; }
 .opening-line strong { color: var(--gold); }

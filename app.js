@@ -24,7 +24,9 @@
     analysisSource: null, variationStart: null, variationAi: false, variationPlayerColor: "w", variationAiRequest: 0,
     positionEvaluation: { fen: null, white: 50, black: 50, score: 0, depth: 0, thinking: false, error: false }, positionEvaluationRequest: 0,
     activeMistake: null, mistakeSolved: false, mistakeIndex: 0, mistakeHintStage: 0, mistakeHadError: false,
-    mixed: { active: false, queue: [], index: 0, retryKeys: new Set() }, redoFrames: [], focusedSquare: "e2", markedSquares: new Set(), moveAnimating: false
+    mixed: { active: false, queue: [], index: 0, retryKeys: new Set() },
+    repertoire: { active: false, queue: [], index: 0, ready: false },
+    redoFrames: [], focusedSquare: "e2", markedSquares: new Set(), moveAnimating: false
   };
   let analysisWorker = null, analysisJobId = 0;
   const analysisJobs = new Map();
@@ -352,7 +354,7 @@
     state.lesson = T.createLessonSession(E, record, { phase, scenario });
     const stored = getProgress().lessons[lessonKey()];
     const seenCompletion = stored?.revision === state.lesson.lesson.revision && Object.keys(stored.completions || {}).some((key) => key.startsWith(`${state.lesson.scenario.id}:`) && !key.includes(':explain:'));
-    if (phase === "practice" && (previouslyAssisted || seenCompletion || state.seenLessons.has(exposureKey()))) state.lesson.assisted = true;
+    if (phase === "practice" && !options.freshRecall && (previouslyAssisted || seenCompletion || state.seenLessons.has(exposureKey()))) state.lesson.assisted = true;
     if (["demo", "guided"].includes(phase)) state.seenLessons.add(exposureKey());
     state.lessonHint = false;
     $("#lessonPhase").value = phase;
@@ -398,6 +400,11 @@
     entry.last = { scenario: event.scenario, phase: event.phase, date: localDate(), assisted: event.assisted };
     entry.errors = Number(entry.errors) || 0;
     T.setLessonReviewState(entry, event.scenario, event.mistakes > 0);
+    if (state.mode === "openings" && event.phase === "practice") {
+      entry.scenarioReview = entry.scenarioReview && typeof entry.scenarioReview === "object" ? entry.scenarioReview : {};
+      const review = entry.scenarioReview[event.scenario] ||= {};
+      T.scheduleReview(review, event.mistakes > 0 ? "failure" : event.assisted ? "assisted" : "success", localDate());
+    }
     if (state.mode === 'tactics') {
       const puzzle = saved.puzzles[state.lesson.record.id];
       if (puzzle) puzzle.openError = entry.openError;
@@ -418,6 +425,10 @@
     if (state.mixed.active && state.mixed.queue[state.mixed.index]?.type === "tactic" && event.phase === "practice") {
       if (event.mistakes > 0 || event.assisted) queueMixedRetry("tactic", state.lesson.record.id);
       $("#nextPuzzle").textContent = state.mixed.index + 1 < state.mixed.queue.length ? "Weiter in der Einheit" : "Einheit abschließen";
+    }
+    if (state.mode === "openings") {
+      renderOpeningRepertoire(state.lesson.record);
+      if (state.repertoire.active && event.phase === "practice") completeRepertoireBranch(event);
     }
     cancelLessonTimer();
   }
@@ -1362,7 +1373,7 @@
       tactics: ["DEIN TAGESPLAN", "Muster sehen. Besser spielen.", "Verstehe das Motiv, berechne den Zug und wiederhole gezielt deine Fehler."],
       endgame: ["ENDSPIEL-FUNDAMENTE", "Gewinnen mit Technik.", "Übe elementare Gewinnstellungen gegen eine regelbasierte Verteidigung."],
       strategy: ["DIE WARUM-EBENE", "Plane wie ein Meister.", "Entscheide an kritischen Stellen und verstehe Aktivität, Initiative und offene Linien."],
-      openings: ["ERÖFFNUNGS-REPERTOIRE", "Verstehe den Aufbau.", "Lerne nicht nur Züge: Verbinde jede Variante mit ihren Plänen und typischen Fehlern."],
+      openings: ["ERÖFFNUNGS-REPERTOIRE", "Erkenne die Stellung.", "Rufe deinen Plan aus wechselnden Repertoire-Ästen ab, statt nur eine Zugfolge auswendig zu lernen."],
       mistakes: ["AUS DEINEN PARTIEN", "Fehler werden zu Training.", "Löse die kritischen Stellungen erneut, bis du den besseren Zug selbstständig findest."],
       practice: ["ANALYSETRAINING", "Stellungen verstehen.", "Prüfe Material, Königssicherheit und Bauernstruktur, bevor du Varianten ziehst."]
     }[mode];
@@ -1553,7 +1564,108 @@
     }
   }
 
+  function repertoireScenarios(opening) {
+    return opening.lesson.scenarios.filter((scenario) => scenario.learnerSide === opening.side);
+  }
+
+  function repertoireEntry(opening, saved = getProgress()) {
+    const item = saved.lessons[`openings:${opening.id}`];
+    return item && item.revision === opening.lesson.revision ? item : null;
+  }
+
+  function independentScenarioCount(entry, scenarioId) {
+    return Number(entry?.completions?.[`${scenarioId}:practice:independent`]) || 0;
+  }
+
+  function buildRepertoireQueue(opening) {
+    const saved = getProgress(), entry = repertoireEntry(opening, saved);
+    const scenarios = repertoireScenarios(opening), rotation = Number(localDate().replaceAll("-", "")) % Math.max(1, scenarios.length);
+    const candidates = scenarios.map((scenario, order) => {
+      const review = entry?.scenarioReview?.[scenario.id];
+      return {
+        id: scenario.id, order: (order - rotation + scenarios.length) % scenarios.length, review,
+        due: T.isReviewDue(review, localDate()),
+        error: Boolean(entry?.scenarioErrors?.[scenario.id]),
+        successes: independentScenarioCount(entry, scenario.id)
+      };
+    });
+    const due = candidates.filter((item) => item.due);
+    const pool = due.length ? due : candidates;
+    const ordered = pool.sort((left, right) => Number(right.error) - Number(left.error)
+      || (left.review?.reviewStage || 0) - (right.review?.reviewStage || 0)
+      || left.successes - right.successes || left.order - right.order)
+      .map((item) => ({ id: item.id, retry: false }));
+    return due.length ? ordered : ordered.slice(0, 1);
+  }
+
+  function renderOpeningRepertoire(opening = trainingData.openings[state.openingIndex]) {
+    if (!opening) return;
+    const entry = repertoireEntry(opening), scenarios = repertoireScenarios(opening);
+    const container = $("#repertoireBranches"); container.innerHTML = "";
+    let dueCount = 0, masteredCount = 0;
+    for (const scenario of scenarios) {
+      const review = entry?.scenarioReview?.[scenario.id];
+      const due = T.isReviewDue(review, localDate());
+      const mastered = Boolean(review?.mastered);
+      if (due) dueCount++;
+      if (mastered) masteredCount++;
+      const card = document.createElement("div"); card.className = `repertoire-branch${due ? " due" : ""}${mastered ? " mastered" : ""}`;
+      const title = document.createElement("strong"); title.textContent = scenario.id === "main" ? "Stammvariante" : "Gegenspiel beantworten";
+      const status = document.createElement("small");
+      status.textContent = mastered ? `beherrscht · ${T.reviewDueLabel(review, localDate())}` : review ? T.reviewDueLabel(review, localDate()) : "neu · jetzt abfragen";
+      card.append(title, status); container.appendChild(card);
+    }
+    $("#repertoireSummary").textContent = masteredCount === scenarios.length ? `${masteredCount}/${scenarios.length} Äste beherrscht` : `${dueCount} von ${scenarios.length} Ästen fällig`;
+    const button = $("#startRepertoire");
+    if (!state.repertoire.active) { button.disabled = false; button.textContent = dueCount ? `Fällige Äste abfragen · ${dueCount}` : "Schwächsten Ast auffrischen"; }
+  }
+
+  function startRepertoire() {
+    const opening = trainingData.openings[state.openingIndex];
+    state.repertoire = { active: true, queue: buildRepertoireQueue(opening), index: 0, ready: false };
+    loadRepertoireBranch();
+  }
+
+  function loadRepertoireBranch() {
+    const opening = trainingData.openings[state.openingIndex], item = state.repertoire.queue[state.repertoire.index];
+    if (!item) { finishRepertoire(); return; }
+    state.repertoire.ready = false;
+    startLesson(opening, { phase: "practice", scenario: item.id, freshRecall: !item.retry });
+    const button = $("#startRepertoire"); button.disabled = true;
+    button.textContent = `Ast ${state.repertoire.index + 1} / ${state.repertoire.queue.length} lösen`;
+    $("#lessonPhase").disabled = true; $("#lessonScenario").disabled = true;
+    state.messageOverride = { kind: "", title: item.retry ? "Sofort-Wiederholung" : "Repertoire aus der Stellung abrufen", text: "Finde deine Züge ohne eingeblendete Lösung. Die gegnerischen Antworten werden automatisch gespielt." };
+    render();
+  }
+
+  function completeRepertoireBranch(event) {
+    const current = state.repertoire.queue[state.repertoire.index];
+    if (!current || current.id !== event.scenario) return;
+    if (!current.retry && (event.mistakes > 0 || event.assisted) && !state.repertoire.queue.slice(state.repertoire.index + 1).some((item) => item.id === event.scenario && item.retry)) {
+      state.repertoire.queue.push({ id: event.scenario, retry: true });
+    }
+    state.repertoire.ready = true;
+    const button = $("#startRepertoire"); button.disabled = false;
+    button.textContent = state.repertoire.index + 1 < state.repertoire.queue.length ? "Nächsten Repertoire-Ast" : "Abfrage abschließen";
+  }
+
+  function advanceRepertoire() {
+    if (!state.repertoire.ready) return;
+    state.repertoire.index++;
+    loadRepertoireBranch();
+  }
+
+  function finishRepertoire() {
+    const total = state.repertoire.queue.length;
+    state.repertoire = { active: false, queue: [], index: 0, ready: false };
+    $("#lessonPhase").disabled = false; $("#lessonScenario").disabled = false;
+    state.messageOverride = { kind: "success", title: "Repertoire-Abfrage abgeschlossen", text: `${total} Positionsabrufe bearbeitet. Die nächsten Wiederholungen wurden für jeden Ast einzeln geplant.` };
+    renderOpeningRepertoire(); render();
+  }
+
   function loadOpening(id) {
+    state.repertoire = { active: false, queue: [], index: 0, ready: false };
+    $("#lessonPhase").disabled = false; $("#lessonScenario").disabled = false;
     const index = trainingData.openings.findIndex((opening) => opening.id === id);
     state.openingIndex = index >= 0 ? index : 0; state.openingPly = 0; state.openingErrors = 0;
     state.game = E.fromFEN(); state.moves = []; state.lastMove = null; state.selected = null; state.legal = []; state.messageOverride = null; state.thinking = false;
@@ -1565,6 +1677,7 @@
     $("#openingProgress").textContent = `${state.openingIndex + 1} / ${trainingData.openings.length}`;
     $("#lessonText").textContent = opening.ideas[0];
     startLesson(opening);
+    renderOpeningRepertoire(opening);
   }
 
   function loadPuzzle(index) {
@@ -2161,6 +2274,11 @@
   $("#lessonNext").addEventListener("click", () => { cancelLessonTimer(); lessonAdvance(); });
   $("#lessonRestart").addEventListener("click", () => {
     if (!isLessonMode()) return;
+    if (state.repertoire.active) {
+      state.repertoire.ready = false;
+      $("#startRepertoire").disabled = true;
+      $("#startRepertoire").textContent = `Ast ${state.repertoire.index + 1} / ${state.repertoire.queue.length} lösen`;
+    }
     startLesson(state.lesson.record, { scenario: state.lesson.scenario.id });
   });
   $("#lessonPlay").addEventListener("click", () => {
@@ -2178,7 +2296,17 @@
   $("#restartEndgame").addEventListener("click", () => state.mixed.active && state.endgameComplete ? advanceMixedTraining() : loadEndgame(state.endgameId));
   $("#nextStrategy").addEventListener("click", () => state.mixed.active ? advanceMixedTraining() : loadStrategyStep(state.strategyStep + 1));
   $("#openingSelect").addEventListener("change", (event) => loadOpening(event.target.value));
-  $("#restartOpening").addEventListener("click", () => loadOpening(trainingData.openings[state.openingIndex].id));
+  $("#startRepertoire").addEventListener("click", () => state.repertoire.active ? advanceRepertoire() : startRepertoire());
+  $("#restartOpening").addEventListener("click", () => {
+    if (!state.repertoire.active) { loadOpening(trainingData.openings[state.openingIndex].id); return; }
+    const item = state.repertoire.queue[state.repertoire.index];
+    if (item) {
+      state.repertoire.ready = false;
+      $("#startRepertoire").disabled = true;
+      $("#startRepertoire").textContent = `Ast ${state.repertoire.index + 1} / ${state.repertoire.queue.length} lösen`;
+      startLesson(trainingData.openings[state.openingIndex], { phase: "practice", scenario: item.id });
+    }
+  });
 
   function importPgn() {
     const source = $("#pgnInput").value.trim(), status = $("#pgnImportStatus");

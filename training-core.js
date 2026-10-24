@@ -471,6 +471,11 @@
       if (!item || typeof item !== 'object' || Array.isArray(item)) { delete saved.lessons[id]; continue; }
       if (!item.completions || typeof item.completions !== 'object' || Array.isArray(item.completions)) item.completions = {};
       for (const [key, count] of Object.entries(item.completions)) if (!Number.isFinite(count) || count < 0) delete item.completions[key];
+      if (!item.scenarioReview || typeof item.scenarioReview !== 'object' || Array.isArray(item.scenarioReview)) item.scenarioReview = {};
+      for (const [scenario, review] of Object.entries(item.scenarioReview)) {
+        if (!review || typeof review !== 'object' || Array.isArray(review)) { delete item.scenarioReview[scenario]; continue; }
+        normalizeReviewItem(review);
+      }
       if (!Number.isFinite(item.errors) || item.errors < 0) item.errors = 0;
       item.openError = Boolean(item.openError);
     }

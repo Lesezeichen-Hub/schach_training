@@ -126,6 +126,7 @@ assert.ok(trainingData.openings.length >= 20, "Eröffnungsrepertoire enthält mi
 for (const opening of trainingData.openings) {
   let position = E.fromFEN();
   for (const uci of opening.line) position = play(position, uci);
+  assert.deepEqual(opening.lesson.scenarios.filter((scenario) => scenario.learnerSide === opening.side).map((scenario) => scenario.id), ['main', 'counter'], `${opening.id}: Repertoire besitzt Stammvariante und eigenen Gegenspiel-Ast`);
 }
 assert.ok(T.updateRating(800, 1, 800) > 800, "Lern-Elo steigt nach erfolgreicher Aufgabe");
 assert.ok(T.updateRating(800, 0, 800) < 800, "Lern-Elo sinkt nach Fehler");
@@ -378,6 +379,10 @@ assert.equal(legacy.puzzles.old.openError,true); assert.equal(Object.keys(legacy
 assert.equal(T.isReviewDue(legacy.puzzles.old, '2026-10-07'), true, 'Alte Aufgaben ohne Termin sind sofort fällig');
 const untouchedOldDefault = T.normalizeProgress({ratings:{tactics:800,endgame:800,strategy:800,openings:800}});
 assert.deepEqual(Object.values(untouchedOldDefault.ratings), [0,0,0,0], 'Unberührter alter Standardwert wird auf den neuen Nullstart migriert');
+const repertoireProgress = T.normalizeProgress({lessons:{'openings:italian':{revision:1,completions:{'main:practice:independent':1},scenarioReview:{main:{reviewStage:2,nextReview:'2026-10-11'},counter:null}}}});
+assert.equal(repertoireProgress.lessons['openings:italian'].scenarioReview.main.reviewStage, 2, 'Repertoire-Ast behält seine Wiederholungsstufe');
+assert.equal(repertoireProgress.lessons['openings:italian'].scenarioReview.main.nextReview, '2026-10-11', 'Repertoire-Ast behält seinen Termin');
+assert.equal('counter' in repertoireProgress.lessons['openings:italian'].scenarioReview, false, 'Beschädigter Repertoire-Ast wird entfernt');
 const spaced = {};
 T.scheduleReview(spaced, 'success', '2026-10-07');
 assert.equal(spaced.reviewStage, 1); assert.equal(spaced.nextReview, '2026-10-08');
