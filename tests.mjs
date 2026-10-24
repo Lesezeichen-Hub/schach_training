@@ -182,6 +182,16 @@ const winningKingMove = E.legalMoves(opposition).find((move) => move.from === "e
 const losingKingMove = E.legalMoves(opposition).find((move) => move.from === "e6" && move.to === "d5");
 assert.equal(T.canForcePawnWin(E, E.applyMove(opposition, winningKingMove)), true, "Oppositionsmodul erkennt den Gewinnweg");
 assert.equal(T.canForcePawnWin(E, E.applyMove(opposition, losingKingMove)), false, "Oppositionsmodul erkennt den Verlust des Gewinnwegs");
+assert.equal(trainingData.endgames.length, 5, "Endspielkurs enthält fünf unterschiedliche Techniken");
+assert.equal(trainingData.masterclass.steps.length, 7, "Strategiekurs enthält sieben interaktive Entscheidungen");
+const keySquare = E.fromFEN(trainingData.endgames.find((item) => item.id === "pawn-key-square").fen);
+assert.ok(E.legalMoves(keySquare).some((move) => T.canForcePawnWin(E, E.applyMove(keySquare, move))), "Schlüsselfeld-Übung besitzt mindestens einen Gewinnweg");
+let queenMate = E.fromFEN("7k/8/5KQ1/8/8/8/8/8 w - - 0 1");
+const queenMateMove = E.legalMoves(queenMate).find((move) => move.from === "g6" && move.to === "g7");
+assert.equal(T.reviewEndgameMove(E, queenMate, E.applyMove(queenMate, queenMateMove), "queen-mate", queenMateMove).complete, true, "Damenmatt schließt die Endspielübung ab");
+let rookMate = E.fromFEN("7k/8/6K1/8/8/8/8/5R2 w - - 0 1");
+const rookMateMove = E.legalMoves(rookMate).find((move) => move.from === "f1" && move.to === "f8");
+assert.equal(T.reviewEndgameMove(E, rookMate, E.applyMove(rookMate, rookMateMove), "rook-mate", rookMateMove).complete, true, "Turmmatt schließt die Endspielübung ab");
 
 const review = T.coachReview([{ color: "w", san: "e4", whiteMaterialBefore: 3900, whiteMaterialAfter: 3900 }]);
 assert.ok(review.improvements.some((text) => text.includes("Rochiere")), "Coach erkennt fehlende Rochade");
@@ -240,14 +250,14 @@ assert.equal(finishedHint.move, null, "Beendete Stellungen erzeugen keinen Hinwe
 
 const expectedOpenings = ['italian','ruy-lopez','scotch','four-knights','vienna','kings-gambit','sicilian-open','sicilian-alapin','french','caro-kann','scandinavian','pirc','queens-gambit','qgd','qga','london','colle','catalan','slav','kings-indian','nimzo-indian','dutch','english','reti','modern'];
 assert.deepEqual(trainingData.openings.map((r) => r.id), expectedOpenings, 'Genau die 25 bisherigen Eröffnungs-IDs');
-assert.equal(trainingData.tactics.length, 32);
+assert.equal(trainingData.tactics.length, 40);
 for (const category of ['fork','pin','skewer','discovered']) {
   assert.deepEqual(trainingData.tactics.filter((r) => r.category === category).map((r) => r.id), Array.from({length: 5}, (_, i) => `${category}-0${i + 1}`));
   assert.ok(trainingData.lessonContent.motifs[category].includes('Konter:'));
 }
-for (const category of ['mate1','mate2','material']) {
-  assert.deepEqual(trainingData.tactics.filter((r) => r.category === category).map((r) => r.id), Array.from({length: 4}, (_, i) => `${category}-0${i + 1}`));
-}
+assert.deepEqual(trainingData.tactics.filter((r) => r.category === 'mate1').map((r) => r.id), Array.from({length: 6}, (_, i) => `mate1-0${i + 1}`));
+assert.deepEqual(trainingData.tactics.filter((r) => r.category === 'mate2').map((r) => r.id), Array.from({length: 4}, (_, i) => `mate2-0${i + 1}`));
+assert.deepEqual(trainingData.tactics.filter((r) => r.category === 'material').map((r) => r.id), Array.from({length: 10}, (_, i) => `material-${String(i + 1).padStart(2, '0')}`));
 let scenarioCount = 0, stepCount = 0, completions = 0;
 for (const record of [...trainingData.tactics, ...trainingData.openings]) {
   assert.equal(T.validateLesson(E, record).length, 0, `Alle Schritte und Vergleiche von ${record.id} gültig`);
@@ -293,8 +303,8 @@ for (const record of [...trainingData.tactics, ...trainingData.openings]) {
     assert.equal(E.toFEN(explanation.game), fen);
   }
 }
-assert.equal(scenarioCount, 147);
-assert.equal(completions, 441);
+assert.equal(scenarioCount, 155);
+assert.equal(completions, 465);
 for (const record of trainingData.tactics.filter((item) => ['fork','pin','skewer','discovered'].includes(item.category))) {
   const main = record.lesson.scenarios[0];
   let before = T.scenarioStart(E, record, main), after = before;
@@ -337,10 +347,11 @@ for (const record of trainingData.tactics.filter((item) => item.category === 'ma
   for (const code of record.line) position = play(position, code);
   assert.equal(E.gameStatus(position).type, 'checkmate', `${record.id}: Lösungsfolge endet matt`);
 }
-for (const [record, expected] of trainingData.tactics.filter((item) => item.category === 'material').map((item, index) => [item, [900, 500, 900, 400][index]])) {
+for (const [record, expected] of trainingData.tactics.filter((item) => item.category === 'material').map((item, index) => [item, [900, 500, 900, 400, 900, 900, 1700, 900, 900, 900][index]])) {
   let start = E.fromFEN(record.fen), end = start;
   for (const code of record.line) end = play(end, code);
-  const gain = (T.materialFor(E,end,'w') - T.materialFor(E,end,'b')) - (T.materialFor(E,start,'w') - T.materialFor(E,start,'b'));
+  const player = record.side || 'w', opponent = player === 'w' ? 'b' : 'w';
+  const gain = (T.materialFor(E,end,player) - T.materialFor(E,end,opponent)) - (T.materialFor(E,start,player) - T.materialFor(E,start,opponent));
   assert.equal(gain, expected, `${record.id}: versprochener Materialgewinn stimmt`);
 }
 for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
@@ -402,4 +413,4 @@ for (const [fen, line] of [
   const fenEnd = E.toFEN(session.game);
   T.seekLesson(session,0); T.seekLesson(session,line.length); assert.equal(E.toFEN(session.game),fenEnd);
 }
-console.log(`Alle Tests bestanden: 57 Lektionen, ${scenarioCount} Szenarien, ${stepCount} annotierte Halbzüge, ${completions} Phasenabschlüsse; Regeln, Material, Vergleiche, Navigation, Orientierung und Legacy-Fortschritt.`);
+console.log(`Alle Tests bestanden: ${trainingData.tactics.length + trainingData.openings.length} Lektionen, ${scenarioCount} Szenarien, ${stepCount} annotierte Halbzüge, ${completions} Phasenabschlüsse; Regeln, Material, Vergleiche, Navigation, Orientierung und Legacy-Fortschritt.`);

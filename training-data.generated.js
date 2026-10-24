@@ -8339,6 +8339,542 @@ window.CHESS_TRAINING_DATA = {
           }
         ]
       }
+    },
+    {
+      "id": "mate1-05",
+      "category": "mate1",
+      "title": "Grundreihenmatt",
+      "fen": "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1",
+      "side": "w",
+      "rating": 650,
+      "line": [
+        "a1a8"
+      ],
+      "prompt": "Nutze die eingesperrte Grundreihe und setze matt.",
+      "hint": "Der schwarze König wird von seinen eigenen Bauern eingeschlossen.",
+      "intro": "Grundreihenmatt: Ein Turm oder eine Dame nutzt die letzte Reihe, wenn dem König kein Luftloch bleibt.",
+      "notes": [
+        "Ta8# kontrolliert die gesamte achte Reihe; die eigenen Bauern nehmen dem König alle Fluchtfelder."
+      ],
+      "outcome": "Das Grundreihenmatt ist ausgeführt. Prüfe dieses Muster in jeder Stellung mit einem eingeengten König.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Nutze die eingesperrte Grundreihe und setze matt.",
+        "intro": "Grundreihenmatt: Ein Turm oder eine Dame nutzt die letzte Reihe, wenn dem König kein Luftloch bleibt.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 1",
+            "purpose": "Nutze die eingesperrte Grundreihe und setze matt.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "a1a8"
+            ],
+            "outcome": "Das Grundreihenmatt ist ausgeführt. Prüfe dieses Muster in jeder Stellung mit einem eingeengten König.",
+            "steps": [
+              {
+                "move": "a1a8",
+                "side": "w",
+                "piece": "Turm",
+                "before": "Weiß: Turm a1 → a8 (Ra8#). Ta8# kontrolliert die gesamte achte Reihe; die eigenen Bauern nehmen dem König alle Fluchtfelder.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Das Grundreihenmatt ist ausgeführt. Prüfe dieses Muster in jeder Stellung mit einem eingeengten König.",
+                "hint": "Ta8# kontrolliert die gesamte achte Reihe; die eigenen Bauern nehmen dem König alle Fluchtfelder.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "a1",
+                      "to": "a8",
+                      "kind": "move",
+                      "label": "Matt in 1: Ra8#"
+                    }
+                  ],
+                  "squares": [
+                    "a1",
+                    "a8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "a1a2",
+                    "reply": [],
+                    "text": "a1 → a2 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Ta8# kontrolliert die gesamte achte Reihe; die eigenen Bauern nehmen dem König alle Fluchtfelder."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mate1-06",
+      "category": "mate1",
+      "title": "Grundreihenmatt mit Schwarz",
+      "fen": "r6k/8/8/8/8/8/5PPP/6K1 b - - 0 1",
+      "side": "b",
+      "rating": 675,
+      "line": [
+        "a8a1"
+      ],
+      "prompt": "Schwarz zieht und setzt auf der ersten Reihe matt.",
+      "hint": "Auch Weiß besitzt kein Luftloch hinter seinen Bauern.",
+      "intro": "Perspektivwechsel: Dasselbe Grundreihenmotiv muss auch mit Schwarz sofort erkannt werden.",
+      "notes": [
+        "Ta1# schneidet die erste Reihe ab. Die weißen Bauern blockieren g2 und h2."
+      ],
+      "outcome": "Grundreihenmatt aus schwarzer Sicht erkannt.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Schwarz zieht und setzt auf der ersten Reihe matt.",
+        "intro": "Perspektivwechsel: Dasselbe Grundreihenmotiv muss auch mit Schwarz sofort erkannt werden.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Matt in 1",
+            "purpose": "Schwarz zieht und setzt auf der ersten Reihe matt.",
+            "learnerSide": "b",
+            "startPly": 0,
+            "line": [
+              "a8a1"
+            ],
+            "outcome": "Grundreihenmatt aus schwarzer Sicht erkannt.",
+            "steps": [
+              {
+                "move": "a8a1",
+                "side": "b",
+                "piece": "Turm",
+                "before": "Schwarz: Turm a8 → a1 (Ra1#). Ta1# schneidet die erste Reihe ab. Die weißen Bauern blockieren g2 und h2.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Grundreihenmatt aus schwarzer Sicht erkannt.",
+                "hint": "Ta1# schneidet die erste Reihe ab. Die weißen Bauern blockieren g2 und h2.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "a8",
+                      "to": "a1",
+                      "kind": "move",
+                      "label": "Matt in 1: Ra1#"
+                    }
+                  ],
+                  "squares": [
+                    "a8",
+                    "a1"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "a8a7",
+                    "reply": [],
+                    "text": "a8 → a7 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Ta1# schneidet die erste Reihe ab. Die weißen Bauern blockieren g2 und h2."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-05",
+      "category": "material",
+      "title": "Dame auf der langen Diagonale",
+      "fen": "k6q/8/8/8/8/2B5/8/6K1 w - - 0 1",
+      "side": "w",
+      "rating": 575,
+      "line": [
+        "c3h8"
+      ],
+      "prompt": "Verfolge die Läuferdiagonale und gewinne die Dame.",
+      "hint": "Die Diagonale c3–d4–e5–f6–g7–h8 ist frei.",
+      "intro": "Linienfiguren greifen oft über das ganze Brett an. Scanne jede freie Diagonale bis zum Rand.",
+      "notes": [
+        "Lxh8 gewinnt die ungedeckte Dame am Ende der langen Diagonale."
+      ],
+      "outcome": "Die Dame wurde durch vollständiges Scannen der Diagonale gewonnen.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Verfolge die Läuferdiagonale und gewinne die Dame.",
+        "intro": "Linienfiguren greifen oft über das ganze Brett an. Scanne jede freie Diagonale bis zum Rand.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Verfolge die Läuferdiagonale und gewinne die Dame.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "c3h8"
+            ],
+            "outcome": "Die Dame wurde durch vollständiges Scannen der Diagonale gewonnen.",
+            "steps": [
+              {
+                "move": "c3h8",
+                "side": "w",
+                "piece": "Läufer",
+                "before": "Weiß: Läufer c3 → h8 (Bxh8). Lxh8 gewinnt die ungedeckte Dame am Ende der langen Diagonale.",
+                "after": "Der Materialtausch ist ausgeführt; prüfe jetzt, ob eine Rücknahme möglich ist. Ende dieses Ausschnitts: Die Dame wurde durch vollständiges Scannen der Diagonale gewonnen.",
+                "hint": "Lxh8 gewinnt die ungedeckte Dame am Ende der langen Diagonale.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "c3",
+                      "to": "h8",
+                      "kind": "move",
+                      "label": "Material gewinnen: Bxh8"
+                    }
+                  ],
+                  "squares": [
+                    "c3",
+                    "h8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "c3b4",
+                    "reply": [],
+                    "text": "c3 → b4 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Lxh8 gewinnt die ungedeckte Dame am Ende der langen Diagonale."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-06",
+      "category": "material",
+      "title": "Schwarzer Springer findet die Dame",
+      "fen": "7k/8/8/8/8/5n2/3Q4/7K b - - 0 1",
+      "side": "b",
+      "rating": 625,
+      "line": [
+        "f3d2"
+      ],
+      "prompt": "Welche wertvolle weiße Figur kann der Springer schlagen?",
+      "hint": "Prüfe alle acht Springersprünge aus schwarzer Sicht.",
+      "intro": "Springerangriffe sind unabhängig von freien Linien. Gehe die Zielfelder systematisch ab.",
+      "notes": [
+        "Sxd2 gewinnt die weiße Dame. Der weiße König h1 ist zu weit entfernt."
+      ],
+      "outcome": "Die Dame wurde mit einem schwarzen Springerschlag gewonnen.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Welche wertvolle weiße Figur kann der Springer schlagen?",
+        "intro": "Springerangriffe sind unabhängig von freien Linien. Gehe die Zielfelder systematisch ab.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Welche wertvolle weiße Figur kann der Springer schlagen?",
+            "learnerSide": "b",
+            "startPly": 0,
+            "line": [
+              "f3d2"
+            ],
+            "outcome": "Die Dame wurde mit einem schwarzen Springerschlag gewonnen.",
+            "steps": [
+              {
+                "move": "f3d2",
+                "side": "b",
+                "piece": "Springer",
+                "before": "Schwarz: Springer f3 → d2 (Nxd2). Sxd2 gewinnt die weiße Dame. Der weiße König h1 ist zu weit entfernt.",
+                "after": "Der Materialtausch ist ausgeführt; prüfe jetzt, ob eine Rücknahme möglich ist. Ende dieses Ausschnitts: Die Dame wurde mit einem schwarzen Springerschlag gewonnen.",
+                "hint": "Sxd2 gewinnt die weiße Dame. Der weiße König h1 ist zu weit entfernt.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "f3",
+                      "to": "d2",
+                      "kind": "move",
+                      "label": "Material gewinnen: Nxd2"
+                    }
+                  ],
+                  "squares": [
+                    "f3",
+                    "d2"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "f3e5",
+                    "reply": [],
+                    "text": "f3 → e5 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Sxd2 gewinnt die weiße Dame. Der weiße König h1 ist zu weit entfernt."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-07",
+      "category": "material",
+      "title": "Umwandlung mit Damengewinn",
+      "fen": "k6q/6P1/8/8/8/8/8/6K1 w - - 0 1",
+      "side": "w",
+      "rating": 725,
+      "line": [
+        "g7h8q"
+      ],
+      "prompt": "Verbinde Schlagzug und Umwandlung zum größtmöglichen Gewinn.",
+      "hint": "Ein Bauer darf beim Schlag auf die letzte Reihe sofort umgewandelt werden.",
+      "intro": "Umwandlungstaktik: Ein Bauernschlag auf der letzten Reihe kann zugleich Material gewinnen und eine neue Figur schaffen.",
+      "notes": [
+        "gxh8=D nimmt die schwarze Dame und wandelt den Bauern gleichzeitig in eine weiße Dame um."
+      ],
+      "outcome": "Dame geschlagen und eigener Bauer umgewandelt: ein doppelter taktischer Gewinn.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Verbinde Schlagzug und Umwandlung zum größtmöglichen Gewinn.",
+        "intro": "Umwandlungstaktik: Ein Bauernschlag auf der letzten Reihe kann zugleich Material gewinnen und eine neue Figur schaffen.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Verbinde Schlagzug und Umwandlung zum größtmöglichen Gewinn.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "g7h8q"
+            ],
+            "outcome": "Dame geschlagen und eigener Bauer umgewandelt: ein doppelter taktischer Gewinn.",
+            "steps": [
+              {
+                "move": "g7h8q",
+                "side": "w",
+                "piece": "Bauer",
+                "before": "Weiß: Bauer g7 → h8 (gxh8=Q+). gxh8=D nimmt die schwarze Dame und wandelt den Bauern gleichzeitig in eine weiße Dame um.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Dame geschlagen und eigener Bauer umgewandelt: ein doppelter taktischer Gewinn.",
+                "hint": "gxh8=D nimmt die schwarze Dame und wandelt den Bauern gleichzeitig in eine weiße Dame um.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "g7",
+                      "to": "h8",
+                      "kind": "move",
+                      "label": "Material gewinnen: gxh8=Q+"
+                    }
+                  ],
+                  "squares": [
+                    "g7",
+                    "h8"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "g7g8q",
+                    "reply": [],
+                    "text": "g7 → g8 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: gxh8=D nimmt die schwarze Dame und wandelt den Bauern gleichzeitig in eine weiße Dame um."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-08",
+      "category": "material",
+      "title": "Turm gewinnt die Dame von hinten",
+      "fen": "6k1/8/8/8/8/8/q7/R5K1 w - - 0 1",
+      "side": "w",
+      "rating": 525,
+      "line": [
+        "a1a2"
+      ],
+      "prompt": "Schlage die ungedeckte Dame auf der offenen Linie.",
+      "hint": "Der Turm steht direkt hinter der gegnerischen Dame.",
+      "intro": "Vor jeder Berechnung stehen die einfachen Schlagzüge: Ist eine wertvolle Figur unmittelbar erreichbar?",
+      "notes": [
+        "Txa2 gewinnt die ungedeckte Dame ohne Rückschlag."
+      ],
+      "outcome": "Der direkte Schlagzug gewinnt die Dame.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Schlage die ungedeckte Dame auf der offenen Linie.",
+        "intro": "Vor jeder Berechnung stehen die einfachen Schlagzüge: Ist eine wertvolle Figur unmittelbar erreichbar?",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Schlage die ungedeckte Dame auf der offenen Linie.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "a1a2"
+            ],
+            "outcome": "Der direkte Schlagzug gewinnt die Dame.",
+            "steps": [
+              {
+                "move": "a1a2",
+                "side": "w",
+                "piece": "Turm",
+                "before": "Weiß: Turm a1 → a2 (Rxa2). Txa2 gewinnt die ungedeckte Dame ohne Rückschlag.",
+                "after": "Der Materialtausch ist ausgeführt; prüfe jetzt, ob eine Rücknahme möglich ist. Ende dieses Ausschnitts: Der direkte Schlagzug gewinnt die Dame.",
+                "hint": "Txa2 gewinnt die ungedeckte Dame ohne Rückschlag.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "a1",
+                      "to": "a2",
+                      "kind": "move",
+                      "label": "Material gewinnen: Rxa2"
+                    }
+                  ],
+                  "squares": [
+                    "a1",
+                    "a2"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "a1b1",
+                    "reply": [],
+                    "text": "a1 → b1 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Txa2 gewinnt die ungedeckte Dame ohne Rückschlag."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-09",
+      "category": "material",
+      "title": "Läufer schlägt durch das Zentrum",
+      "fen": "7k/8/8/4q3/8/2B5/8/6K1 w - - 0 1",
+      "side": "w",
+      "rating": 600,
+      "line": [
+        "c3e5"
+      ],
+      "prompt": "Finde den diagonalen Damengewinn im Zentrum.",
+      "hint": "Der Läufer auf c3 erreicht e5 in einem Zug.",
+      "intro": "Zentrale Figuren stehen auf vielen Linien zugleich. Prüfe vor jedem Plan, ob eine Figur bereits hängt.",
+      "notes": [
+        "Lxe5 gewinnt die ungeschützte schwarze Dame."
+      ],
+      "outcome": "Die zentral stehende Dame wurde durch den Läufer gewonnen.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Finde den diagonalen Damengewinn im Zentrum.",
+        "intro": "Zentrale Figuren stehen auf vielen Linien zugleich. Prüfe vor jedem Plan, ob eine Figur bereits hängt.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Finde den diagonalen Damengewinn im Zentrum.",
+            "learnerSide": "w",
+            "startPly": 0,
+            "line": [
+              "c3e5"
+            ],
+            "outcome": "Die zentral stehende Dame wurde durch den Läufer gewonnen.",
+            "steps": [
+              {
+                "move": "c3e5",
+                "side": "w",
+                "piece": "Läufer",
+                "before": "Weiß: Läufer c3 → e5 (Bxe5+). Lxe5 gewinnt die ungeschützte schwarze Dame.",
+                "after": "Der gegnerische König steht im Schach: Die nächste Antwort muss das Schach beseitigen. Ende dieses Ausschnitts: Die zentral stehende Dame wurde durch den Läufer gewonnen.",
+                "hint": "Lxe5 gewinnt die ungeschützte schwarze Dame.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "c3",
+                      "to": "e5",
+                      "kind": "move",
+                      "label": "Material gewinnen: Bxe5+"
+                    }
+                  ],
+                  "squares": [
+                    "c3",
+                    "e5"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "c3b4",
+                    "reply": [],
+                    "text": "c3 → b4 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Lxe5 gewinnt die ungeschützte schwarze Dame."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "material-10",
+      "category": "material",
+      "title": "Schwarzer Läufer auf der langen Diagonale",
+      "fen": "6k1/8/8/8/8/2b5/8/Q6K b - - 0 1",
+      "side": "b",
+      "rating": 650,
+      "line": [
+        "c3a1"
+      ],
+      "prompt": "Schwarz zieht und gewinnt die weiße Dame.",
+      "hint": "Verfolge die Diagonale des Läufers nach links unten.",
+      "intro": "Trainiere lange Linien aus beiden Blickrichtungen und mit beiden Farben.",
+      "notes": [
+        "Lxa1 gewinnt die weiße Dame auf dem Eckfeld."
+      ],
+      "outcome": "Der schwarze Läufer hat die Dame auf der langen Diagonale gewonnen.",
+      "lesson": {
+        "revision": 1,
+        "goal": "Schwarz zieht und gewinnt die weiße Dame.",
+        "intro": "Trainiere lange Linien aus beiden Blickrichtungen und mit beiden Farben.",
+        "scenarios": [
+          {
+            "id": "main",
+            "title": "Material gewinnen",
+            "purpose": "Schwarz zieht und gewinnt die weiße Dame.",
+            "learnerSide": "b",
+            "startPly": 0,
+            "line": [
+              "c3a1"
+            ],
+            "outcome": "Der schwarze Läufer hat die Dame auf der langen Diagonale gewonnen.",
+            "steps": [
+              {
+                "move": "c3a1",
+                "side": "b",
+                "piece": "Läufer",
+                "before": "Schwarz: Läufer c3 → a1 (Bxa1). Lxa1 gewinnt die weiße Dame auf dem Eckfeld.",
+                "after": "Der Materialtausch ist ausgeführt; prüfe jetzt, ob eine Rücknahme möglich ist. Ende dieses Ausschnitts: Der schwarze Läufer hat die Dame auf der langen Diagonale gewonnen.",
+                "hint": "Lxa1 gewinnt die weiße Dame auf dem Eckfeld.",
+                "visual": {
+                  "arrows": [
+                    {
+                      "from": "c3",
+                      "to": "a1",
+                      "kind": "move",
+                      "label": "Material gewinnen: Bxa1"
+                    }
+                  ],
+                  "squares": [
+                    "c3",
+                    "a1"
+                  ]
+                },
+                "mistakes": [
+                  {
+                    "move": "c3b4",
+                    "reply": [],
+                    "text": "c3 → b4 ist eine legale Abweichung, aber führt nicht die ausgewählte Lehrfolge aus. Keine Behauptung, dass der Zug verliert. Vergleiche das Ziel dieses Schrittes: Lxa1 gewinnt die weiße Dame auf dem Eckfeld."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "openings": [
@@ -23396,12 +23932,45 @@ window.CHESS_TRAINING_DATA = {
         "Stehen sich die Könige mit einem Feld Abstand gegenüber, hat die Seite ohne Zug die Opposition.",
         "Schiebe den Bauern erst, wenn dein König keinen Fortschritt mehr machen kann."
       ]
+    },
+    {
+      "id": "pawn-key-square",
+      "title": "Schlüsselfelder des Freibauern",
+      "fen": "4k3/8/3K4/4P3/8/8/8/8 w - - 0 1",
+      "goal": "Besetze mit dem König das Schlüsselfeld e6 und wandle sicher um.",
+      "tips": [
+        "Der König führt den Bauern, nicht umgekehrt.",
+        "Ke6 hält den gegnerischen König zurück und sichert den weiteren Vormarsch.",
+        "Ein vorschneller Bauernzug kann die Opposition verschenken."
+      ]
+    },
+    {
+      "id": "queen-mate",
+      "title": "Dame gegen König",
+      "fen": "8/8/3k4/8/8/8/6Q1/6K1 w - - 0 1",
+      "goal": "Dränge den König an den Rand und setze mit gedeckter Dame matt.",
+      "tips": [
+        "Nutze die Dame wie einen Zaun und verkleinere das Feld des Königs.",
+        "Führe anschließend den eigenen König heran.",
+        "Vermeide Patt und stelle die Dame nie ungedeckt neben den König."
+      ]
+    },
+    {
+      "id": "rook-mate",
+      "title": "Turm gegen König",
+      "fen": "8/8/3k4/8/8/8/6R1/6K1 w - - 0 1",
+      "goal": "Schneide den König mit dem Turm ab, führe deinen König heran und setze am Rand matt.",
+      "tips": [
+        "Der Turm schneidet eine Reihe oder Linie vollständig ab.",
+        "Die Könige müssen sich gegenüberstehen, bevor der Turm Schach gibt.",
+        "Halte den Turm außerhalb der Reichweite des gegnerischen Königs."
+      ]
     }
   ],
   "masterclass": {
     "id": "opera-game",
     "title": "Morphys Opernpartie · 1858",
-    "intro": "Spiele drei kritische Momente aus Paul Morphys berühmter Lehrpartie: Entwicklung, Initiative und offene Linien.",
+    "intro": "Vergleiche kritische Entscheidungen zu Entwicklung, Initiative, Figurenaktivität und Bauernstrukturen.",
     "steps": [
       {
         "fen": "rn1qkb1r/ppp2ppp/5n2/4p3/2B1P3/5Q2/PPP2PPP/RNB1K2R w KQkq - 2 7",
@@ -23477,6 +24046,106 @@ window.CHESS_TRAINING_DATA = {
           }
         ],
         "nextFen": "3rkb1r/p2Rqppp/5n2/1B2p1B1/4P3/1Q6/PPP2PPP/2K4R b k - 0 13"
+      },
+      {
+        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 2 2",
+        "question": "Welche Entwicklung verbessert eine Figur und kontrolliert gleichzeitig das Zentrum?",
+        "choices": [
+          {
+            "move": "d1h5",
+            "label": "Dh5?!",
+            "kind": "passive",
+            "text": "Die Dame kommt früh heraus und kann mit Tempo angegriffen werden. Noch fehlt die Entwicklung der Leichtfiguren."
+          },
+          {
+            "move": "a2a3",
+            "label": "a3?",
+            "kind": "passive",
+            "text": "Der Randbauernzug löst kein aktuelles Problem und entwickelt keine Figur."
+          },
+          {
+            "move": "g1f3",
+            "label": "Sf3!",
+            "kind": "correct",
+            "text": "Richtig: Sf3 entwickelt eine Figur, greift e5 an und bereitet die kurze Rochade vor."
+          }
+        ],
+        "nextFen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 2"
+      },
+      {
+        "fen": "r5k1/8/8/8/8/8/8/R3R1K1 w - - 0 1",
+        "question": "Wie nutzt Weiß die vollständig offene e-Linie mit Tempo?",
+        "choices": [
+          {
+            "move": "a1a2",
+            "label": "Ta2?",
+            "kind": "passive",
+            "text": "Der Turm bleibt ohne Aufgabe. Offene Linien sollten von den Schwerfiguren aktiv besetzt werden."
+          },
+          {
+            "move": "g1h2",
+            "label": "Kh2?",
+            "kind": "passive",
+            "text": "Der Königszug verbessert keine Figur und überlässt dem Gegner die Initiative."
+          },
+          {
+            "move": "e1e8",
+            "label": "Te8+!",
+            "kind": "correct",
+            "text": "Richtig: Der Turm dringt auf der offenen Linie ein und gewinnt durch das Schachgebot ein wichtiges Tempo."
+          }
+        ],
+        "nextFen": "r3R1k1/8/8/8/8/8/8/R5K1 b - - 1 1"
+      },
+      {
+        "fen": "8/5k2/3p4/3P4/8/4K3/8/8 w - - 0 1",
+        "question": "Welcher Königszug greift den gegnerischen Bauern an und unterstützt den eigenen Freibauern?",
+        "choices": [
+          {
+            "move": "e3f4",
+            "label": "Kf4?!",
+            "kind": "passive",
+            "text": "Der König entfernt sich vom blockierten Freibauern und gibt dem schwarzen König Zugang."
+          },
+          {
+            "move": "e3e4",
+            "label": "Ke4?!",
+            "kind": "passive",
+            "text": "Der König bleibt vor dem eigenen Bauern stehen, ohne den gegnerischen Stützpunkt anzugreifen."
+          },
+          {
+            "move": "e3d4",
+            "label": "Kd4!",
+            "kind": "correct",
+            "text": "Richtig: Der König greift d6 an, unterstützt d5 und übernimmt die aktive Schulterposition."
+          }
+        ],
+        "nextFen": "8/5k2/3p4/3P4/3K4/8/8/8 b - - 1 1"
+      },
+      {
+        "fen": "r1bqk2r/ppppbppp/2n2n2/4p3/4P3/2N2N2/PPPPBPPP/R1BQK2R w KQkq - 6 5",
+        "question": "Beide Leichtfiguren sind entwickelt. Welcher Zug schließt die Eröffnungsphase sinnvoll ab?",
+        "choices": [
+          {
+            "move": "h2h4",
+            "label": "h4?",
+            "kind": "blunder",
+            "text": "Der Flügelzug schwächt den eigenen König, solange dieser noch im Zentrum steht."
+          },
+          {
+            "move": "d2d3",
+            "label": "d3",
+            "kind": "passive",
+            "text": "Der Zug ist spielbar, lässt den König aber unnötig länger im Zentrum."
+          },
+          {
+            "move": "e1g1",
+            "label": "O-O!",
+            "kind": "correct",
+            "text": "Richtig: Die Rochade sichert den König und verbindet die Türme. Jetzt kann der Mittelspielplan beginnen."
+          }
+        ],
+        "nextFen": "r1bqk2r/ppppbppp/2n2n2/4p3/4P3/2N2N2/PPPPBPPP/R1BQR1K1 b kq - 7 5"
       }
     ]
   }

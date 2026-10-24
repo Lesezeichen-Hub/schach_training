@@ -12,7 +12,7 @@
     game: E.fromFEN(), mode: "home", level: "learner", gameVariant: "standard", colorChoice: "w", playerColor: "w", selected: null,
     legal: [], lastMove: null, opponentLastMove: null, moves: [], thinking: false, puzzleIndex: 0, puzzlePosition: 0,
     puzzleSolved: false, attemptsOnPuzzle: 0, solutionFrom: null, solutionTo: null, tacticDifficulty: "all",
-    endgameId: "ladder-mate", endgameFailed: false, strategyStep: 0, strategySolved: false,
+    endgameId: "ladder-mate", endgameFailed: false, endgameComplete: false, strategyStep: 0, strategySolved: false,
     openingIndex: 0, openingPly: 0, openingErrors: 0, basicsStep: 0, sessionId: 0, messageOverride: null,
     matchHint: null, hintThinking: false, hintRequest: 0, matchRated: false, matchResult: null, positionTraining: false,
     matchSaveId: null, matchStartFen: E.START_FEN, selectedSavedGameId: null,
@@ -890,10 +890,16 @@
         state.messageOverride = { kind: review.ok ? "success" : "error", title: review.title, text: review.text };
         if (!review.ok) {
           state.game = before; state.moves.pop(); state.lastMove = null; state.endgameFailed = true;
-          updateLearningRating("endgame", 0, state.endgameId === "pawn-opposition" ? 900 : 800);
+          queueMixedRetry("endgame", state.endgameId);
+          updateLearningRating("endgame", 0, endgameRating(state.endgameId));
           animateBoard("wrong-shake"); render(); return;
         }
-        if (review.complete) { playMoveSound(before, move); updateLearningRating("endgame", 1, state.endgameId === "pawn-opposition" ? 900 : 800); animateBoard("correct-flash"); render(); return; }
+        if (review.complete) {
+          playMoveSound(before, move); state.endgameComplete = true;
+          updateLearningRating("endgame", 1, endgameRating(state.endgameId));
+          if (state.mixed.active) $("#restartEndgame").textContent = state.mixed.index + 1 < state.mixed.queue.length ? "Weiter im Tagestraining" : "Tagestraining abschließen";
+          animateBoard("correct-flash"); render(); return;
+        }
         playMoveSound(before, move); render(); requestEndgameDefense(); return;
       }
       playMoveSound(before, move); render();
@@ -1437,11 +1443,12 @@
   function loadEndgame(id) {
     beginPositionSession();
     const lesson = trainingData.endgames.find((item) => item.id === id) || trainingData.endgames[0];
-    state.endgameId = lesson.id; state.endgameFailed = false; state.thinking = false;
+    state.endgameId = lesson.id; state.endgameFailed = false; state.endgameComplete = false; state.thinking = false;
     state.game = E.fromFEN(lesson.fen); state.moves = []; state.lastMove = null; state.selected = null; state.legal = [];
     state.messageOverride = { kind: "", title: "Dein Ziel", text: lesson.goal };
     $("#endgameTitle").textContent = lesson.title; $("#endgameGoal").textContent = lesson.goal;
     $("#endgameTips").innerHTML = lesson.tips.map((tip) => `<li>${tip}</li>`).join("");
+    $("#restartEndgame").textContent = "Übung neu starten";
     $("#lessonText").textContent = lesson.tips[0];
     render();
   }
@@ -1471,6 +1478,7 @@
     if (state.strategySolved) return;
     if (choice.kind !== "correct") {
       button.classList.add("incorrect"); button.disabled = true; $("#strategyFeedback").textContent = choice.text;
+      queueMixedRetry("strategy", String(state.strategyStep));
       updateLearningRating("strategy", 0, 850 + state.strategyStep * 100); animateBoard("wrong-shake"); return;
     }
     state.strategySolved = true; button.classList.add("correct");
@@ -1478,7 +1486,15 @@
     $("#strategyFeedback").textContent = choice.text;
     state.game = E.fromFEN(trainingData.masterclass.steps[state.strategyStep].nextFen);
     updateLearningRating("strategy", 1, 850 + state.strategyStep * 100);
+    if (state.mixed.active) $("#nextStrategy").textContent = state.mixed.index + 1 < state.mixed.queue.length ? "Weiter im Tagestraining" : "Tagestraining abschließen";
     $("#nextStrategy").disabled = false; animateBoard("correct-flash"); render();
+  }
+
+  function endgameRating(id) {
+    if (id.startsWith("pawn-")) return 900;
+    if (id === "queen-mate") return 750;
+    if (id === "rook-mate") return 950;
+    return 800;
   }
 
   function populateOpeningSelect() {
@@ -1703,7 +1719,7 @@
 
   function buildMixedQueue() {
     const saved = getProgress();
-    const mistakes = dueGameMistakes(saved).slice(0, 5).map((item) => ({ type: "mistake", id: item.id }));
+    const mistakes = dueGameMistakes(saved).slice(0, 3).map((item) => ({ type: "mistake", id: item.id }));
     const rotation = Number(localDate().replaceAll("-", "")) % puzzles.length;
     const orderedPuzzles = [...puzzles.slice(rotation), ...puzzles.slice(0, rotation)]
       .filter((item) => T.isReviewDue(saved.puzzles[item.id], localDate()))
@@ -1712,13 +1728,22 @@
         const leftDue = T.isReviewDue(left, localDate()) ? 0 : 1, rightDue = T.isReviewDue(right, localDate()) ? 0 : 1;
         return leftDue - rightDue || (left?.successes || 0) - (right?.successes || 0);
       })
-      .slice(0, mistakes.length ? 5 : 10).map((item) => ({ type: "tactic", id: item.id }));
+      .slice(0, mistakes.length ? 5 : 8).map((item) => ({ type: "tactic", id: item.id }));
     const queue = [];
     while (mistakes.length || orderedPuzzles.length) {
       if (mistakes.length) queue.push(mistakes.shift());
       if (orderedPuzzles.length) queue.push(orderedPuzzles.shift());
     }
-    return queue;
+    const dailySeed = Number(localDate().replaceAll("-", ""));
+    const learningTasks = [
+      { type: "endgame", id: trainingData.endgames[dailySeed % trainingData.endgames.length].id },
+      { type: "strategy", index: dailySeed % trainingData.masterclass.steps.length }
+    ];
+    const ratings = getRatings(saved);
+    if (ratings.strategy < ratings.endgame) learningTasks.reverse();
+    let insertAt = Math.max(1, Math.floor(queue.length / 2));
+    for (const task of learningTasks) queue.splice(Math.min(queue.length, insertAt++), 0, task);
+    return queue.slice(0, 10);
   }
 
   function startMixedTraining() {
@@ -1732,7 +1757,13 @@
     if (!state.mixed.active) return;
     const total = state.mixed.queue.length, current = state.mixed.queue[state.mixed.index];
     $("#mixedSessionProgress").textContent = `${Math.min(state.mixed.index + 1, total)} / ${total}`;
-    $("#mixedSessionType").textContent = current?.type === "mistake" ? `${current.retry ? "Sofort-Wiederholung" : "Partiefehler"}: aus dem Gedächtnis den besseren Zug finden.` : `${current?.retry ? "Sofort-Wiederholung" : "Taktik"}: eine vollständige Folge selbst lösen.`;
+    const descriptions = {
+      mistake: `${current?.retry ? "Sofort-Wiederholung" : "Partiefehler"}: aus dem Gedächtnis den besseren Zug finden.`,
+      tactic: `${current?.retry ? "Sofort-Wiederholung" : "Taktik"}: eine vollständige Folge selbst lösen.`,
+      endgame: "Endspiel: die technische Gewinnstellung gegen Widerstand verwerten.",
+      strategy: "Strategie: Kandidaten vergleichen und den besten Plan begründen."
+    };
+    $("#mixedSessionType").textContent = descriptions[current?.type] || "Nächste adaptive Aufgabe.";
     $("#mixedSessionProgressBar").style.width = `${total ? state.mixed.index / total * 100 : 100}%`;
   }
 
@@ -1743,12 +1774,16 @@
     if (item.type === "mistake") {
       switchMode("mistakes");
       loadGameMistake(0, item.id);
-    } else {
+    } else if (item.type === "tactic") {
       $("#themeFilter").value = "all"; $("#tacticDifficulty").value = "all"; $("#lessonPhase").value = "practice";
       switchMode("tactics");
       const puzzle = puzzles.find((candidate) => candidate.id === item.id) || puzzles[0];
       loadPuzzle(puzzles.indexOf(puzzle));
       startLesson(puzzle, { phase: "practice", scenario: "main" });
+    } else if (item.type === "endgame") {
+      $("#endgameSelect").value = item.id; switchMode("endgame"); loadEndgame(item.id);
+    } else if (item.type === "strategy") {
+      switchMode("strategy"); loadStrategyStep(Number(item.index ?? item.id) || 0);
     }
     renderMixedSession();
   }
@@ -1770,9 +1805,9 @@
     const dueMistakes = dueGameMistakes().length;
     const saved = getProgress();
     const dueTactics = puzzles.filter((item) => T.isReviewDue(saved.puzzles[item.id], localDate())).length;
-    const due = Math.min(10, dueMistakes + dueTactics);
-    $("#mixedDueCount").textContent = due ? `${due} fällig` : "nichts fällig";
-    $("#startMixedTraining").disabled = due === 0;
+    const due = Math.min(8, dueMistakes + dueTactics);
+    $("#mixedDueCount").textContent = `${Math.min(10, due + 2)} Aufgaben`;
+    $("#startMixedTraining").disabled = false;
   }
 
   function recordMatchResult(status) {
@@ -2140,8 +2175,8 @@
     loadPuzzle(0);
   });
   $("#endgameSelect").addEventListener("change", (event) => loadEndgame(event.target.value));
-  $("#restartEndgame").addEventListener("click", () => loadEndgame(state.endgameId));
-  $("#nextStrategy").addEventListener("click", () => loadStrategyStep(state.strategyStep + 1));
+  $("#restartEndgame").addEventListener("click", () => state.mixed.active && state.endgameComplete ? advanceMixedTraining() : loadEndgame(state.endgameId));
+  $("#nextStrategy").addEventListener("click", () => state.mixed.active ? advanceMixedTraining() : loadStrategyStep(state.strategyStep + 1));
   $("#openingSelect").addEventListener("change", (event) => loadOpening(event.target.value));
   $("#restartOpening").addEventListener("click", () => loadOpening(trainingData.openings[state.openingIndex].id));
 
@@ -2543,6 +2578,12 @@
         renderBoard(); renderEngineArrowControls();
       });
       detail.appendChild(toggleArrows);
+      if (["mistake", "blunder"].includes(item.classification.id)) {
+        const retry = document.createElement("button");
+        retry.type = "button"; retry.className = "primary-button analysis-retry"; retry.textContent = "Diesen Zug erneut versuchen";
+        retry.addEventListener("click", () => startAnalysisRetry(item));
+        detail.appendChild(retry);
+      }
     }
     renderEngineArrowControls();
     renderLiveEvaluation(); ensureLiveEvaluation();
@@ -2552,6 +2593,14 @@
     return sameMove(item.played, item.best)
       ? [{ from: item.best.from, to: item.best.to, color: "#62be77", label: `Stärkster Zug: ${item.bestSan}` }]
       : [{ from: item.played.from, to: item.played.to, color: "#e06459", label: `Gespielt: ${item.playedSan}` }, { from: item.best.from, to: item.best.to, color: "#e7b65d", label: `Besser: ${item.bestSan}` }];
+  }
+
+  function startAnalysisRetry(item) {
+    saveGameMistakes([item]);
+    const key = `${item.fen.split(" ").slice(0, 4).join(" ")}|${item.best.from}${item.best.to}${item.best.promotion || ""}`;
+    const stored = getGameMistakes().find((entry) => entry.key === key);
+    switchMode("mistakes");
+    loadGameMistake(0, stored?.id || null);
   }
 
   function explainAnalysisMove(item) {

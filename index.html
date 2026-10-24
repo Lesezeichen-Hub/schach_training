@@ -94,7 +94,7 @@
         <section id="learnControls" class="control-section learn-overview" hidden>
           <span class="card-kicker">WÄHLE EIN LERNZIEL</span>
           <div class="learning-menu">
-            <button type="button" id="startMixedTraining"><span class="learning-number">✦</span><strong>Heutige gemischte Einheit</strong><small>Fällige Partiefehler und Taktiken im Wechsel</small><em id="mixedDueCount">Start</em></button>
+            <button type="button" id="startMixedTraining"><span class="learning-number">✦</span><strong>Dein Training heute</strong><small>Fehler, Taktik, Endspiel und Strategie adaptiv gemischt</small><em id="mixedDueCount">10 Aufgaben</em></button>
             <button type="button" data-learning-mode="basics"><span class="learning-number">00</span><strong>Schach von Anfang an</strong><small>Spielziel, Figuren, Schach und Matt verstehen</small><em id="menuBasics">Start</em></button>
             <button type="button" data-learning-mode="tactics"><span class="learning-number">01</span><strong>Taktikaufgaben lösen</strong><small>Matt in 1/2, Materialgewinn und taktische Motive</small><em id="menuRatingTactics">0</em></button>
             <button type="button" data-learning-mode="openings"><span class="learning-number">02</span><strong>Gut in die Partie starten</strong><small>Eröffnungszüge verstehen und selbst spielen</small><em id="menuRatingOpenings">0</em></button>
@@ -287,6 +287,9 @@
           <select id="endgameSelect">
             <option value="ladder-mate">Treppenmatt mit zwei Türmen</option>
             <option value="pawn-opposition">König + Bauer · Opposition</option>
+            <option value="pawn-key-square">König + Bauer · Schlüsselfelder</option>
+            <option value="queen-mate">Dame gegen König</option>
+            <option value="rook-mate">Turm gegen König</option>
           </select>
           <h2 id="endgameTitle">Treppenmatt</h2>
           <p id="endgameGoal"></p>

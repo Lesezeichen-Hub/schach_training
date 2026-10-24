@@ -25,16 +25,16 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Zeitpartien ohne Inkrement oder als Fischer-Modus 3+2, 5+3, 10+5 und 15+20
 - Installierbare Progressive Web App mit lokalem Offline-Cache; nach dem ersten Online-Aufruf läuft die App ohne Verbindung weiter
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
-- 32 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie je vier Aufgaben zu Matt in 1, Matt in 2 und Materialgewinn
+- 40 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie 20 direkte Matt- und Materialaufgaben
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien
-- Vier jederzeit wählbare Lernphasen für alle 45 Eröffnungs- und Taktiklektionen
-- 147 Szenarien (45 Hauptlinien, 45 Abwehrausschnitte, 45 Gegenspiel-/Konterabläufe und 12 direkte Praxisaufgaben), insgesamt 627 erklärte Halbzüge
+- Vier jederzeit wählbare Lernphasen für alle 65 Eröffnungs- und Taktiklektionen
+- 155 Szenarien (45 Hauptlinien, 45 Abwehrausschnitte, 45 Gegenspiel-/Konterabläufe und 20 direkte Praxisaufgaben), insgesamt 635 erklärte Halbzüge
 - Ausführliche Texterklärungen zu Lektionszügen; Zugvorschläge bleiben als Text statt als festes Brett-Overlay lesbar
 - Zurück, Weiter, Neustart sowie Abspielen/Pause in Vorführungen
 - Konkrete geprüfte Planabweichungen mit Antwort; unbekannte legale Abweichungen werden nicht als automatisch schlechte Züge bezeichnet
-- Interaktive Endspiele: Treppenmatt und König-Bauer gegen König mit Opposition
+- Fünf interaktive Endspiele: Treppenmatt, Dame- und Turmmatt sowie Bauernendspiele mit Opposition und Schlüsselfeldern
 - Regelbasierte Endspielverteidigung und unmittelbare Fehlererklärung
-- Strategie-Masterclass mit Multiple-Choice-Entscheidungen
+- Strategie-Masterclass mit sieben interaktiven Entscheidungen zu Entwicklung, Initiative, Linien, Freibauern und Königssicherheit
 - Spielbarer Eröffnungstrainer mit 25 sinnvollen Repertoirevarianten für Weiß und Schwarz
 - Pläne, typische Fehler, ECO-Codes und schrittweise Zugkontrolle zu jeder Eröffnung
 - Lokale Lern-Elo für Taktik, Endspiel, Strategie und Eröffnungen
@@ -54,7 +54,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Automatischer persönlicher Fehlertrainer aus kritischen Stellungen gespielter Partien
 - Verteilte Wiederholung mit wachsenden Abständen von 1, 3, 7, 21 und 45 Tagen für Partiefehler und Taktiken
 - Sofortige Fehlerkorrektur: Der richtige Zug muss direkt ausgeführt werden und erscheint in gemischten Einheiten später erneut
-- Gemischte Einheiten mit bis zu zehn fälligen Partiefehlern und Taktikfolgen
+- Adaptives Tagestraining mit bis zu zehn Partiefehlern, Taktikfolgen, Endspielen und Strategieentscheidungen
+- Kritische Momente aus der Partieanalyse lassen sich direkt erneut spielen und werden anschließend verteilt wiederholt
 - Selbstlernender Trainingspartner: Eigene Züge werden bereits während der Partie lokal bewertet und neue Fehler sofort gespeichert
 - Persönliche Übungspartien aus fälligen Fehlerstellungen sind optional und standardmäßig aus; nach Aktivierung kommt zuerst der Korrekturzug, danach geht es gegen den Computer weiter
 - Optionaler automatischer Denkanstoß sowie die vorhandenen drei Hinweisstufen für persönliche Fehlerstellungen
@@ -88,9 +89,9 @@ Partien werden unter `schachwerkstatt-games` getrennt vom Lernfortschritt auf di
 
 „Weiter“ überspringt keinen eigenen Übungszug. Hinweise, Rückwärtsnavigation und Wiederholungen bereits gesehener Folgen kennzeichnen den Versuch als **unterstützt**. In einer Vorführung ist Abspielen/Pause verfügbar; in einer Übung werden nur die kuratierten Gegnerzüge automatisch gespielt. Bei Wechseln werden laufende Lektions-Timer abgebrochen und ihre Sitzungs-/Stellungskennung erneut geprüft. Eine offene Umwandlung wird abgebrochen; Escape wandelt nicht stillschweigend in eine Dame um.
 
-Die 45 Motiv- und Eröffnungslektionen bieten **Hauptlinie, Abwehr und Konter/Gegenspiel**. Die 12 direkten Matt- und Materialaufgaben konzentrieren sich dagegen auf genau eine konkrete Lösungsfolge. Eröffnungszweige beginnen nach `startPly` Halbzügen der Hauptlinie. Die Taktikabwehr beginnt ausdrücklich **einen Zug früher mit Schwarz am Zug**. Taktikkonter sind gekennzeichnete, verwandte **Vergleichsstellungen**: Die 20 Konterabläufe nutzen vier gemeinsame Motivvergleiche (zusätzlicher Verteidiger, relative Fesselung, ungedeckter Spieß, rettende Damenantwort). Es sind nicht 20 verschiedene erzwungene Widerlegungen der Hauptstellungen.
+Die 45 Motiv- und Eröffnungslektionen bieten **Hauptlinie, Abwehr und Konter/Gegenspiel**. Die 20 direkten Matt- und Materialaufgaben konzentrieren sich dagegen auf genau eine konkrete Lösungsfolge. Eröffnungszweige beginnen nach `startPly` Halbzügen der Hauptlinie. Die Taktikabwehr beginnt ausdrücklich **einen Zug früher mit Schwarz am Zug**. Taktikkonter sind gekennzeichnete, verwandte **Vergleichsstellungen**: Die 20 Konterabläufe nutzen vier gemeinsame Motivvergleiche (zusätzlicher Verteidiger, relative Fesselung, ungedeckter Spieß, rettende Damenantwort). Es sind nicht 20 verschiedene erzwungene Widerlegungen der Hauptstellungen.
 
-Die Abdeckung ist bewusst begrenzt: **25 Eröffnungs-IDs, die bisherigen 20 Motiv-IDs und 12 direkte Praxisaufgaben**, kein vollständiger Variantenbaum und keine Behauptung universell bester Antworten. Manche vereinfachten Fesselungs-/Gabelstellungen enden trotz Materialgewinn mit bloßen Königen beziehungsweise König und Springer in **Remis**. Rückschläge und dieses Partieergebnis werden ausdrücklich erläutert. Die Eröffnungsausschnitte enden mit einem Entwicklungsplan, nicht mit einem behaupteten Gewinn.
+Die Abdeckung ist bewusst begrenzt: **25 Eröffnungs-IDs, die bisherigen 20 Motiv-IDs und 20 direkte Praxisaufgaben**, kein vollständiger Variantenbaum und keine Behauptung universell bester Antworten. Manche vereinfachten Fesselungs-/Gabelstellungen enden trotz Materialgewinn mit bloßen Königen beziehungsweise König und Springer in **Remis**. Rückschläge und dieses Partieergebnis werden ausdrücklich erläutert. Die Eröffnungsausschnitte enden mit einem Entwicklungsplan, nicht mit einem behaupteten Gewinn.
 
 ## Fortschritt
 
@@ -124,6 +125,6 @@ Mit installiertem Node.js:
 node tests.mjs
 ```
 
-Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 147 vollständigen Szenarien und Vergleichsantworten, 441 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, echte Mattenden in der angegebenen Zugzahl, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Engine-Pfeilkoordinaten in beiden Orientierungen, PGN-Header/Export und legale Wiederaufnahme gespeicherter Zugfolgen. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
+Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 155 vollständigen Szenarien und Vergleichsantworten, 465 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, echte Mattenden in der angegebenen Zugzahl, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Engine-Pfeilkoordinaten in beiden Orientierungen, PGN-Header/Export und legale Wiederaufnahme gespeicherter Zugfolgen. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
 
 Lern- und Spiel-Elo beginnen bei neuen Profilen bei **0** und werden ausschließlich durch absolvierte Übungen beziehungsweise gewertete Partien aufgebaut. Werte können nicht negativ werden. Bereits erspielte Wertungen bleiben erhalten; lediglich unberührte alte 800-Standardwerte ohne gewertete Aktivität werden auf 0 migriert. Die Lern-Elo reagiert ähnlich einer Elo-Wertung auf richtige und falsche Entscheidungen sowie die Schwierigkeit der Übung; sie ist keine offizielle Spielstärke.

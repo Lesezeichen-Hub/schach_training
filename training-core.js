@@ -119,7 +119,7 @@
       let score = 0;
       if (move.capture) score += 10000 + (VALUES[engine.typeOf(move.capture)] || 0);
       if (lesson === "ladder-mate") score += kingDistanceToEdge(engine, next, "b") * 80 + moves.length;
-      if (lesson === "pawn-opposition") {
+      if (lesson.startsWith("pawn-")) {
         const pawn = findPiece(engine, next, "P");
         const king = findPiece(engine, next, "k");
         if (!pawn) score += 20000;
@@ -141,6 +141,14 @@
       if (rookCanFall) return { ok: false, title: "Turm ungedeckt", text: "Der König kann im nächsten Zug einen Turm schlagen. Halte den angreifenden Turm auf Abstand." };
       if (status.type === "checkmate") return { ok: true, complete: true, title: "Treppenmatt geschafft!", text: "Die Türme haben den König Reihe für Reihe bis an den Rand gedrängt." };
       return { ok: true, title: "Weiter einschränken", text: "Gut. Schneide mit dem anderen Turm die nächste Reihe ab." };
+    }
+
+    if (lesson === "queen-mate" || lesson === "rook-mate") {
+      const major = lesson === "queen-mate" ? "q" : "r";
+      const pieceCanFall = engine.legalMoves(after).some((reply) => reply.capture && engine.typeOf(reply.capture) === major);
+      if (pieceCanFall) return { ok: false, title: `${lesson === "queen-mate" ? "Dame" : "Turm"} ungedeckt`, text: "Der gegnerische König kann deine Mattfigur schlagen. Halte sie gedeckt oder auf sicheren Abstand." };
+      if (status.type === "checkmate") return { ok: true, complete: true, title: "Grundmatt geschafft!", text: "Du hast den König systematisch an den Rand gedrängt und die Mattfigur mit dem eigenen König geschützt." };
+      return { ok: true, title: "Raum weiter verkleinern", text: "Gut. Begrenze den gegnerischen König weiter und führe dann deinen König heran." };
     }
 
     const pawn = findPiece(engine, after, "P");
