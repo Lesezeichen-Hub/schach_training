@@ -1347,7 +1347,9 @@
       insufficient: "Unzureichendes Material"
     };
     const reason = reasons[status.type] || "Partie beendet";
-    const outcome = status.winner === "w" ? "Weiß hat gewonnen" : status.winner === "b" ? "Schwarz hat gewonnen" : "Remis";
+    const moveCount = Math.ceil(state.moves.length / 2);
+    const moveText = moveCount === 1 ? "1 Zug" : `${moveCount} Zügen`;
+    const outcome = status.winner === "w" ? `Weiß hat mit ${moveText} gewonnen` : status.winner === "b" ? `Schwarz hat mit ${moveText} gewonnen` : `Remis nach ${moveCount === 1 ? "1 Zug" : `${moveCount} Zügen`}`;
     const score = status.winner === "w" ? "1–0" : status.winner === "b" ? "0–1" : "½–½";
     banner.classList.toggle("draw", !status.winner);
     for (const [selector, value] of [["#boardResultReason", reason], ["#boardResultOutcome", outcome], ["#boardResultScore", score]]) {

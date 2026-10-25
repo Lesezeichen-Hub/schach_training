@@ -23,7 +23,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug
 - Filterbare Taktikstufen Leicht, Mittel und Schwer, kombinierbar mit dem gewünschten Motiv
 - Zeitpartien ohne Inkrement oder als Fischer-Modus 3+2, 5+3, 10+5 und 15+20
-- Gut sichtbares Ergebnis direkt über dem Brett nach Partieende: Schachmatt, Zeitüberschreitung oder Remisgrund mit Gewinner und Spielstand
+- Gut sichtbares Ergebnis direkt über dem Brett nach Partieende: Schachmatt, Zeitüberschreitung oder Remisgrund mit Gewinner, Zahl der gespielten Züge und Spielstand
 - Installierbare Progressive Web App mit lokalem Offline-Cache; nach dem ersten Online-Aufruf läuft die App ohne Verbindung weiter
 - Abschaltbares „Effektschach“ im 3D-Brett: schwere Treffer mit Stein- und Metallsplittern, Staub und Druckwelle, synchrone Rochade, geschmiedete Umwandlung sowie zurückhaltende Warnsignale bei Schach und Matt; Geräusche treffen zeitgleich mit dem Einschlag
 - 3D-Figuren lassen sich auch am sichtbaren Körper anklicken und ziehen; eine stockende Animation gibt die Partie spätestens nach ihrer Abschlussfrist wieder frei
