@@ -47,8 +47,11 @@ let impacts = 0, completions = 0;
 view.animateMove({ ...move, onImpact: () => impacts++ }, () => completions++);
 step(680); assert.equal(impacts, 1); assert.equal(completions, 0);
 let bodyFragments = 0;
+let fireBlocks = 0;
 for (let i = 0; i < upload.length; i += 12) if (Math.abs(upload[i+3]-.0432)<.00001 && upload[i+1]>.3) bodyFragments++;
+for (let i = 0; i < upload.length; i += 12) if (upload[i+6]>1 && upload[i+7]<upload[i+6] && upload[i+8]<upload[i+7]) fireBlocks++;
 assert.ok(bodyFragments>60,'Geschlagene Figur wird nicht aus Körperfragmenten zerlegt');
+assert.ok(fireBlocks>8,'Beim Vernichten fehlt der selbstleuchtende Feuerball');
 step(80);
 assert.ok(maximumInstances >= 180, "Schlag erzeugt keine dichte Trümmerwolke");
 step(400); assert.equal(completions, 1);
@@ -86,4 +89,4 @@ assert.equal(completions, 6, "Direkt aufeinanderfolgende Animationen blockieren 
 assert.equal(frames.size, 0);
 view.signalSquare("e4", "Q"); assert.ok(frames.size > 0);
 view.clearEffects(); assert.equal(frames.size, 0);
-console.log("Effektschach: Bodenkontakt, Körperzerfall, Partikelbudget, Abschlussfrist, Abbruch, Aus-Schalter, reduzierte Bewegung und Folgeanimationen bestanden.");
+console.log("Effektschach: Bodenkontakt, Körperzerfall, Feuerball, Partikelbudget, Abschlussfrist, Abbruch, Aus-Schalter, reduzierte Bewegung und Folgeanimationen bestanden.");

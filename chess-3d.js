@@ -246,7 +246,7 @@ mat3 rx=mat3(1.,0.,0.,0.,cx,sx,0.,-sx,cx),ry=mat3(cy,0.,-sy,0.,1.,0.,sy,0.,cy);
 normal=ry*rx*n;color=tint;alpha=opacity;gl_Position=vp*vec4(center+ry*rx*(p*size),1.);}`));
       gl.attachShader(particleProgram,shader(gl,gl.FRAGMENT_SHADER,`#version 300 es
 precision highp float;in vec3 normal;in vec3 color;in float alpha;out vec4 outColor;
-void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,1.,.7))));outColor=vec4(pow(max(color*light,vec3(0.)),vec3(1./2.2)),alpha);}`));
+void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,1.,.7))));light=mix(light,1.25,step(1.01,color.r));outColor=vec4(pow(max(color*light,vec3(0.)),vec3(1./2.2)),alpha);}`));
       gl.linkProgram(particleProgram);if(!gl.getProgramParameter(particleProgram,gl.LINK_STATUS))throw new Error("Partikelprogramm nicht verfügbar");
       particleVP=gl.getUniformLocation(particleProgram,"vp");particleBuffer=gl.createBuffer();
       gl.bindVertexArray(meshes.cube.vao);gl.bindBuffer(gl.ARRAY_BUFFER,particleBuffer);
@@ -387,6 +387,9 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
       }
       return Math.max(-.045,Math.min(.06,displacement));
     }
+    function fireExplosion(x,z,start,power=1){
+      queueBurst({type:"fire",x,z,start,life:2.5,power});
+    }
     function particleBurst(x,z,start,piece,count=100,power=1,direction=[0,0],style="impact",attackerType="p"){
       const[stone,edge]=effectPalette(piece),particles=[],seed=x*17+z*31+count;
       for(let i=0;i<count;i++){
@@ -423,6 +426,7 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
       if(motion.capturedPiece){
         const[cx,cz]=effectSquarePosition(motion.captureSquare||motion.to);
         shatterPiece(motion.capturedPiece,cx,cz,now,profile.power,direction);
+        fireExplosion(cx,cz,now,Math.min(1.35,profile.power*.75));
         particleBurst(cx,cz,now,motion.capturedPiece,profile.count,profile.power,direction,"impact",motion.piece.toLowerCase());
         particleBurst(cx+direction[0]*.12,cz+direction[1]*.12,now+65,motion.capturedPiece,110,1.05,direction,"ground");
       }
@@ -435,6 +439,7 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
       if(motion.promotion){
         queueBurst({type:"promotion",x,z,start:now,life:1.2,palette:effectPalette(motion.piece)});
         particleBurst(x,z,now,motion.piece,112,.8,[0,0]);
+        fireExplosion(x,z,now,.55);
       }
       if(motion.checkedKingSquare){
         const[kx,kz]=effectSquarePosition(motion.checkedKingSquare);
@@ -443,6 +448,7 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
         particleBurst(kx,kz,now+100,checkedKingPiece(motion),kind==="checkmate"?260:80,kind==="checkmate"?1.35:.6,direction,kind==="checkmate"?"impact":"ground");
         if(kind==="checkmate"){
           queueBurst({type:"slam",x:kx,z:kz,start:now+100,life:.85,power:1.5});
+          fireExplosion(kx,kz,now+100,1.05);
           for(let i=0;i<2;i++)particleBurst(kx+(i?-.24:.25),kz+(i?.2:-.18),now+210+i*135,checkedKingPiece(motion),150,1.15,[0,0]);
         }
       }
@@ -495,6 +501,39 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
             if(!dust&&!ash&&py<.025){const hit=(particle.vy+Math.sqrt(particle.vy**2+19.2*particle.height))/9.6,bounce=elapsed-hit;py=.025+Math.max(0,(particle.vy+4.8*hit)*.2*bounce-4.8*bounce*bounce);}
             const size=particle.size*(dust?(.55+elapsed*1.8)*pf:Math.min(1,pf*3));
             cube([px,Math.max(.025,py),pz],[size*(dust?1.6:1),size*(dust?.55:particle.flat),size],particle.color,[particle.spin+elapsed*(dust?.2:7),particle.spin+elapsed*(dust?.3:5)],dust?Math.min(1,elapsed*20)*pf*.4:ash?pf*.6:Math.min(1,pf*4),chunk?3:dust?0:1);
+          }
+        }else if(burst.type==="fire"){
+          const power=burst.power;
+          cube([burst.x,.02,burst.z],[.48*power*fade,.009,.48*power*fade],[.035,.029,.023],[0,0],fade,1);
+          if(age<.25){
+            const expansion=age/.25;
+            for(let i=0;i<26;i++){
+              const angle=i*2.39996,radius=(.12+expansion*.7)*power,scale=(.16+Math.sin(expansion*Math.PI)*.18)*power;
+              const color=i%3?[1.5,.37,.035]:[1.9,.78,.2];
+              cube([burst.x+Math.cos(angle)*radius,.28+(i%4)*.15*power,burst.z+Math.sin(angle)*radius],[scale,scale*.85,scale],color,[i*.4,age*5+i],(.9-expansion*.65),2);
+            }
+          }
+          for(let i=0;i<64;i++){
+            const random=scatter(i+3,12),delay=random*.16,life=.52+scatter(i+7,4)*.37,ft=(age-delay)/life;
+            if(ft<0||ft>=1)continue;
+            const angle=i*2.39996,radius=(.09+random*.3+ft*.38)*power;
+            const flicker=.88+.12*Math.sin(ft*38+i),scale=(.095+random*.13)*power*Math.pow(1-ft,.65)*flicker;
+            const color=ft<.22?[1.65,.63,.1]:ft<.65?[1.35,.23,.015]:[1.07,.045,.004];
+            cube([burst.x+Math.cos(angle)*radius,.08+ft*(1.25+random*.65)*power,burst.z+Math.sin(angle)*radius],[scale,scale*(1.8+random),scale*.8],color,[ft*.4,angle],Math.min(1,ft*20)*Math.pow(1-ft,.6)*.78,2);
+          }
+          for(let i=0;i<54;i++){
+            const random=scatter(i,6),sparkAge=age-random*.12,life=.65+random*.65;
+            if(sparkAge<0||sparkAge>=life)continue;
+            const angle=i*2.39996,travel=(1-Math.exp(-sparkAge*1.3))/1.3,speed=(1.4+random*3.6)*power;
+            const height=.15+(2.1+random*3)*power*sparkAge-3.4*sparkAge*sparkAge,size=(.012+random*.017)*(1-sparkAge/life);
+            cube([burst.x+Math.cos(angle)*speed*travel,Math.max(.04,height),burst.z+Math.sin(angle)*speed*travel],[size,size*2.6,size],[1.35,.24+random*.2,.018],[sparkAge*4,angle],Math.min(1,(1-sparkAge/life)*2),2);
+          }
+          for(let i=0;i<40;i++){
+            const random=scatter(i+4,22),smokeAge=age-.16-random*.28,life=1.45+random*.65;
+            if(smokeAge<0||smokeAge>=life)continue;
+            const st=smokeAge/life,angle=i*2.39996,radius=(.15+random*.35+st*.5)*power;
+            const scale=(.12+random*.18)*(.7+st*1.6)*power,color=.035+st*.045;
+            cube([burst.x+Math.cos(angle)*radius,.28+st*(1.5+random)*power,burst.z+Math.sin(angle)*radius],[scale*1.3,scale,scale*1.3],[color,color*.92,color*.8],[st*.3,angle],Math.min(1,smokeAge*10)*(1-st)*.34,.5);
           }
         }else if(burst.type==="landing"){
           for(let i=0;i<18;i++){const a=i*2.39996,r=.18+t*.65,s=.04*fade;cube([burst.x+Math.cos(a)*r,.035,burst.z+Math.sin(a)*r],[s,.013,s*1.8],[.29,.27,.23],[0,a],fade*.55);}
