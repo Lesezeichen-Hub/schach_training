@@ -24,6 +24,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Filterbare Taktikstufen Leicht, Mittel und Schwer, kombinierbar mit dem gewünschten Motiv
 - Zeitpartien ohne Inkrement oder als Fischer-Modus 3+2, 5+3, 10+5 und 15+20
 - Installierbare Progressive Web App mit lokalem Offline-Cache; nach dem ersten Online-Aufruf läuft die App ohne Verbindung weiter
+- Abschaltbare 3D-Spezialeffekte mit Angriffsspur, Trefferimpuls und Partikelexplosion bei geschlagenen Figuren
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
 - 40 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie 20 direkte Matt- und Materialaufgaben
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien

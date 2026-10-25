@@ -32,11 +32,12 @@
   const analysisJobs = new Map();
   let matchClockTimer = null;
   let automaticMoveAnimation = null;
-  let moveAudioContext = null, soundEnabled = true;
+  let moveAudioContext = null, soundEnabled = true, specialEffectsEnabled = true;
   const savedPositionsKey = "schachwerkstatt-saved-positions";
   const savedMatchesKey = "schachwerkstatt-games";
   const timeControlKeys = new Set(["0+0", "3+0", "3+2", "5+0", "5+3", "10+0", "10+5", "15+20"]);
   try { soundEnabled = localStorage.getItem("schachwerkstatt-move-sound") !== "off"; } catch { /* Ton bleibt für diese Sitzung aktiv. */ }
+  try { specialEffectsEnabled = localStorage.getItem("schachwerkstatt-3d-effects") !== "off"; } catch { /* Effekte bleiben für diese Sitzung aktiv. */ }
   try {
     const savedMinutes = Number(localStorage.getItem("schachwerkstatt-time-control"));
     if ([0, 3, 5, 10, 15].includes(savedMinutes)) state.clockMinutes = savedMinutes;
@@ -143,6 +144,7 @@
       state.selected = from; state.legal = E.legalMoves(state.game, from); selectSquare(to);
     }
   }) || null;
+  board3d?.setEffectsEnabled?.(specialEffectsEnabled);
   const categoryMeta = {
     fork: { title: "Gabel", concept: "Eine Figur greift zwei Ziele gleichzeitig an. Besonders stark ist eine Gabel mit Schach.", rule: "Suche Felder, von denen eine Figur zwei wertvolle Ziele gleichzeitig erreicht." },
     pin: { title: "Fesselung", concept: "Eine Figur kann nicht wegziehen, weil sie sonst König oder eine wertvollere Figur freigibt.", rule: "Folge Linien von Turm, Läufer und Dame bis zum gegnerischen König." },
@@ -196,6 +198,16 @@
     button.textContent = soundEnabled ? "🔊" : "🔇";
     button.title = soundEnabled ? "Zuggeräusche ausschalten" : "Zuggeräusche einschalten";
     button.setAttribute("aria-label", button.title); button.setAttribute("aria-pressed", String(soundEnabled));
+  }
+  function update3dEffectsToggle() {
+    const button = $("#toggle3dEffects");
+    if (!button) return;
+    button.textContent = specialEffectsEnabled ? "✨" : "·";
+    button.title = specialEffectsEnabled ? "3D-Spezialeffekte ausschalten" : "3D-Spezialeffekte einschalten";
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-pressed", String(specialEffectsEnabled));
+    button.hidden = boardView !== "3d" || !board3d;
+    board3d?.setEffectsEnabled?.(specialEffectsEnabled);
   }
   function setupInstallApp() {
     const button = $("#installApp");
@@ -601,6 +613,7 @@
     $("#view3d").classList.toggle("active", boardView === "3d"); $("#view3d").setAttribute("aria-pressed", String(boardView === "3d"));
     $("#view3d").disabled = !board3d;
     $("#rotate3d").hidden = boardView !== "3d";
+    update3dEffectsToggle();
     $("#boardHelp").textContent = boardView === "3d" ? "3D: Freie Stelle ziehen = frei drehen · Rechte Maustaste dreht überall · Figur ziehen = Zug · Vollbild schafft mehr Platz" : "Ziehen: klicken oder Drag-and-drop · Markieren: Rechtsklick · Tastatur: Pfeile und Enter · Esc löscht Markierungen · Vollbild über die Brettsteuerung";
     if (persist) try { localStorage.setItem("schachwerkstatt-board-view", boardView); } catch { /* Ansicht funktioniert auch ohne Speicher. */ }
     renderBoard(); renderLesson();
@@ -758,7 +771,8 @@
         move = E.legalMoves(state.game).find((m) => m.from === move.from && m.to === move.to && m.promotion === promotion);
         if (!move) return;
       }
-      makeMove(move, "human");
+      if (boardView === "3d" && ["match", "practice"].includes(state.mode)) animateAutomaticMove(move, "human");
+      else makeMove(move, "human");
       return;
     }
     if (piece && E.colorOf(piece) === state.game.turn) {
@@ -934,8 +948,11 @@
     const sessionId = state.sessionId;
     const [fromRow, fromCol] = E.coords(move.from);
     const piece = state.game.board[fromRow][fromCol];
+    const [toRow, toCol] = E.coords(move.to);
+    const captureSquare = move.enPassant ? E.sq(fromRow, toCol) : move.to;
+    const capturedPiece = move.enPassant ? state.game.board[fromRow][toCol] : state.game.board[toRow][toCol];
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const duration = reduced ? 0 : 420;
+    const duration = reduced ? 0 : capturedPiece && specialEffectsEnabled && boardView === "3d" ? 720 : 420;
     const finish = () => {
       if (!state.moveAnimating) return;
       automaticMoveAnimation = null;
@@ -947,7 +964,7 @@
     render();
     if (!duration) { finish(); return; }
     if (boardView === "3d" && board3d?.animateMove) {
-      automaticMoveAnimation = board3d.animateMove({ from: move.from, to: move.to, piece, duration }, finish);
+      automaticMoveAnimation = board3d.animateMove({ from: move.from, to: move.to, piece, duration, capturedPiece, captureSquare, effects: specialEffectsEnabled }, finish);
       return;
     }
     const from = boardEl.querySelector(`[data-square="${move.from}"]`);
@@ -2219,6 +2236,11 @@
     updateSoundToggle();
     if (soundEnabled) ensureMoveAudio();
   });
+  $("#toggle3dEffects").addEventListener("click", () => {
+    specialEffectsEnabled = !specialEffectsEnabled;
+    try { localStorage.setItem("schachwerkstatt-3d-effects", specialEffectsEnabled ? "on" : "off"); } catch { /* Umschalten funktioniert auch ohne Speicher. */ }
+    update3dEffectsToggle();
+  });
   document.addEventListener("pointerdown", () => { if (soundEnabled) ensureMoveAudio(); }, { once: true, capture: true });
   $("#rotate3d").addEventListener("click", () => board3d?.rotate());
   $("#fullscreenBoard").addEventListener("click", async () => {
@@ -3074,5 +3096,5 @@
 
   $("#savedPositionSelect").addEventListener("change", () => renderSavedPositions($("#savedPositionSelect").value));
   $("#tacticDifficulty").value = state.tacticDifficulty;
-  populateOpeningSelect(); renderSavedPositions(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, state.clockIncrementSeconds, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); setupInstallApp(); switchMode("home"); setBoardView(boardView, false);
+  populateOpeningSelect(); renderSavedPositions(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, state.clockIncrementSeconds, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); update3dEffectsToggle(); setupInstallApp(); switchMode("home"); setBoardView(boardView, false);
 })();

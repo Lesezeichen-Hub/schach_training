@@ -7,6 +7,9 @@ const source = fs.readFileSync(new URL("./chess-engine.js", import.meta.url), "u
 const trainingSource = fs.readFileSync(new URL("./training-core.js", import.meta.url), "utf8");
 const authoredData = JSON.parse(fs.readFileSync(new URL("./training-data.json", import.meta.url), "utf8"));
 const generatedSource = fs.readFileSync(new URL("./training-data.generated.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+const appSource = fs.readFileSync(new URL("./app.js", import.meta.url), "utf8");
+const view3dSource = fs.readFileSync(new URL("./chess-3d.js", import.meta.url), "utf8");
+const indexSource = fs.readFileSync(new URL("./index.html", import.meta.url), "utf8");
 const context = { globalThis: {} };
 vm.createContext(context);
 vm.runInContext(source, context);
@@ -22,6 +25,11 @@ assert.equal(fs.readFileSync(new URL('./training-data.generated.js', import.meta
 assert.deepEqual(trainingData.lessonContent, authoredData.lessonContent, 'Redaktionelle Quelle wird unverändert eingebunden');
 assert.deepEqual(trainingData.endgames, authoredData.endgames);
 assert.deepEqual(trainingData.masterclass, authoredData.masterclass);
+assert.match(indexSource, /id="toggle3dEffects"/, "3D-Effektschalter fehlt");
+assert.match(appSource, /schachwerkstatt-3d-effects/, "Effekteinstellung wird nicht lokal gespeichert");
+assert.match(appSource, /capturedPiece, captureSquare, effects: specialEffectsEnabled/, "Schlaginformationen werden nicht an die 3D-Ansicht übergeben");
+assert.match(view3dSource, /function triggerCaptureBurst/, "3D-Trefferexplosion fehlt");
+assert.match(view3dSource, /setEffectsEnabled\(value\)/, "3D-Effekte sind nicht abschaltbar");
 
 function play(state, uci) {
   const move = E.legalMoves(state).find((m) => m.from + m.to + (m.promotion || "") === uci);

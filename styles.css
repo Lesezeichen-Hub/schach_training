@@ -70,7 +70,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .board-view-toggle button { min-width: 38px; padding: 5px 8px; border: 0; background: transparent; color: #c8d0ca; font-size: .62rem; font-weight: 800; cursor: pointer; }
 .board-view-toggle button.active { background: var(--gold); color: #241a0d; }
 .board-sound-toggle { position: absolute; z-index: 9; top: 12px; left: 12px; width: 32px; height: 29px; padding: 0; border: 1px solid rgba(231,182,93,.55); border-radius: 999px; background: rgba(12,16,13,.82); color: #e8ece9; backdrop-filter: blur(5px); cursor: pointer; }
-.board-sound-toggle:hover, .board-sound-toggle:focus-visible { border-color: var(--gold); color: var(--gold); }
+.board-effects-toggle { position: absolute; z-index: 9; top: 12px; left: 50px; width: 32px; height: 29px; padding: 0; border: 1px solid rgba(231,182,93,.55); border-radius: 999px; background: rgba(12,16,13,.82); color: #e8ece9; backdrop-filter: blur(5px); cursor: pointer; }
+.board-sound-toggle:hover, .board-sound-toggle:focus-visible, .board-effects-toggle:hover, .board-effects-toggle:focus-visible { border-color: var(--gold); color: var(--gold); }
+.board-effects-toggle[aria-pressed="true"] { border-color: rgba(244,194,88,.9); background: rgba(83,54,16,.88); color: #ffd978; box-shadow: 0 0 14px rgba(240,174,55,.3); }
 .board-controls { position: absolute; z-index: 9; left: 12px; bottom: 12px; display: flex; gap: 6px; }
 .board-controls button { padding: 7px 10px; border: 1px solid rgba(231,182,93,.55); border-radius: 999px; background: rgba(12,16,13,.86); color: #e8ece9; backdrop-filter: blur(5px); font-size: .68rem; font-weight: 800; cursor: pointer; }
 .board-controls button:hover, .board-controls button:focus-visible { border-color: var(--gold); color: var(--gold); }
@@ -85,6 +87,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .board-column:fullscreen .board-help { margin: 4px 0; }
 .board-column:fullscreen .board-view-toggle { top: 18px; right: 18px; }
 .board-column:fullscreen .board-sound-toggle { top: 18px; left: 18px; }
+.board-column:fullscreen .board-effects-toggle { top: 18px; left: 58px; }
 .board-column:fullscreen .board-controls { left: 18px; bottom: 18px; }
 .lesson-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
 .lesson-navigation button { padding: 9px 6px; font-size: .76rem; }

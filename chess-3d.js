@@ -232,7 +232,7 @@ void main(){
     const shadowsAvailable=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE&&gl.getProgramParameter(depthProgram,gl.LINK_STATUS);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     let shadowPass=false,shadowDirty=true;
-    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,motion=null,motionFrame=0,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9];
+    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,motion=null,motionFrame=0,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9],effectsEnabled=true,bursts=[];
     function resize(){const d=Math.min(2,devicePixelRatio||1),w=Math.round(canvas.clientWidth*d),h=Math.round(canvas.clientHeight*d);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}gl.viewport(0,0,w,h);const distance=13.7,horizontal=Math.cos(cameraPitch)*distance;cameraEye=[Math.sin(cameraAngle)*horizontal,.3+Math.sin(cameraPitch)*distance,Math.cos(cameraAngle)*horizontal];const proj=perspective(Math.PI/4,w/h,.1,40),view=lookAt(cameraEye,[0,.3,0],[0,1,0]);vp=multiply(proj,view);invVP=inverse(vp);}
     function drawMesh(which,m,c,gloss=.18){const me=meshes[which];gl.uniformMatrix4fv(shadowPass?depthModel:uModel,false,m);if(!shadowPass){gl.uniform3fv(uColor,c);gl.uniform1f(uGloss,gloss);}gl.bindVertexArray(me.vao);gl.drawElements(gl.TRIANGLES,me.count,gl.UNSIGNED_SHORT,0);}
     function squarePosition(r,c){const vr=data.flipped?7-r:r,vc=data.flipped?7-c:c;return[vc-3.5,vr-3.5];}
@@ -292,13 +292,75 @@ void main(){
         drawMesh(`coordinate-${rank}`,modelRotY(-edge,height,z,.16,1,.105,-Math.PI/2),color,.25);
       }
     }
+    function motionProgress(now=performance.now()){
+      return motion?Math.max(0,Math.min(1,(now-motion.start)/motion.duration)):0;
+    }
+    function effectSquarePosition(square){
+      if(!square)return[0,0];
+      const c=square.charCodeAt(0)-97,r=8-Number(square[1]);
+      return squarePosition(r,c);
+    }
+    function triggerCaptureBurst(now=performance.now()){
+      if(!motion||motion.impact||!effectsEnabled||!motion.effects||!motion.capturedPiece)return;
+      motion.impact=true;
+      const[x,z]=effectSquarePosition(motion.captureSquare||motion.to),dark=motion.capturedPiece===motion.capturedPiece.toLowerCase();
+      const main=dark?[.62,.16,.055]:[1,.7,.18],secondary=dark?[.95,.38,.08]:[1,.92,.48],particles=[];
+      for(let i=0;i<32;i++){
+        const angle=i/32*Math.PI*2+(i%3)*.13,speed=.8+(i%7)*.115;
+        particles.push({vx:Math.cos(angle)*speed,vz:Math.sin(angle)*speed,vy:1.35+(i%5)*.22,size:.035+(i%4)*.012,life:.48+(i%6)*.055,color:i%3?main:secondary,spin:i*.37});
+      }
+      bursts.push({x,z,start:now,particles,life:.82});
+    }
+    function drawEffects(now=performance.now()){
+      if(shadowPass||!effectsEnabled)return;
+      bursts=bursts.filter(burst=>(now-burst.start)/1000<burst.life);
+      for(const burst of bursts){
+        const age=(now-burst.start)/1000,ringT=Math.min(1,age/.42);
+        if(age<.42){
+          const ringScale=.18+ringT*1.18;
+          drawMesh("torus",model(burst.x,.035,burst.z,ringScale,.055,ringScale),[1,.55+.3*(1-ringT),.08],.92);
+        }
+        if(age<.19){
+          const flash=.22+age/.19*.68;
+          drawMesh("sphere",model(burst.x,.38,burst.z,flash,flash*.72,flash),[1,.82,.28],1);
+        }
+        for(const particle of burst.particles){
+          const t=Math.min(1,age/particle.life);if(t>=1)continue;
+          const fade=1-t,size=particle.size*(.45+fade);
+          const x=burst.x+particle.vx*age,y=.22+particle.vy*age-2.7*age*age,z=burst.z+particle.vz*age;
+          drawMesh("cube",modelRotY(x,Math.max(.035,y),z,size,size*(1.2+fade),size,particle.spin+age*7),particle.color,.85);
+        }
+      }
+    }
     function drawScene(){
       drawMesh("cube",model(0,-.22,0,4.55,.14,4.55),[.19,.12,.07]);
       if(!shadowPass)drawCoordinates();
       for(let r=0;r<8;r++)for(let c=0;c<8;c++){const [x,z]=squarePosition(r,c),name="abcdefgh"[c]+(8-r);drawMesh("cube",model(x,-.055,z,.495,.055,.495),colorForSquare(name,r,c));}
-      for(let r=0;r<8;r++)for(let c=0;c<8;c++){const piece=data.board[r][c],name="abcdefgh"[c]+(8-r);if(!piece||(drag?.world&&drag.movable&&drag.from===name)||motion?.from===name)continue;const[x,z]=squarePosition(r,c);drawPiece(piece,x,z);}
+      for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+        const piece=data.board[r][c],name="abcdefgh"[c]+(8-r);if(!piece||(drag?.world&&drag.movable&&drag.from===name)||motion?.from===name)continue;
+        const[x,z]=squarePosition(r,c);
+        if(motion?.effects&&effectsEnabled&&motion.capturedPiece&&motion.captureSquare===name){
+          if(motion.impact)continue;
+          const progress=motionProgress(),danger=Math.max(0,(progress-.38)/.3),shake=Math.sin(progress*95)*.055*danger;
+          drawPiece(piece,x+shake,z-shake*.45,Math.sin(progress*48)*.018*danger,1+danger*.035);continue;
+        }
+        drawPiece(piece,x,z);
+      }
       if(drag?.world){const[r,c]=drag.fromRC,piece=data.board[r][c];drawPiece(piece,drag.world[0],drag.world[2],.16,1.06);}
-      if(motion){const fr=8-Number(motion.from[1]),fc=motion.from.charCodeAt(0)-97,tr=8-Number(motion.to[1]),tc=motion.to.charCodeAt(0)-97,[fx,fz]=squarePosition(fr,fc),[tx,tz]=squarePosition(tr,tc),raw=Math.min(1,(performance.now()-motion.start)/motion.duration),t=raw*raw*(3-2*raw);drawPiece(motion.piece,fx+(tx-fx)*t,fz+(tz-fz)*t,Math.sin(Math.PI*t)*.16,1+Math.sin(Math.PI*t)*.045);}
+      if(motion){
+        const fr=8-Number(motion.from[1]),fc=motion.from.charCodeAt(0)-97,tr=8-Number(motion.to[1]),tc=motion.to.charCodeAt(0)-97,[fx,fz]=squarePosition(fr,fc),[tx,tz]=squarePosition(tr,tc),raw=motionProgress();
+        const attacking=Boolean(motion.effects&&effectsEnabled&&motion.capturedPiece),impactAt=.68;
+        const phase=attacking?Math.min(1,raw/impactAt):raw,smooth=phase*phase*(3-2*phase);
+        const travel=attacking?(raw<impactAt?smooth*.94:.94+(raw-impactAt)/(1-impactAt)*.06):smooth;
+        const x=fx+(tx-fx)*travel,z=fz+(tz-fz)*travel,lift=attacking?Math.sin(Math.PI*Math.min(1,raw/.82))*.34:Math.sin(Math.PI*travel)*.16,scale=1+Math.sin(Math.PI*Math.min(1,raw/.9))*(attacking?.09:.045);
+        drawPiece(motion.piece,x,z,lift,scale);
+        if(attacking&&!shadowPass&&!motion.impact){
+          const glow=motion.piece===motion.piece.toLowerCase()?[.84,.22,.06]:[1,.7,.18];
+          drawMesh("torus",model(x,.025,z,.22+.07*Math.sin(raw*24),.04,.22+.07*Math.sin(raw*24)),glow,.9);
+          for(let i=1;i<=3;i++){const trail=Math.max(0,travel-i*.055),size=.075-i*.012;drawMesh("sphere",model(fx+(tx-fx)*trail,.12+i*.025,fz+(tz-fz)*trail,size,size,size),glow,.85);}
+        }
+      }
+      drawEffects();
     }
     function render(){
       if(canvas.hidden||!data.board)return;
@@ -323,7 +385,30 @@ void main(){
     canvas.addEventListener("pointercancel",()=>{if(drag?.world)shadowDirty=true;drag=null;canvas.classList.remove("dragging","rotating");render();});
     canvas.addEventListener("contextmenu",(e)=>e.preventDefault());
     new ResizeObserver(render).observe(canvas);
-    return { available:true, update(next){data=next;shadowDirty=true;render();}, animateMove(next,done){cancelAnimationFrame(motionFrame);motion={...next,start:performance.now()};let cancelled=false;const step=()=>{if(cancelled)return;shadowDirty=true;render();if(performance.now()-motion.start<motion.duration)motionFrame=requestAnimationFrame(step);else{motion=null;motionFrame=0;done?.();}};motionFrame=requestAnimationFrame(step);return{cancel(){cancelled=true;cancelAnimationFrame(motionFrame);motionFrame=0;motion=null;shadowDirty=true;render();}};}, rotate(){cameraAngle=(cameraAngle+Math.PI/2)%(Math.PI*2);render();}, render };
+    return {
+      available:true,
+      update(next){data=next;shadowDirty=true;render();},
+      setEffectsEnabled(value){effectsEnabled=Boolean(value);if(!effectsEnabled)bursts=[];shadowDirty=true;render();},
+      animateMove(next,done){
+        cancelAnimationFrame(motionFrame);
+        const start=performance.now(),duration=Math.max(1,next.duration||1);
+        motion={...next,start,duration,impact:false};
+        let cancelled=false,finished=false;
+        const step=()=>{
+          if(cancelled)return;
+          const now=performance.now();
+          if(motion&&motion.effects&&motion.capturedPiece&&(now-start)/duration>=.68)triggerCaptureBurst(now);
+          if(!finished)shadowDirty=true;render();
+          if(!finished&&now-start>=duration){finished=true;motion=null;done?.();}
+          const effectsAlive=effectsEnabled&&bursts.some(burst=>(now-burst.start)/1000<burst.life);
+          if(!finished||effectsAlive)motionFrame=requestAnimationFrame(step);else motionFrame=0;
+        };
+        motionFrame=requestAnimationFrame(step);
+        return{cancel(){cancelled=true;cancelAnimationFrame(motionFrame);motionFrame=0;motion=null;bursts=[];shadowDirty=true;render();}};
+      },
+      rotate(){cameraAngle=(cameraAngle+Math.PI/2)%(Math.PI*2);render();},
+      render
+    };
   }
   root.Chess3DView={create};
 })(typeof window!=="undefined"?window:globalThis);
