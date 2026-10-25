@@ -40,13 +40,20 @@
           <time class="chess-clock" id="opponentClock" hidden>05:00</time>
           <div class="turn-indicator" id="blackTurn">am Zug</div>
         </div>
+        <div class="board-result" id="boardResult" role="status" aria-live="polite" hidden>
+          <div class="board-result-copy">
+            <span id="boardResultReason"></span>
+            <strong id="boardResultOutcome"></strong>
+          </div>
+          <span class="board-result-score" id="boardResultScore" aria-hidden="true"></span>
+        </div>
         <div class="board-wrap">
           <div class="board-view-toggle" role="group" aria-label="Brettansicht">
             <button type="button" id="view2d" class="active" aria-pressed="true">2D</button>
             <button type="button" id="view3d" aria-pressed="false">3D</button>
           </div>
           <button type="button" class="board-sound-toggle" id="toggleSound" title="Zuggeräusche ausschalten" aria-label="Zuggeräusche ausschalten" aria-pressed="true">&#128266;</button>
-          <button type="button" class="board-effects-toggle" id="toggle3dEffects" title="Effektschach ausschalten" aria-label="Effektschach ausschalten" aria-pressed="true" hidden>&#10024;</button>
+          <button type="button" class="board-effects-toggle" id="toggle3dEffects" title="Effektschach ausschalten" aria-label="Effektschach ausschalten" aria-pressed="true" hidden>&#9876;</button>
           <div class="board-controls" id="boardControls" aria-label="Brett steuern">
             <button type="button" id="rotate3d" title="Brett um 90 Grad drehen" aria-label="Brett um 90 Grad drehen">&#8635; Drehen</button>
             <button type="button" id="fullscreenBoard" title="Schachbrett im Vollbild anzeigen" aria-label="Schachbrett im Vollbild anzeigen">&#x26F6; Vollbild</button>
@@ -510,7 +517,7 @@
   <script src="chess-engine.js"></script>
   <script src="training-core.js"></script>
   <script src="training-data.generated.js"></script>
-  <script src="chess-3d.js?v=4.24.0"></script>
-  <script src="app.js?v=4.24.0"></script>
+  <script src="chess-3d.js?v=4.26.0"></script>
+  <script src="app.js?v=4.26.0"></script>
 </body>
 </html>

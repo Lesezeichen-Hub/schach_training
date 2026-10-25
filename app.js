@@ -32,7 +32,7 @@
   const analysisJobs = new Map();
   let matchClockTimer = null;
   let automaticMoveAnimation = null;
-  let moveAudioContext = null, soundEnabled = true, specialEffectsEnabled = true;
+  let moveAudioContext = null, soundEnabled = true, specialEffectsEnabled = true, cinematicSoundPlayed = null;
   const savedPositionsKey = "schachwerkstatt-saved-positions";
   const savedMatchesKey = "schachwerkstatt-games";
   const timeControlKeys = new Set(["0+0", "3+0", "3+2", "5+0", "5+3", "10+0", "10+5", "15+20"]);
@@ -171,9 +171,10 @@
     return moveAudioContext;
   }
   function playMoveSound(before, move) {
+    if (cinematicSoundPlayed?.before === before && cinematicSoundPlayed.move === move) { cinematicSoundPlayed = null; return; }
     if (!soundEnabled || !before || !move) return;
     const [fr, fc] = E.coords(move.from), [tr, tc] = E.coords(move.to);
-    const captured = Boolean(move.enPassant ? before.board[fr][tc] : before.board[tr][tc]);
+    const captured = !move.castle && Boolean(move.enPassant ? before.board[fr][tc] : before.board[tr][tc]);
     const context = ensureMoveAudio();
     if (!context) return;
     const play = () => {
@@ -199,11 +200,11 @@
           gain.gain.setValueAtTime(.0001, start); gain.gain.exponentialRampToValueAtTime(volume, start + .012); gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
           oscillator.connect(gain).connect(context.destination); oscillator.start(start); oscillator.stop(start + duration + .015);
         };
-        if (captured) { tone(.015, 82, 38, .24, .075, "sawtooth"); tone(.04, 420, 95, .16, .035, "square"); }
-        if (move.castle) { tone(.02, 135, 230, .22, .045, "triangle"); tone(.11, 180, 310, .26, .038, "triangle"); }
-        if (move.promotion) [330, 440, 554, 740].forEach((frequency, index) => tone(index * .065, frequency, frequency * 1.04, .28, .034, "sine"));
-        if (result.check && result.type !== "checkmate") { tone(.035, 620, 880, .18, .045, "square"); tone(.17, 880, 660, .2, .035, "triangle"); }
-        if (result.type === "checkmate") [98, 196, 294, 392].forEach((frequency, index) => tone(index * .075, frequency, frequency * 1.5, .52, .05, index % 2 ? "triangle" : "sawtooth"));
+        if (captured) { tone(.015, 90, 43, .2, .05, "triangle"); tone(.025, 288, 121, .13, .018, "sawtooth"); }
+        if (move.castle) { tone(.035, 145, 96, .15, .025, "triangle"); tone(.12, 185, 118, .19, .022, "triangle"); }
+        if (move.promotion) { tone(.02, 342, 272, .32, .028, "triangle"); tone(.11, 512, 366, .36, .014, "sine"); }
+        if (result.check && result.type !== "checkmate") { tone(.045, 225, 170, .24, .031, "sawtooth"); tone(.19, 188, 140, .2, .02, "triangle"); }
+        if (result.type === "checkmate") { tone(.015, 87, 46, .56, .068, "triangle"); tone(.15, 123, 61, .5, .032, "sawtooth"); }
       }
     };
     if (context.state === "suspended") context.resume().then(play).catch(() => {}); else play();
@@ -217,7 +218,7 @@
   function update3dEffectsToggle() {
     const button = $("#toggle3dEffects");
     if (!button) return;
-    button.textContent = specialEffectsEnabled ? "✨" : "·";
+    button.textContent = specialEffectsEnabled ? "⚔" : "○";
     button.title = specialEffectsEnabled ? "Effektschach ausschalten" : "Effektschach einschalten";
     button.setAttribute("aria-label", button.title);
     button.setAttribute("aria-pressed", String(specialEffectsEnabled));
@@ -521,6 +522,7 @@
     renderBoard();
     renderMoves();
     renderStatus();
+    renderBoardResult(matchStatus);
     renderLesson();
     const interactiveBoard = !["home", "learn", "basics", "strategy"].includes(state.mode);
     const playerTurn = isHotSeat() ? true : state.mode === "match" ? state.game.turn === state.playerColor : state.game.turn === "w";
@@ -786,7 +788,8 @@
         move = E.legalMoves(state.game).find((m) => m.from === move.from && m.to === move.to && m.promotion === promotion);
         if (!move) return;
       }
-      if (boardView === "3d" && ["match", "practice"].includes(state.mode)) animateAutomaticMove(move, "human");
+      const blockedMatchCorrection = state.mode === "match" && state.personalMatchPending && state.personalMatchMistake && move.from + move.to + (move.promotion || "") !== state.personalMatchMistake.best;
+      if (boardView === "3d" && ["match", "practice"].includes(state.mode) && !blockedMatchCorrection) animateAutomaticMove(move, "human");
       else makeMove(move, "human");
       return;
     }
@@ -960,12 +963,13 @@
 
   function animateAutomaticMove(move, actor, complete = () => makeMove(move, actor)) {
     if (!move || state.moveAnimating) return;
+    cinematicSoundPlayed = null;
     const sessionId = state.sessionId;
     const [fromRow, fromCol] = E.coords(move.from);
     const piece = state.game.board[fromRow][fromCol];
     const [toRow, toCol] = E.coords(move.to);
     const captureSquare = move.enPassant ? E.sq(fromRow, toCol) : move.to;
-    const capturedPiece = move.enPassant ? state.game.board[fromRow][toCol] : state.game.board[toRow][toCol];
+    const capturedPiece = move.castle ? null : move.enPassant ? state.game.board[fromRow][toCol] : state.game.board[toRow][toCol];
     const preview = E.applyMove(state.game, move, false);
     const previewStatus = E.gameStatus(preview);
     const checkedKing = previewStatus.check ? (preview.turn === "w" ? "K" : "k") : null;
@@ -993,7 +997,12 @@
         capturedPiece, captureSquare, effects: specialEffectsEnabled, effectKind,
         checkedKingSquare, promotion: move.promotion,
         rookFrom: move.rookFrom, rookTo: move.rookTo,
-        rookPiece: move.castle ? (piece === "K" ? "R" : "r") : null
+        rookPiece: move.castle ? (piece === "K" ? "R" : "r") : null,
+        onImpact: () => {
+          if (!["match", "practice"].includes(state.mode) || state.sessionId !== sessionId || !soundEnabled) return;
+          playMoveSound(state.game, move);
+          cinematicSoundPlayed = { before: state.game, move };
+        }
       }, finish);
       return;
     }
@@ -1314,6 +1323,27 @@
     if (ownScore <= -1.5) return `Schwierige Stellung (${ownScore.toFixed(1)})`;
     if (ownScore <= -.45) return `Leichter Nachteil (${ownScore.toFixed(1)})`;
     return `Ausgeglichene Stellung (${ownScore >= 0 ? "+" : ""}${ownScore.toFixed(1)})`;
+  }
+
+  function renderBoardResult(status) {
+    const banner = $("#boardResult");
+    const visible = status.over && (state.mode === "match" || (state.mode === "practice" && state.moves.length > 0));
+    document.querySelector(".board-column").classList.toggle("has-board-result", visible);
+    if (!visible) { banner.hidden = true; return; }
+    const reasons = {
+      checkmate: "Schachmatt", timeout: "Zeit abgelaufen", stalemate: "Patt",
+      fiftyMove: "50-Züge-Regel", repetition: "Dreifache Wiederholung",
+      insufficient: "Unzureichendes Material"
+    };
+    const reason = reasons[status.type] || "Partie beendet";
+    const outcome = status.winner === "w" ? "Weiß hat gewonnen" : status.winner === "b" ? "Schwarz hat gewonnen" : "Remis";
+    const score = status.winner === "w" ? "1–0" : status.winner === "b" ? "0–1" : "½–½";
+    banner.classList.toggle("draw", !status.winner);
+    for (const [selector, value] of [["#boardResultReason", reason], ["#boardResultOutcome", outcome], ["#boardResultScore", score]]) {
+      const element = $(selector);
+      if (element.textContent !== value) element.textContent = value;
+    }
+    banner.hidden = false;
   }
 
   function renderStatus() {

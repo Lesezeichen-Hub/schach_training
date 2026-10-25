@@ -301,75 +301,97 @@ void main(){
       return squarePosition(r,c);
     }
     function effectPalette(piece){
-      const palettes={p:[[1,.48,.08],[1,.82,.24]],n:[[.55,.24,1],[.18,.72,1]],b:[[.12,.72,1],[.42,1,.9]],r:[[1,.16,.08],[1,.62,.12]],q:[[.95,.2,.82],[1,.72,.18]],k:[[1,.72,.16],[1,.96,.58]]};
-      return palettes[(piece||"p").toLowerCase()]||palettes.p;
+      const dark=piece&&piece===piece.toLowerCase();
+      return dark?[[.23,.25,.25],[.61,.38,.19]]:[[.63,.57,.44],[.83,.55,.25]];
     }
-    function particleBurst(x,z,start,piece,count=36,power=1){
-      const[main,secondary]=effectPalette(piece),particles=[];
+    function particleBurst(x,z,start,piece,count=30,power=1){
+      const[stone,edge]=effectPalette(piece),particles=[];
       for(let i=0;i<count;i++){
-        const angle=i/count*Math.PI*2+(i%5)*.17,speed=(.65+(i%9)*.105)*power;
-        particles.push({vx:Math.cos(angle)*speed,vz:Math.sin(angle)*speed,vy:(1.18+(i%7)*.19)*power,size:.026+(i%5)*.011,life:.5+(i%7)*.055,color:i%3?main:secondary,spin:i*.47});
+        const angle=i*2.39996,speed=(.48+(i%9)*.105)*power,ember=i%7===0;
+        particles.push({vx:Math.cos(angle)*speed,vz:Math.sin(angle)*speed,vy:(.75+(i%7)*.16)*power,size:.032+(i%5)*.015,life:.42+(i%7)*.065,color:ember?[.88,.28,.07]:i%3?stone:edge,spin:i*.47});
       }
-      bursts.push({type:"burst",x,z,start,particles,life:.98*power,palette:[main,secondary]});
+      bursts.push({type:"burst",x,z,start,particles,life:.94*power,palette:[stone,edge]});
     }
     function cinematicKick(kind){
       if(!canvas.animate)return;
-      const strong=kind==="checkmate",distance=strong?7:kind==="capture"?4:2;
-      canvas.animate([{transform:"translate(0)"},{transform:`translate(${distance}px, ${-distance*.35}px)`},{transform:`translate(${-distance*.7}px, ${distance*.25}px)`},{transform:"translate(0)"}],{duration:strong?360:210,easing:"ease-out"});
+      if(!["capture","checkmate"].includes(kind))return;
+      const strong=kind==="checkmate",distance=strong?5:2.5;
+      canvas.animate([{transform:"translate(0)"},{transform:`translate(${distance}px, ${-distance*.35}px)`},{transform:`translate(${-distance*.7}px, ${distance*.25}px)`},{transform:"translate(0)"}],{duration:strong?270:160,easing:"ease-out"});
     }
     function triggerCinematicEffects(now=performance.now()){
       if(!motion||motion.cueTriggered||!effectsEnabled||!motion.effects)return;
       motion.cueTriggered=true;
       motion.impact=Boolean(motion.capturedPiece);
       const kind=motion.effectKind||(motion.capturedPiece?"capture":"move"),[x,z]=effectSquarePosition(motion.to),palette=effectPalette(motion.piece);
-      bursts.push({type:"landing",x,z,start:now,life:.64,palette});
+      if(!motion.capturedPiece)bursts.push({type:"landing",x,z,start:now,life:.65,palette});
       if(motion.capturedPiece){
         const[cx,cz]=effectSquarePosition(motion.captureSquare||motion.to);
-        particleBurst(cx,cz,now,motion.piece,kind==="checkmate"?58:42,kind==="checkmate"?1.25:1);
+        particleBurst(cx,cz,now,motion.capturedPiece,kind==="checkmate"?46:30,kind==="checkmate"?1.18:1);
       }
       if(motion.rookFrom&&motion.rookTo){
         const[rx,rz]=effectSquarePosition(motion.rookTo);
         bursts.push({type:"castle",x,z,rx,rz,start:now,life:1.05,palette});
       }
       if(motion.promotion){
-        bursts.push({type:"promotion",x,z,start:now,life:1.45,palette:[[1,.72,.1],[1,.96,.58]]});
-        particleBurst(x,z,now,motion.piece,46,1.1);
+        bursts.push({type:"promotion",x,z,start:now,life:1.1,palette});
+        particleBurst(x,z,now,motion.piece,20,.8);
       }
       if(motion.checkedKingSquare){
         const[kx,kz]=effectSquarePosition(motion.checkedKingSquare);
-        bursts.push({type:kind==="checkmate"?"checkmate":"check",x:kx,z:kz,start:now,life:kind==="checkmate"?1.8:1.08,palette:[[1,.08,.035],[1,.58,.08]]});
-        if(kind==="checkmate")particleBurst(kx,kz,now,motion.piece,72,1.35);
+        bursts.push({type:kind==="checkmate"?"checkmate":"check",x:kx,z:kz,start:now,life:kind==="checkmate"?1.45:1.05,palette:[[.55,.075,.035],[.85,.26,.08]]});
+        if(kind==="checkmate")particleBurst(kx,kz,now,checkedKingPiece(motion),26,.7);
       }
       cinematicKick(kind);
+      motion.onImpact?.();
     }
+    function checkedKingPiece(activeMotion){return activeMotion.piece===activeMotion.piece.toLowerCase()?"K":"k";}
     function drawEffects(now=performance.now()){
       if(shadowPass||!effectsEnabled)return;
       bursts=bursts.filter(burst=>(now-burst.start)/1000<burst.life);
       for(const burst of bursts){
         const age=(now-burst.start)/1000,t=Math.min(1,age/burst.life),fade=1-t;
         if(burst.type==="burst"){
-          const ringT=Math.min(1,age/.46),ringScale=.18+ringT*1.42;
-          if(age<.46)drawMesh("torus",model(burst.x,.035,burst.z,ringScale,.048*fade,ringScale),burst.palette[1],.95);
-          if(age<.2){const flash=.18+age/.2*.86;drawMesh("sphere",model(burst.x,.4,burst.z,flash,flash*.7,flash),burst.palette[1],1);}
+          if(age<.3){const radius=.16+age*2.7;drawMesh("torus",model(burst.x,.025,burst.z,radius,.008*fade,radius),[.35,.32,.28],.05);}
+          if(age<.095){const flash=.1+age*2;drawMesh("sphere",model(burst.x,.25,burst.z,flash,flash*.52,flash),[.94,.47,.17],.55);}
           for(const particle of burst.particles){
             const pt=Math.min(1,age/particle.life);if(pt>=1)continue;
-            const pf=1-pt,size=particle.size*(.4+pf),px=burst.x+particle.vx*age,py=.22+particle.vy*age-2.7*age*age,pz=burst.z+particle.vz*age;
-            drawMesh("cube",modelRotY(px,Math.max(.035,py),pz,size,size*(1.4+pf),size,particle.spin+age*8),particle.color,.9);
+            const pf=1-pt,size=particle.size*(.45+pf),px=burst.x+particle.vx*age,py=.15+particle.vy*age-2.4*age*age,pz=burst.z+particle.vz*age;
+            drawMesh("cube",modelRotY(px,Math.max(.025,py),pz,size,size*(1.3+pf),size,particle.spin+age*6),particle.color,.3);
+          }
+          for(let i=0;i<10;i++){
+            const angle=i*2.39996,radius=.12+age*(.38+i%4*.1),size=(.09+i%3*.042)*Math.min(1,age*13)*fade;
+            drawMesh("sphere",model(burst.x+Math.cos(angle)*radius,.05+age*(.2+i%4*.11),burst.z+Math.sin(angle)*radius,size*1.5,size*.55,size*1.5),i%3?[.31,.29,.25]:[.42,.39,.32],.02);
           }
         }else if(burst.type==="landing"){
-          for(let ring=0;ring<2;ring++){const rt=Math.max(0,Math.min(1,t*1.5-ring*.18));if(rt>0)drawMesh("torus",model(burst.x,.025+ring*.018,burst.z,.12+rt*(.72+ring*.24),.025*fade,.12+rt*(.72+ring*.24)),burst.palette[ring],.9);}
-          for(let i=0;i<6;i++){const a=i*Math.PI/3+age*5,r=.22+t*.48,s=.035*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,.08+Math.sin(t*Math.PI)*.18,burst.z+Math.sin(a)*r,s,s,s),burst.palette[i%2],.9);}
+          if(age<.38){const r=.17+t*.85;drawMesh("torus",model(burst.x,.021,burst.z,r,.014*fade,r),[.46,.4,.31],.08);}
+          for(let i=0;i<7;i++){const a=i*2.39996,r=.14+age*(.42+i%3*.08),s=.025*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,.045+age*.1,burst.z+Math.sin(a)*r,s*1.6,s*.8,s*1.6),[.4,.37,.31],.03);}
         }else if(burst.type==="check"||burst.type==="checkmate"){
-          const mate=burst.type==="checkmate",rings=mate?5:3;
-          for(let i=0;i<rings;i++){const phase=(t+i/rings)%1,r=.38+phase*(mate?1.22:.72),h=.12+i*.28+Math.sin(age*7+i)*.08;drawMesh("torus",model(burst.x,h,burst.z,r,.028*fade,r),burst.palette[i%2],1);}
-          for(let i=0;i<(mate?12:7);i++){const a=i*Math.PI*2/(mate?12:7)+age*(i%2?3.2:-2.6),r=.52+.14*Math.sin(age*6+i),h=.22+(i%4)*.34+Math.sin(age*8+i)*.12,s=(mate?.06:.045)*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,h,burst.z+Math.sin(a)*r,s,s*2.2,s),burst.palette[i%2],1);}
-          if(mate){const crownPulse=.7+.12*Math.sin(age*10);for(let i=0;i<8;i++){const a=i*Math.PI/4+age*.8;drawMesh("cone",modelRotY(burst.x+Math.cos(a)*crownPulse,2.15,burst.z+Math.sin(a)*crownPulse,.055,.18,.055,-a),[1,.7,.08],1);}}
+          const mate=burst.type==="checkmate",red=burst.palette[0],pulse=.75+.25*Math.sin(age*(mate?13:9));
+          for(const dx of [-1,1])for(const dz of [-1,1]){
+            const x=burst.x+dx*.4,z=burst.z+dz*.4,y=.035;
+            drawMesh("cube",model(x-dx*.085,y,z,.1,.01,.018),red,.15);
+            drawMesh("cube",model(x,y,z-dz*.085,.018,.01,.1),red,.15);
+          }
+          if(mate){
+            const radius=.28+t*.93;
+            if(age<.52)drawMesh("torus",model(burst.x,.03,burst.z,radius,.022*fade,radius),[.65,.27,.12],.25);
+            for(let i=0;i<12;i++){
+              const angle=i*2.39996,r=.25+age*(.26+i%3*.09),s=(.08+i%3*.026)*fade;
+              drawMesh("sphere",model(burst.x+Math.cos(angle)*r,.14+age*(.48+i%3*.12),burst.z+Math.sin(angle)*r,s,s*.65,s),[.25,.24,.22],.03);
+            }
+            if(age<.42)drawMesh("cube",model(burst.x,.035,burst.z,.39*pulse,.01,.39*pulse),[.39,.13,.075],.1);
+          }else if(age<.25){drawMesh("torus",model(burst.x,.03,burst.z,.33+age*.54,.012*fade,.33+age*.54),[.5,.22,.11],.12);}
         }else if(burst.type==="promotion"){
-          for(let i=0;i<14;i++){const a=i*.9+age*5,r=.12+i*.035,h=.08+i*.13+t*.55,s=.045*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,h,burst.z+Math.sin(a)*r,s,s*1.8,s),burst.palette[i%2],1);}
-          for(let i=0;i<3;i++){const r=.24+i*.22+t*.28;drawMesh("torus",model(burst.x,.12+i*.42,burst.z,r,.025*fade,r),burst.palette[i%2],1);}
+          for(let i=0;i<18;i++){
+            const angle=i*2.39996,r=.1+(i%4)*.055+age*.14,height=.1+(i%6)*.19+age*.36,s=(.015+i%3*.009)*fade;
+            drawMesh("cube",modelRotY(burst.x+Math.cos(angle)*r,height,burst.z+Math.sin(angle)*r,s,s*2,s,angle),i%5?[.62,.45,.22]:[.93,.43,.13],.3);
+          }
+          if(age<.44){const r=.17+age*.7;drawMesh("torus",model(burst.x,.03,burst.z,r,.016*fade,r),[.61,.46,.25],.3);}
         }else if(burst.type==="castle"){
-          for(let i=0;i<11;i++){const q=i/10,wave=Math.sin(q*Math.PI+age*9)*.12,s=.035*fade;drawMesh("sphere",model(burst.x+(burst.rx-burst.x)*q,.08+wave,burst.z+(burst.rz-burst.z)*q,s,s,s),burst.palette[i%2],.95);}
-          const r=.25+t*.9;drawMesh("torus",model(burst.x,.03,burst.z,r,.025*fade,r),burst.palette[1],1);drawMesh("torus",model(burst.rx,.03,burst.rz,r,.025*fade,r),burst.palette[0],1);
+          for(const [px,pz] of [[burst.x,burst.z],[burst.rx,burst.rz]]){
+            if(age<.43){const radius=.18+age*1.6;drawMesh("torus",model(px,.025,pz,radius,.013*fade,radius),[.43,.39,.32],.05);}
+            for(let i=0;i<5;i++){const a=i*2.39996,r=.12+age*.38,s=.038*fade;drawMesh("sphere",model(px+Math.cos(a)*r,.045+age*.08,pz+Math.sin(a)*r,s*1.5,s*.5,s*1.5),[.38,.36,.32],.02);}
+          }
         }
       }
     }
@@ -382,8 +404,8 @@ void main(){
         const[x,z]=squarePosition(r,c);
         if(motion?.effects&&effectsEnabled&&motion.capturedPiece&&motion.captureSquare===name){
           if(motion.impact)continue;
-          const progress=motionProgress(),danger=Math.max(0,(progress-.38)/.3),shake=Math.sin(progress*95)*.055*danger;
-          drawPiece(piece,x+shake,z-shake*.45,Math.sin(progress*48)*.018*danger,1+danger*.035);continue;
+          const progress=motionProgress(),danger=Math.max(0,(progress-.48)/.18),shake=Math.sin(progress*72)*.019*danger;
+          drawPiece(piece,x+shake,z-shake*.45,0,1+danger*.012);continue;
         }
         drawPiece(piece,x,z);
       }
@@ -401,9 +423,11 @@ void main(){
           drawPiece(motion.rookPiece,rfx+(rtx-rfx)*rs,rfz+(rtz-rfz)*rs,Math.sin(Math.PI*rs)*.12,1+.04*Math.sin(Math.PI*rs));
         }
         if(cinematic&&!shadowPass&&!motion.cueTriggered){
-          const palette=effectPalette(motion.piece),trailCount=pieceType==="q"?7:pieceType==="n"?5:4;
-          drawMesh("torus",model(x,.025,z,.2+.08*Math.sin(raw*25),.035,.2+.08*Math.sin(raw*25)),palette[1],.95);
-          for(let i=1;i<=trailCount;i++){const q=Math.max(0,travel-i*.04),size=Math.max(.018,.075-i*.007),wave=pieceType==="n"?Math.sin(i*1.7+raw*15)*.09:0;drawMesh("sphere",model(fx+(tx-fx)*q+wave,.1+i*.027,fz+(tz-fz)*q-wave,size,size,size),palette[i%2],.9);}
+          const trailCount=pieceType==="q"?6:pieceType==="n"?3:4;
+          for(let i=1;i<=trailCount;i++){
+            const q=Math.max(0,travel-i*.045),size=(.052-i*.006)*(1-Math.max(0,raw-.55)),wave=pieceType==="n"?Math.sin(i*1.7+raw*13)*.045:0;
+            if(size>.005)drawMesh("sphere",model(fx+(tx-fx)*q+wave,.05+i*.025,fz+(tz-fz)*q-wave,size*1.4,size*.55,size*1.4),i%3?[.47,.43,.36]:[.69,.45,.23],.06);
+          }
         }
       }
       drawEffects();

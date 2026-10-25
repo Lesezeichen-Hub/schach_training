@@ -23,8 +23,9 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Dreistufige Engine-Hinweise im Analysebrett: Idee, Figur und konkreter Zug
 - Filterbare Taktikstufen Leicht, Mittel und Schwer, kombinierbar mit dem gewünschten Motiv
 - Zeitpartien ohne Inkrement oder als Fischer-Modus 3+2, 5+3, 10+5 und 15+20
+- Gut sichtbares Ergebnis direkt über dem Brett nach Partieende: Schachmatt, Zeitüberschreitung oder Remisgrund mit Gewinner und Spielstand
 - Installierbare Progressive Web App mit lokalem Offline-Cache; nach dem ersten Online-Aufruf läuft die App ohne Verbindung weiter
-- Abschaltbares „Effektschach“ im 3D-Brett: figurenspezifische Angriffsspuren, Trefferexplosionen, gemeinsame Rochadebewegung, Lichtspirale bei Umwandlung sowie eigene Schach- und Mattinszenierungen mit abgestuften Klängen
+- Abschaltbares „Effektschach“ im 3D-Brett: schwere Treffer mit Stein- und Metallsplittern, Staub und Druckwelle, synchrone Rochade, geschmiedete Umwandlung sowie zurückhaltende Warnsignale bei Schach und Matt; Geräusche treffen zeitgleich mit dem Einschlag
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
 - 40 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie 20 direkte Matt- und Materialaufgaben
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien
