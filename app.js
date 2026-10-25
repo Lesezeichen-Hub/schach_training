@@ -278,6 +278,38 @@
     });
     if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
+  function setupBackup() {
+    const download = $("#exportBackup"), importButton = $("#importBackup"), fileInput = $("#backupFile"), status = $("#backupStatus");
+    const report = (message) => { status.textContent = message; };
+    download.addEventListener("click", () => {
+      try {
+        const backup = window.ChessBackup.create(localStorage, "4.33.0");
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob), link = document.createElement("a");
+        link.href = url; link.download = `schachwerkstatt-backup-${localDate()}.json`;
+        document.body.append(link); link.click(); link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+        report(`${Object.keys(backup.data).length} gespeicherte Einträge wurden als Datei heruntergeladen.`);
+      } catch (error) { report(`Backup fehlgeschlagen: ${error.message}`); }
+    });
+    importButton.addEventListener("click", () => { fileInput.value = ""; fileInput.click(); });
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      try {
+        if (file.size > 20 * 1024 * 1024) throw new Error("Die Datei ist größer als 20 MB.");
+        const backup = window.ChessBackup.parse(await file.text());
+        const savedAt = new Date(backup.createdAt).toLocaleString("de-DE");
+        const count = Object.keys(backup.data).length;
+        if (!window.confirm(`Backup vom ${savedAt} mit ${count} gespeicherten Einträgen importieren? Alle bisherigen Schachwerkstatt-Daten in diesem Browser werden ersetzt. Andere Browserdaten bleiben unberührt.`)) {
+          report("Import abgebrochen. Die bisherigen Daten bleiben erhalten."); return;
+        }
+        window.ChessBackup.restore(localStorage, backup);
+        report("Backup importiert. Die Ansicht wird neu geladen.");
+        location.reload();
+      } catch (error) { report(`Import fehlgeschlagen: ${error.message}`); }
+    });
+  }
   function analyzeInBackground(position, options) {
     const fen = E.toFEN(position);
     if (typeof Worker !== "undefined" && !analysisWorker) {
@@ -3207,5 +3239,5 @@
 
   $("#savedPositionSelect").addEventListener("change", () => renderSavedPositions($("#savedPositionSelect").value));
   $("#tacticDifficulty").value = state.tacticDifficulty;
-  populateOpeningSelect(); renderSavedPositions(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, state.clockIncrementSeconds, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); update3dEffectsToggle(); setupInstallApp(); switchMode("home"); setBoardView(boardView, false);
+  populateOpeningSelect(); renderSavedPositions(); renderGuidedCourse(); setDifficulty(recommendedDifficultyIndex(getMatchStats().rating) + 1); setOpponentMode(state.opponentMode, false); setTimeChoice(state.clockMinutes, state.clockIncrementSeconds, false); updateTrainingProgress(); updateMixedDueCount(); updateSoundToggle(); update3dEffectsToggle(); setupBackup(); setupInstallApp(); switchMode("home"); setBoardView(boardView, false);
 })();

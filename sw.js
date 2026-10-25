@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "schachwerkstatt-4.32.0";
+const CACHE_NAME = "schachwerkstatt-4.33.0";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "./training-core.js",
   "./training-data.generated.js",
   "./chess-3d.js",
+  "./backup.js",
   "./analysis-worker.js",
   "./app.js",
   "./manifest.webmanifest",

@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/app-icon.svg">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101411'/%3E%3Cpath d='M22 49h24v6H18v-3l4-3Zm5-27c-5-4-2-12 5-12 6 0 9 7 5 11 8 4 9 14 3 20H25c-6-7-4-15 2-19Z' fill='%23e7b65d'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=4.32.0">
+  <link rel="stylesheet" href="styles.css?v=4.33.0">
 </head>
 <body>
   <div class="app-shell">
@@ -485,6 +485,17 @@
           <button type="button" id="resetProfileElo" class="text-button rating-reset">Profil-Elo auf 0 setzen</button>
         </section>
 
+        <section class="backup-card" aria-labelledby="backupTitle">
+          <h2 id="backupTitle">Daten sichern</h2>
+          <p>Fortschritt, Partien, Stellungen und Einstellungen als Datei mitnehmen oder wiederherstellen.</p>
+          <div class="backup-actions">
+            <button class="secondary-button" id="exportBackup" type="button">Backup herunterladen</button>
+            <button class="secondary-button" id="importBackup" type="button">Backup importieren</button>
+          </div>
+          <input id="backupFile" type="file" accept=".json,application/json" hidden aria-label="Schachwerkstatt-Backup auswählen">
+          <p id="backupStatus" role="status" aria-live="polite"></p>
+        </section>
+
         <section id="trainingStats" class="training-stats" aria-label="Trainingsfortschritt">
           <div><strong id="masteryScore">0%</strong><span>Trefferquote</span></div>
           <div><strong id="solvedTotal">0</strong><span>gelöst</span></div>
@@ -517,7 +528,8 @@
   <script src="chess-engine.js"></script>
   <script src="training-core.js"></script>
   <script src="training-data.generated.js"></script>
-  <script src="chess-3d.js?v=4.32.0"></script>
-  <script src="app.js?v=4.32.0"></script>
+  <script src="chess-3d.js?v=4.33.0"></script>
+  <script src="backup.js?v=4.33.0"></script>
+  <script src="app.js?v=4.33.0"></script>
 </body>
 </html>

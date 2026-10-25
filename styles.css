@@ -109,6 +109,12 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .lesson-controls #lessonAssistance, .lesson-controls #lessonSaved { margin-top: 9px; font-size: .74rem; color: var(--gold); }
 .lesson-controls .coverage-note { margin-top: 10px; font-size: .68rem; }
 #storageWarning { padding: 10px; color: var(--danger); font-size: .78rem; border: 1px solid var(--danger); }
+.backup-card { margin-top: 12px; padding: 15px; border: 1px solid #536157; background: #19211d; }
+.backup-card h2 { margin: 0 0 7px; font-size: .95rem; }
+.backup-card p { margin: 0 0 10px; color: var(--muted); font-size: .76rem; line-height: 1.45; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.backup-actions .secondary-button { flex: 1 1 150px; font-size: .75rem; }
+.backup-card #backupStatus { margin: 9px 0 0; min-height: 1.2em; }
 .board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; overflow: hidden; user-select: none; touch-action: manipulation; }
 .board-help { display: block; margin: 7px 2px -2px; color: #7e8980; font-size: .62rem; text-align: center; }
 .square { min-width: 0; min-height: 0; border: 1px solid var(--board-grid); border-radius: 0; padding: 0; display: grid; place-items: center; position: relative; background: var(--board-light); color: #172018; cursor: pointer; font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", serif; font-size: clamp(2rem, 6.1vw, 4.55rem); line-height: 1; text-shadow: 0 2px 0 rgba(255,255,255,.18), 0 3px 6px rgba(0,0,0,.22); }
