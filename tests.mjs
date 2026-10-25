@@ -28,8 +28,12 @@ assert.deepEqual(trainingData.masterclass, authoredData.masterclass);
 assert.match(indexSource, /id="toggle3dEffects"/, "3D-Effektschalter fehlt");
 assert.match(appSource, /schachwerkstatt-3d-effects/, "Effekteinstellung wird nicht lokal gespeichert");
 assert.match(appSource, /capturedPiece, captureSquare, effects: specialEffectsEnabled/, "Schlaginformationen werden nicht an die 3D-Ansicht übergeben");
-assert.match(view3dSource, /function triggerCaptureBurst/, "3D-Trefferexplosion fehlt");
+assert.match(view3dSource, /function triggerCinematicEffects/, "Inszenierte 3D-Zugeffekte fehlen");
 assert.match(view3dSource, /setEffectsEnabled\(value\)/, "3D-Effekte sind nicht abschaltbar");
+assert.match(appSource, /effectKind.*checkmate.*promotion.*castle.*capture.*check/s, "Effektschach unterscheidet die Zugereignisse nicht");
+assert.match(view3dSource, /type:\"promotion\"/, "Umwandlungseffekt fehlt");
+assert.match(view3dSource, /type:\"castle\"/, "Rochadeeffekt fehlt");
+assert.match(view3dSource, /\"checkmate\"/, "Mattinszenierung fehlt");
 
 function play(state, uci) {
   const move = E.legalMoves(state).find((m) => m.from + m.to + (m.promotion || "") === uci);

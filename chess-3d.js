@@ -300,35 +300,76 @@ void main(){
       const c=square.charCodeAt(0)-97,r=8-Number(square[1]);
       return squarePosition(r,c);
     }
-    function triggerCaptureBurst(now=performance.now()){
-      if(!motion||motion.impact||!effectsEnabled||!motion.effects||!motion.capturedPiece)return;
-      motion.impact=true;
-      const[x,z]=effectSquarePosition(motion.captureSquare||motion.to),dark=motion.capturedPiece===motion.capturedPiece.toLowerCase();
-      const main=dark?[.62,.16,.055]:[1,.7,.18],secondary=dark?[.95,.38,.08]:[1,.92,.48],particles=[];
-      for(let i=0;i<32;i++){
-        const angle=i/32*Math.PI*2+(i%3)*.13,speed=.8+(i%7)*.115;
-        particles.push({vx:Math.cos(angle)*speed,vz:Math.sin(angle)*speed,vy:1.35+(i%5)*.22,size:.035+(i%4)*.012,life:.48+(i%6)*.055,color:i%3?main:secondary,spin:i*.37});
+    function effectPalette(piece){
+      const palettes={p:[[1,.48,.08],[1,.82,.24]],n:[[.55,.24,1],[.18,.72,1]],b:[[.12,.72,1],[.42,1,.9]],r:[[1,.16,.08],[1,.62,.12]],q:[[.95,.2,.82],[1,.72,.18]],k:[[1,.72,.16],[1,.96,.58]]};
+      return palettes[(piece||"p").toLowerCase()]||palettes.p;
+    }
+    function particleBurst(x,z,start,piece,count=36,power=1){
+      const[main,secondary]=effectPalette(piece),particles=[];
+      for(let i=0;i<count;i++){
+        const angle=i/count*Math.PI*2+(i%5)*.17,speed=(.65+(i%9)*.105)*power;
+        particles.push({vx:Math.cos(angle)*speed,vz:Math.sin(angle)*speed,vy:(1.18+(i%7)*.19)*power,size:.026+(i%5)*.011,life:.5+(i%7)*.055,color:i%3?main:secondary,spin:i*.47});
       }
-      bursts.push({x,z,start:now,particles,life:.82});
+      bursts.push({type:"burst",x,z,start,particles,life:.98*power,palette:[main,secondary]});
+    }
+    function cinematicKick(kind){
+      if(!canvas.animate)return;
+      const strong=kind==="checkmate",distance=strong?7:kind==="capture"?4:2;
+      canvas.animate([{transform:"translate(0)"},{transform:`translate(${distance}px, ${-distance*.35}px)`},{transform:`translate(${-distance*.7}px, ${distance*.25}px)`},{transform:"translate(0)"}],{duration:strong?360:210,easing:"ease-out"});
+    }
+    function triggerCinematicEffects(now=performance.now()){
+      if(!motion||motion.cueTriggered||!effectsEnabled||!motion.effects)return;
+      motion.cueTriggered=true;
+      motion.impact=Boolean(motion.capturedPiece);
+      const kind=motion.effectKind||(motion.capturedPiece?"capture":"move"),[x,z]=effectSquarePosition(motion.to),palette=effectPalette(motion.piece);
+      bursts.push({type:"landing",x,z,start:now,life:.64,palette});
+      if(motion.capturedPiece){
+        const[cx,cz]=effectSquarePosition(motion.captureSquare||motion.to);
+        particleBurst(cx,cz,now,motion.piece,kind==="checkmate"?58:42,kind==="checkmate"?1.25:1);
+      }
+      if(motion.rookFrom&&motion.rookTo){
+        const[rx,rz]=effectSquarePosition(motion.rookTo);
+        bursts.push({type:"castle",x,z,rx,rz,start:now,life:1.05,palette});
+      }
+      if(motion.promotion){
+        bursts.push({type:"promotion",x,z,start:now,life:1.45,palette:[[1,.72,.1],[1,.96,.58]]});
+        particleBurst(x,z,now,motion.piece,46,1.1);
+      }
+      if(motion.checkedKingSquare){
+        const[kx,kz]=effectSquarePosition(motion.checkedKingSquare);
+        bursts.push({type:kind==="checkmate"?"checkmate":"check",x:kx,z:kz,start:now,life:kind==="checkmate"?1.8:1.08,palette:[[1,.08,.035],[1,.58,.08]]});
+        if(kind==="checkmate")particleBurst(kx,kz,now,motion.piece,72,1.35);
+      }
+      cinematicKick(kind);
     }
     function drawEffects(now=performance.now()){
       if(shadowPass||!effectsEnabled)return;
       bursts=bursts.filter(burst=>(now-burst.start)/1000<burst.life);
       for(const burst of bursts){
-        const age=(now-burst.start)/1000,ringT=Math.min(1,age/.42);
-        if(age<.42){
-          const ringScale=.18+ringT*1.18;
-          drawMesh("torus",model(burst.x,.035,burst.z,ringScale,.055,ringScale),[1,.55+.3*(1-ringT),.08],.92);
-        }
-        if(age<.19){
-          const flash=.22+age/.19*.68;
-          drawMesh("sphere",model(burst.x,.38,burst.z,flash,flash*.72,flash),[1,.82,.28],1);
-        }
-        for(const particle of burst.particles){
-          const t=Math.min(1,age/particle.life);if(t>=1)continue;
-          const fade=1-t,size=particle.size*(.45+fade);
-          const x=burst.x+particle.vx*age,y=.22+particle.vy*age-2.7*age*age,z=burst.z+particle.vz*age;
-          drawMesh("cube",modelRotY(x,Math.max(.035,y),z,size,size*(1.2+fade),size,particle.spin+age*7),particle.color,.85);
+        const age=(now-burst.start)/1000,t=Math.min(1,age/burst.life),fade=1-t;
+        if(burst.type==="burst"){
+          const ringT=Math.min(1,age/.46),ringScale=.18+ringT*1.42;
+          if(age<.46)drawMesh("torus",model(burst.x,.035,burst.z,ringScale,.048*fade,ringScale),burst.palette[1],.95);
+          if(age<.2){const flash=.18+age/.2*.86;drawMesh("sphere",model(burst.x,.4,burst.z,flash,flash*.7,flash),burst.palette[1],1);}
+          for(const particle of burst.particles){
+            const pt=Math.min(1,age/particle.life);if(pt>=1)continue;
+            const pf=1-pt,size=particle.size*(.4+pf),px=burst.x+particle.vx*age,py=.22+particle.vy*age-2.7*age*age,pz=burst.z+particle.vz*age;
+            drawMesh("cube",modelRotY(px,Math.max(.035,py),pz,size,size*(1.4+pf),size,particle.spin+age*8),particle.color,.9);
+          }
+        }else if(burst.type==="landing"){
+          for(let ring=0;ring<2;ring++){const rt=Math.max(0,Math.min(1,t*1.5-ring*.18));if(rt>0)drawMesh("torus",model(burst.x,.025+ring*.018,burst.z,.12+rt*(.72+ring*.24),.025*fade,.12+rt*(.72+ring*.24)),burst.palette[ring],.9);}
+          for(let i=0;i<6;i++){const a=i*Math.PI/3+age*5,r=.22+t*.48,s=.035*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,.08+Math.sin(t*Math.PI)*.18,burst.z+Math.sin(a)*r,s,s,s),burst.palette[i%2],.9);}
+        }else if(burst.type==="check"||burst.type==="checkmate"){
+          const mate=burst.type==="checkmate",rings=mate?5:3;
+          for(let i=0;i<rings;i++){const phase=(t+i/rings)%1,r=.38+phase*(mate?1.22:.72),h=.12+i*.28+Math.sin(age*7+i)*.08;drawMesh("torus",model(burst.x,h,burst.z,r,.028*fade,r),burst.palette[i%2],1);}
+          for(let i=0;i<(mate?12:7);i++){const a=i*Math.PI*2/(mate?12:7)+age*(i%2?3.2:-2.6),r=.52+.14*Math.sin(age*6+i),h=.22+(i%4)*.34+Math.sin(age*8+i)*.12,s=(mate?.06:.045)*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,h,burst.z+Math.sin(a)*r,s,s*2.2,s),burst.palette[i%2],1);}
+          if(mate){const crownPulse=.7+.12*Math.sin(age*10);for(let i=0;i<8;i++){const a=i*Math.PI/4+age*.8;drawMesh("cone",modelRotY(burst.x+Math.cos(a)*crownPulse,2.15,burst.z+Math.sin(a)*crownPulse,.055,.18,.055,-a),[1,.7,.08],1);}}
+        }else if(burst.type==="promotion"){
+          for(let i=0;i<14;i++){const a=i*.9+age*5,r=.12+i*.035,h=.08+i*.13+t*.55,s=.045*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,h,burst.z+Math.sin(a)*r,s,s*1.8,s),burst.palette[i%2],1);}
+          for(let i=0;i<3;i++){const r=.24+i*.22+t*.28;drawMesh("torus",model(burst.x,.12+i*.42,burst.z,r,.025*fade,r),burst.palette[i%2],1);}
+        }else if(burst.type==="castle"){
+          for(let i=0;i<11;i++){const q=i/10,wave=Math.sin(q*Math.PI+age*9)*.12,s=.035*fade;drawMesh("sphere",model(burst.x+(burst.rx-burst.x)*q,.08+wave,burst.z+(burst.rz-burst.z)*q,s,s,s),burst.palette[i%2],.95);}
+          const r=.25+t*.9;drawMesh("torus",model(burst.x,.03,burst.z,r,.025*fade,r),burst.palette[1],1);drawMesh("torus",model(burst.rx,.03,burst.rz,r,.025*fade,r),burst.palette[0],1);
         }
       }
     }
@@ -337,7 +378,7 @@ void main(){
       if(!shadowPass)drawCoordinates();
       for(let r=0;r<8;r++)for(let c=0;c<8;c++){const [x,z]=squarePosition(r,c),name="abcdefgh"[c]+(8-r);drawMesh("cube",model(x,-.055,z,.495,.055,.495),colorForSquare(name,r,c));}
       for(let r=0;r<8;r++)for(let c=0;c<8;c++){
-        const piece=data.board[r][c],name="abcdefgh"[c]+(8-r);if(!piece||(drag?.world&&drag.movable&&drag.from===name)||motion?.from===name)continue;
+        const piece=data.board[r][c],name="abcdefgh"[c]+(8-r);if(!piece||(drag?.world&&drag.movable&&drag.from===name)||motion?.from===name||motion?.rookFrom===name)continue;
         const[x,z]=squarePosition(r,c);
         if(motion?.effects&&effectsEnabled&&motion.capturedPiece&&motion.captureSquare===name){
           if(motion.impact)continue;
@@ -349,15 +390,20 @@ void main(){
       if(drag?.world){const[r,c]=drag.fromRC,piece=data.board[r][c];drawPiece(piece,drag.world[0],drag.world[2],.16,1.06);}
       if(motion){
         const fr=8-Number(motion.from[1]),fc=motion.from.charCodeAt(0)-97,tr=8-Number(motion.to[1]),tc=motion.to.charCodeAt(0)-97,[fx,fz]=squarePosition(fr,fc),[tx,tz]=squarePosition(tr,tc),raw=motionProgress();
-        const attacking=Boolean(motion.effects&&effectsEnabled&&motion.capturedPiece),impactAt=.68;
-        const phase=attacking?Math.min(1,raw/impactAt):raw,smooth=phase*phase*(3-2*phase);
-        const travel=attacking?(raw<impactAt?smooth*.94:.94+(raw-impactAt)/(1-impactAt)*.06):smooth;
-        const x=fx+(tx-fx)*travel,z=fz+(tz-fz)*travel,lift=attacking?Math.sin(Math.PI*Math.min(1,raw/.82))*.34:Math.sin(Math.PI*travel)*.16,scale=1+Math.sin(Math.PI*Math.min(1,raw/.9))*(attacking?.09:.045);
-        drawPiece(motion.piece,x,z,lift,scale);
-        if(attacking&&!shadowPass&&!motion.impact){
-          const glow=motion.piece===motion.piece.toLowerCase()?[.84,.22,.06]:[1,.7,.18];
-          drawMesh("torus",model(x,.025,z,.22+.07*Math.sin(raw*24),.04,.22+.07*Math.sin(raw*24)),glow,.9);
-          for(let i=1;i<=3;i++){const trail=Math.max(0,travel-i*.055),size=.075-i*.012;drawMesh("sphere",model(fx+(tx-fx)*trail,.12+i*.025,fz+(tz-fz)*trail,size,size,size),glow,.85);}
+        const cinematic=Boolean(motion.effects&&effectsEnabled),attacking=Boolean(cinematic&&motion.capturedPiece),impactAt=attacking?.66:.78;
+        const phase=Math.min(1,raw/impactAt),smooth=phase*phase*(3-2*phase),travel=raw<impactAt?smooth*.96:.96+(raw-impactAt)/(1-impactAt)*.04;
+        const pieceType=(motion.piece||"p").toLowerCase(),arc=pieceType==="n"?.5:attacking?.36:.22;
+        const x=fx+(tx-fx)*travel,z=fz+(tz-fz)*travel,lift=Math.sin(Math.PI*Math.min(1,raw/.86))*arc,scale=1+Math.sin(Math.PI*Math.min(1,raw/.9))*(attacking?.11:.065);
+        const shownPiece=motion.promotion&&raw>.72?(motion.piece===motion.piece.toUpperCase()?motion.promotion.toUpperCase():motion.promotion):motion.piece;
+        drawPiece(shownPiece,x,z,lift+(motion.promotion&&raw>.72?Math.sin((raw-.72)/.28*Math.PI)*.25:0),scale);
+        if(motion.rookFrom&&motion.rookTo){
+          const[rfx,rfz]=effectSquarePosition(motion.rookFrom),[rtx,rtz]=effectSquarePosition(motion.rookTo),rookTravel=Math.min(1,Math.max(0,(raw-.08)/.74)),rs=rookTravel*rookTravel*(3-2*rookTravel);
+          drawPiece(motion.rookPiece,rfx+(rtx-rfx)*rs,rfz+(rtz-rfz)*rs,Math.sin(Math.PI*rs)*.12,1+.04*Math.sin(Math.PI*rs));
+        }
+        if(cinematic&&!shadowPass&&!motion.cueTriggered){
+          const palette=effectPalette(motion.piece),trailCount=pieceType==="q"?7:pieceType==="n"?5:4;
+          drawMesh("torus",model(x,.025,z,.2+.08*Math.sin(raw*25),.035,.2+.08*Math.sin(raw*25)),palette[1],.95);
+          for(let i=1;i<=trailCount;i++){const q=Math.max(0,travel-i*.04),size=Math.max(.018,.075-i*.007),wave=pieceType==="n"?Math.sin(i*1.7+raw*15)*.09:0;drawMesh("sphere",model(fx+(tx-fx)*q+wave,.1+i*.027,fz+(tz-fz)*q-wave,size,size,size),palette[i%2],.9);}
         }
       }
       drawEffects();
@@ -392,12 +438,12 @@ void main(){
       animateMove(next,done){
         cancelAnimationFrame(motionFrame);
         const start=performance.now(),duration=Math.max(1,next.duration||1);
-        motion={...next,start,duration,impact:false};
+        motion={...next,start,duration,impact:false,cueTriggered:false};
         let cancelled=false,finished=false;
         const step=()=>{
           if(cancelled)return;
           const now=performance.now();
-          if(motion&&motion.effects&&motion.capturedPiece&&(now-start)/duration>=.68)triggerCaptureBurst(now);
+          if(motion&&motion.effects&&(now-start)/duration>=(motion.capturedPiece ? .66 : .78))triggerCinematicEffects(now);
           if(!finished)shadowDirty=true;render();
           if(!finished&&now-start>=duration){finished=true;motion=null;done?.();}
           const effectsAlive=effectsEnabled&&bursts.some(burst=>(now-burst.start)/1000<burst.life);

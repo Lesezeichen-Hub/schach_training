@@ -190,6 +190,21 @@
       const noise = context.createBufferSource(), filter = context.createBiquadFilter(), noiseGain = context.createGain();
       noise.buffer = buffer; filter.type = "lowpass"; filter.frequency.value = captured ? 1050 : 1450; noiseGain.gain.value = captured ? .055 : .038;
       noise.connect(filter).connect(noiseGain).connect(context.destination); noise.start(now); noise.stop(now + .04);
+      if (specialEffectsEnabled && boardView === "3d") {
+        const after = E.applyMove(before, move, false), result = E.gameStatus(after);
+        const tone = (delay, frequency, endFrequency, duration, volume, type = "sine") => {
+          const oscillator = context.createOscillator(), gain = context.createGain(), start = now + delay;
+          oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, start);
+          oscillator.frequency.exponentialRampToValueAtTime(endFrequency, start + duration);
+          gain.gain.setValueAtTime(.0001, start); gain.gain.exponentialRampToValueAtTime(volume, start + .012); gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+          oscillator.connect(gain).connect(context.destination); oscillator.start(start); oscillator.stop(start + duration + .015);
+        };
+        if (captured) { tone(.015, 82, 38, .24, .075, "sawtooth"); tone(.04, 420, 95, .16, .035, "square"); }
+        if (move.castle) { tone(.02, 135, 230, .22, .045, "triangle"); tone(.11, 180, 310, .26, .038, "triangle"); }
+        if (move.promotion) [330, 440, 554, 740].forEach((frequency, index) => tone(index * .065, frequency, frequency * 1.04, .28, .034, "sine"));
+        if (result.check && result.type !== "checkmate") { tone(.035, 620, 880, .18, .045, "square"); tone(.17, 880, 660, .2, .035, "triangle"); }
+        if (result.type === "checkmate") [98, 196, 294, 392].forEach((frequency, index) => tone(index * .075, frequency, frequency * 1.5, .52, .05, index % 2 ? "triangle" : "sawtooth"));
+      }
     };
     if (context.state === "suspended") context.resume().then(play).catch(() => {}); else play();
   }
@@ -203,7 +218,7 @@
     const button = $("#toggle3dEffects");
     if (!button) return;
     button.textContent = specialEffectsEnabled ? "✨" : "·";
-    button.title = specialEffectsEnabled ? "3D-Spezialeffekte ausschalten" : "3D-Spezialeffekte einschalten";
+    button.title = specialEffectsEnabled ? "Effektschach ausschalten" : "Effektschach einschalten";
     button.setAttribute("aria-label", button.title);
     button.setAttribute("aria-pressed", String(specialEffectsEnabled));
     button.hidden = boardView !== "3d" || !board3d;
@@ -951,8 +966,17 @@
     const [toRow, toCol] = E.coords(move.to);
     const captureSquare = move.enPassant ? E.sq(fromRow, toCol) : move.to;
     const capturedPiece = move.enPassant ? state.game.board[fromRow][toCol] : state.game.board[toRow][toCol];
+    const preview = E.applyMove(state.game, move, false);
+    const previewStatus = E.gameStatus(preview);
+    const checkedKing = previewStatus.check ? (preview.turn === "w" ? "K" : "k") : null;
+    let checkedKingSquare = null;
+    if (checkedKing) for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+      if (preview.board[row][col] === checkedKing) checkedKingSquare = E.sq(row, col);
+    }
+    const effectKind = previewStatus.type === "checkmate" ? "checkmate" : move.promotion ? "promotion" : move.castle ? "castle" : capturedPiece ? "capture" : previewStatus.check ? "check" : "move";
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const duration = reduced ? 0 : capturedPiece && specialEffectsEnabled && boardView === "3d" ? 720 : 420;
+    const cinematicDurations = { move: 500, capture: 780, check: 760, castle: 900, promotion: 1100, checkmate: 1350 };
+    const duration = reduced ? 0 : specialEffectsEnabled && boardView === "3d" ? cinematicDurations[effectKind] : 420;
     const finish = () => {
       if (!state.moveAnimating) return;
       automaticMoveAnimation = null;
@@ -964,7 +988,13 @@
     render();
     if (!duration) { finish(); return; }
     if (boardView === "3d" && board3d?.animateMove) {
-      automaticMoveAnimation = board3d.animateMove({ from: move.from, to: move.to, piece, duration, capturedPiece, captureSquare, effects: specialEffectsEnabled }, finish);
+      automaticMoveAnimation = board3d.animateMove({
+        from: move.from, to: move.castle ? move.kingTo : move.to, piece, duration,
+        capturedPiece, captureSquare, effects: specialEffectsEnabled, effectKind,
+        checkedKingSquare, promotion: move.promotion,
+        rookFrom: move.rookFrom, rookTo: move.rookTo,
+        rookPiece: move.castle ? (piece === "K" ? "R" : "r") : null
+      }, finish);
       return;
     }
     const from = boardEl.querySelector(`[data-square="${move.from}"]`);
