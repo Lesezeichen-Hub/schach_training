@@ -225,7 +225,7 @@ void main(){
     gl.attachShader(depthProgram,shader(gl,gl.VERTEX_SHADER,`#version 300 es\nlayout(location=0) in vec3 p;uniform mat4 vp;uniform mat4 mdl;void main(){gl_Position=vp*mdl*vec4(p,1.);}`));
     gl.attachShader(depthProgram,shader(gl,gl.FRAGMENT_SHADER,`#version 300 es\nprecision highp float;void main(){}`));gl.linkProgram(depthProgram);
     const depthVP=gl.getUniformLocation(depthProgram,"vp"),depthModel=gl.getUniformLocation(depthProgram,"mdl");
-    const shadowTexture=gl.createTexture(),shadowBuffer=gl.createFramebuffer(),shadowSize=Math.min(2048,gl.getParameter(gl.MAX_TEXTURE_SIZE));
+    const shadowTexture=gl.createTexture(),shadowBuffer=gl.createFramebuffer(),shadowSize=Math.min(1024,gl.getParameter(gl.MAX_TEXTURE_SIZE));
     gl.bindTexture(gl.TEXTURE_2D,shadowTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT24,shadowSize,shadowSize,0,gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.bindFramebuffer(gl.FRAMEBUFFER,shadowBuffer);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,shadowTexture,0);gl.drawBuffers([gl.NONE]);gl.readBuffer(gl.NONE);
@@ -447,8 +447,55 @@ void main(){
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,shadowTexture);gl.uniform1i(uShadowMap,0);
       drawScene();
     }
-    function worldAt(event){resize();const rect=canvas.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width*2-1,y=1-(event.clientY-rect.top)/rect.height*2;const a=transform(invVP,[x,y,-1,1]),b=transform(invVP,[x,y,1,1]);for(const q of[a,b]){q[0]/=q[3];q[1]/=q[3];q[2]/=q[3];}const t=(0-a[1])/(b[1]-a[1]);return[a[0]+(b[0]-a[0])*t,0,a[2]+(b[2]-a[2])*t];}
-    function squareAt(event){const w=worldAt(event),vc=Math.floor(w[0]+4),vr=Math.floor(w[2]+4);if(vc<0||vc>7||vr<0||vr>7)return{square:null,world:w};const c=data.flipped?7-vc:vc,r=data.flipped?7-vr:vr;return{square:"abcdefgh"[c]+(8-r),world:w,r,c};}
+    function pointerRay(event){
+      resize();
+      const rect=canvas.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width*2-1,y=1-(event.clientY-rect.top)/rect.height*2;
+      const near=transform(invVP,[x,y,-1,1]),far=transform(invVP,[x,y,1,1]);
+      for(const point of[near,far])for(let axis=0;axis<3;axis++)point[axis]/=point[3];
+      return[near,far];
+    }
+    function groundAt(ray){
+      const[near,far]=ray,t=-near[1]/(far[1]-near[1]);
+      return[near[0]+(far[0]-near[0])*t,0,near[2]+(far[2]-near[2])*t];
+    }
+    function worldAt(event){return groundAt(pointerRay(event));}
+    function pieceAt(ray){
+      if(!data.board)return null;
+      const[near,far]=ray,dx=far[0]-near[0],dy=far[1]-near[1],dz=far[2]-near[2],horizontal=dx*dx+dz*dz;
+      const heights={p:.9,r:1.48,n:1.6,b:1.82,q:2.02,k:2.2};
+      let closest=null,nearest=Infinity;
+      for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+        const piece=data.board[r][c],square="abcdefgh"[c]+(8-r);
+        if(!piece||(drag?.world&&drag.from===square))continue;
+        const[x,z]=squarePosition(r,c),radius=piece.toLowerCase()==="n"?.5:.43,height=heights[piece.toLowerCase()],ox=near[0]-x,oz=near[2]-z;
+        const candidates=[];
+        if(horizontal>1e-8){
+          const linear=2*(ox*dx+oz*dz),constant=ox*ox+oz*oz-radius*radius,discriminant=linear*linear-4*horizontal*constant;
+          if(discriminant>=0){const root=Math.sqrt(discriminant);candidates.push((-linear-root)/(2*horizontal),(-linear+root)/(2*horizontal));}
+        }
+        if(Math.abs(dy)>1e-8)candidates.push((height-near[1])/dy);
+        for(const t of candidates){
+          if(t<0||t>1||t>=nearest)continue;
+          const px=near[0]+dx*t-x,py=near[1]+dy*t,pz=near[2]+dz*t-z;
+          if(py<.03||py>height||px*px+pz*pz>radius*radius+.0001)continue;
+          nearest=t;closest={square,r,c};
+        }
+      }
+      return closest;
+    }
+    function squareAt(event){
+      const ray=pointerRay(event),world=groundAt(ray);
+      const vc=Math.floor(world[0]+4),vr=Math.floor(world[2]+4);
+      if(vc>=0&&vc<=7&&vr>=0&&vr<=7){
+        const c=data.flipped?7-vc:vc,r=data.flipped?7-vr:vr;
+        if(data.board?.[r]?.[c])return{square:"abcdefgh"[c]+(8-r),world,r,c};
+      }
+      const piece=pieceAt(ray);
+      if(piece)return{...piece,world};
+      if(vc<0||vc>7||vr<0||vr>7)return{square:null,world};
+      const c=data.flipped?7-vc:vc,r=data.flipped?7-vr:vr;
+      return{square:"abcdefgh"[c]+(8-r),world,r,c};
+    }
     canvas.addEventListener("pointerdown",(e)=>{const hit=squareAt(e),forcedOrbit=e.button!==0||!hit.square;e.preventDefault();canvas.setPointerCapture(e.pointerId);drag={from:hit.square,fromRC:hit.square?[hit.r,hit.c]:null,start:[e.clientX,e.clientY],startAngle:cameraAngle,startPitch:cameraPitch,world:null,orbit:false,suppressClick:e.button!==0,movable:!forcedOrbit&&data.movable.has(hit.square)};if(drag.movable)callbacks.onDragStart?.(hit.square);});
     canvas.addEventListener("pointermove",(e)=>{if(!drag)return;const dx=e.clientX-drag.start[0],dy=e.clientY-drag.start[1];if(Math.hypot(dx,dy)<=5)return;if(drag.movable){drag.world=worldAt(e);shadowDirty=true;canvas.classList.add("dragging");}else{drag.orbit=true;cameraAngle=drag.startAngle-dx*.009;cameraPitch=Math.max(.22,Math.min(1.2,drag.startPitch+dy*.007));canvas.classList.add("rotating");}render();});
     canvas.addEventListener("pointerup",(e)=>{if(!drag)return;const active=drag,hit=squareAt(e);drag=null;if(active.world)shadowDirty=true;canvas.classList.remove("dragging","rotating");if(active.orbit||active.suppressClick){render();return;}if(active.world&&active.movable&&hit.square&&hit.square!==active.from)callbacks.onDrop?.(active.from,hit.square);else if(hit.square)callbacks.onSquare?.(hit.square);render();});

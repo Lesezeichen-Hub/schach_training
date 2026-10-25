@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "schachwerkstatt-4.26.0";
+const CACHE_NAME = "schachwerkstatt-4.27.0";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -26,6 +26,13 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request).then((response) => {
+      if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", response.clone()));
+      return response;
+    }).catch(() => caches.match("./index.html")));
+    return;
+  }
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
     if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
     return response;

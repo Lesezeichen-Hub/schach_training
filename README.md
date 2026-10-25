@@ -26,6 +26,7 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Gut sichtbares Ergebnis direkt über dem Brett nach Partieende: Schachmatt, Zeitüberschreitung oder Remisgrund mit Gewinner und Spielstand
 - Installierbare Progressive Web App mit lokalem Offline-Cache; nach dem ersten Online-Aufruf läuft die App ohne Verbindung weiter
 - Abschaltbares „Effektschach“ im 3D-Brett: schwere Treffer mit Stein- und Metallsplittern, Staub und Druckwelle, synchrone Rochade, geschmiedete Umwandlung sowie zurückhaltende Warnsignale bei Schach und Matt; Geräusche treffen zeitgleich mit dem Einschlag
+- 3D-Figuren lassen sich auch am sichtbaren Körper anklicken und ziehen; eine stockende Animation gibt die Partie spätestens nach ihrer Abschlussfrist wieder frei
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
 - 40 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie 20 direkte Matt- und Materialaufgaben
 - Geführter Grundlagenkurs zu Spielziel, Figuren, Schach, Matt und den ersten Partieprinzipien

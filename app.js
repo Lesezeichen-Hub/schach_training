@@ -964,6 +964,7 @@
   function animateAutomaticMove(move, actor, complete = () => makeMove(move, actor)) {
     if (!move || state.moveAnimating) return;
     cinematicSoundPlayed = null;
+    let completionTimer = null;
     const sessionId = state.sessionId;
     const [fromRow, fromCol] = E.coords(move.from);
     const piece = state.game.board[fromRow][fromCol];
@@ -983,6 +984,7 @@
     const duration = reduced ? 0 : specialEffectsEnabled && boardView === "3d" ? cinematicDurations[effectKind] : 420;
     const finish = () => {
       if (!state.moveAnimating) return;
+      window.clearTimeout(completionTimer);
       automaticMoveAnimation = null;
       state.moveAnimating = false;
       if (state.sessionId === sessionId) complete();
@@ -992,7 +994,8 @@
     render();
     if (!duration) { finish(); return; }
     if (boardView === "3d" && board3d?.animateMove) {
-      automaticMoveAnimation = board3d.animateMove({
+      let visual;
+      try { visual = board3d.animateMove({
         from: move.from, to: move.castle ? move.kingTo : move.to, piece, duration,
         capturedPiece, captureSquare, effects: specialEffectsEnabled, effectKind,
         checkedKingSquare, promotion: move.promotion,
@@ -1003,7 +1006,14 @@
           playMoveSound(state.game, move);
           cinematicSoundPlayed = { before: state.game, move };
         }
-      }, finish);
+      }, finish); } catch { finish(); return; }
+      automaticMoveAnimation = {
+        cancel() { window.clearTimeout(completionTimer); try { visual?.cancel?.(); } finally { state.moveAnimating = false; } }
+      };
+      completionTimer = window.setTimeout(() => {
+        if (!state.moveAnimating || state.sessionId !== sessionId) return;
+        try { visual?.cancel?.(); } finally { finish(); }
+      }, duration + 300);
       return;
     }
     const from = boardEl.querySelector(`[data-square="${move.from}"]`);
@@ -1327,6 +1337,7 @@
 
   function renderBoardResult(status) {
     const banner = $("#boardResult");
+    if (!banner) return;
     const visible = status.over && (state.mode === "match" || (state.mode === "practice" && state.moves.length > 0));
     document.querySelector(".board-column").classList.toggle("has-board-result", visible);
     if (!visible) { banner.hidden = true; return; }
@@ -2296,7 +2307,7 @@
     updateSoundToggle();
     if (soundEnabled) ensureMoveAudio();
   });
-  $("#toggle3dEffects").addEventListener("click", () => {
+  $("#toggle3dEffects")?.addEventListener("click", () => {
     specialEffectsEnabled = !specialEffectsEnabled;
     try { localStorage.setItem("schachwerkstatt-3d-effects", specialEffectsEnabled ? "on" : "off"); } catch { /* Umschalten funktioniert auch ohne Speicher. */ }
     update3dEffectsToggle();
