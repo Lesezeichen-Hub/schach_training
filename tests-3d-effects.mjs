@@ -3,12 +3,13 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 
 // Deterministic lifecycle checks; actual shader rendering is checked in a browser.
-let now = 0, sequence = 0, reduced = false, maximumInstances = 0, kicks = 0;
+let now = 0, sequence = 0, reduced = false, maximumInstances = 0, kicks = 0, upload = null;
 const frames = new Map();
 const gl = new Proxy({
   getShaderParameter: () => true, getProgramParameter: () => true,
   checkFramebufferStatus: () => 1, getParameter: () => 1024,
   getUniformLocation: () => ({}),
+  bufferData: (_target, values) => { upload = values; },
   drawElementsInstanced: (_mode, _count, _type, _offset, instances) => { maximumInstances = Math.max(maximumInstances, instances); }
 }, { get(target, key) { return key in target ? target[key] : /^[A-Z_0-9]+$/.test(key) ? 1 : String(key).startsWith("create") ? () => ({}) : () => {}; } });
 const canvas = {
@@ -25,6 +26,16 @@ const context = vm.createContext({
 vm.runInContext(fs.readFileSync(new URL("./chess-3d.js", import.meta.url), "utf8"), context);
 const view = context.window.Chess3DView.create(canvas);
 assert.ok(view?.available);
+const pose = context.window.Chess3DView.combatPose;
+for (const type of ['p','n','b','r','q','k']) {
+  assert.ok(pose(.06,type,true).travel < 0, 'Angreifer holt nicht aus');
+  const contact = pose(.66,type,true);
+  assert.equal(contact.travel,1,'Explosion beginnt vor Erreichen des Gegners');
+  assert.equal(contact.lift,0,'Angreifer schwebt beim Einschlag');
+  assert.ok(contact.vertical<1,'Bodenkontakt hat keinen sichtbaren Impuls');
+  assert.equal(pose(1,type,true).lift,0); assert.equal(pose(1,type,true).vertical,1);
+}
+assert.ok(pose(.39,'n',true).lift > pose(.39,'r',true).lift * 3);
 const board = Array.from({ length: 8 }, () => Array(8).fill(null));
 board[7][4] = "K"; board[0][4] = "k"; board[4][4] = "Q"; board[3][3] = "r";
 const update = () => view.update({ board, flipped: false, highlights: {}, movable: new Set(["e4"]) });
@@ -35,6 +46,9 @@ const move = { from: "e4", to: "d5", piece: "Q", capturedPiece: "r", captureSqua
 let impacts = 0, completions = 0;
 view.animateMove({ ...move, onImpact: () => impacts++ }, () => completions++);
 step(680); assert.equal(impacts, 1); assert.equal(completions, 0);
+let bodyFragments = 0;
+for (let i = 0; i < upload.length; i += 12) if (Math.abs(upload[i+3]-.0432)<.00001 && upload[i+1]>.3) bodyFragments++;
+assert.ok(bodyFragments>60,'Geschlagene Figur wird nicht aus Körperfragmenten zerlegt');
 step(80);
 assert.ok(maximumInstances >= 180, "Schlag erzeugt keine dichte Trümmerwolke");
 step(400); assert.equal(completions, 1);
@@ -72,4 +86,4 @@ assert.equal(completions, 6, "Direkt aufeinanderfolgende Animationen blockieren 
 assert.equal(frames.size, 0);
 view.signalSquare("e4", "Q"); assert.ok(frames.size > 0);
 view.clearEffects(); assert.equal(frames.size, 0);
-console.log("Effektschach: Schlag, Partikelbudget, Abschlussfrist, Abbruch, Aus-Schalter, reduzierte Bewegung und Folgeanimationen bestanden.");
+console.log("Effektschach: Bodenkontakt, Körperzerfall, Partikelbudget, Abschlussfrist, Abbruch, Aus-Schalter, reduzierte Bewegung und Folgeanimationen bestanden.");

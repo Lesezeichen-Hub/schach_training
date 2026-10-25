@@ -214,9 +214,9 @@
           source.connect(filter).connect(gain).connect(context.destination); source.start(start, 0, duration); source.stop(start + duration + .02);
         };
         const mass = ({ p: .8, n: 1, b: .9, r: 1.25, q: 1.2, k: 1.15 })[E.typeOf(before.board[fr][fc])] || 1;
-        rubble(0, captured ? .34 : .095, captured ? .085 : .025, captured ? 1850 : 650);
-        tone(.005, captured ? 105 * mass : 105, captured ? 34 : 62, captured ? .28 : .11, captured ? .075 : .022, "triangle");
-        if (captured) { rubble(.12, .25, .032, 1100); tone(.035, 315, 85, .16, .024, "sawtooth"); }
+        rubble(0, captured ? .48 : .14, captured ? .11 : .035, captured ? 2400 : 850);
+        tone(.005, captured ? 125 * mass : 120, captured ? 28 : 52, captured ? .36 : .16, captured ? .1 : .032, "triangle");
+        if (captured) { rubble(.012, .075, .045, 3800); rubble(.1, .3, .052, 1400); rubble(.23, .32, .028, 420); tone(.03, 370, 75, .18, .03, "sawtooth"); }
         if (move.castle) { rubble(.085, .22, .045, 520); tone(.08, 135, 48, .24, .035, "triangle"); }
         if (move.promotion) { rubble(.02, .38, .055, 1600); tone(.025, 275, 81, .32, .032, "sawtooth"); }
         if (result.check && result.type !== "checkmate") { tone(.05, 155, 78, .27, .035, "sawtooth"); rubble(.11, .18, .025, 450); }
@@ -999,7 +999,7 @@
     }
     const effectKind = previewStatus.type === "checkmate" ? "checkmate" : previewStatus.over ? "draw" : move.promotion ? "promotion" : move.castle ? "castle" : capturedPiece ? "capture" : previewStatus.check ? "check" : "move";
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const cinematicDurations = { move: 460, capture: 760, check: 700, castle: 850, promotion: 1000, checkmate: 1150, draw: 700 };
+    const cinematicDurations = { move: 520, capture: 900, check: 760, castle: 920, promotion: 1080, checkmate: 1280, draw: 700 };
     const duration = reduced ? 0 : specialEffectsEnabled && boardView === "3d" ? cinematicDurations[effectKind] : 420;
     const finish = () => {
       if (!state.moveAnimating) return;
