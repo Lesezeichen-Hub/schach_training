@@ -25,7 +25,8 @@ Die Hauptnavigation ist bewusst anfängerfreundlich auf vier Ziele reduziert: **
 - Zeitpartien ohne Inkrement oder als Fischer-Modus 3+2, 5+3, 10+5 und 15+20
 - Gut sichtbares Ergebnis direkt über dem Brett nach Partieende: Schachmatt, Zeitüberschreitung oder Remisgrund mit Gewinner, Zahl der gespielten Züge und Spielstand
 - Installierbare Progressive Web App mit lokalem Offline-Cache; nach dem ersten Online-Aufruf läuft die App ohne Verbindung weiter
-- Abschaltbares „Effektschach“ im 3D-Brett: schwere Treffer mit Stein- und Metallsplittern, Staub und Druckwelle, synchrone Rochade, geschmiedete Umwandlung sowie zurückhaltende Warnsignale bei Schach und Matt; Geräusche treffen zeitgleich mit dem Einschlag
+- Abschaltbares „Effektschach“ im 3D-Brett: gerichtete, figurenspezifische Angriffe mit 110–225 Trümmern beim Schlag, Staub und Asche schon bei normalen Zügen, schwere Rochade, Umwandlung und zeitversetzte Mattsalven; zurückhaltende Stein-/Eisenfarben, wenig Glut und synchronisierte Einschlaggeräusche
+- Partikel werden in einem gemeinsamen Grafikdurchlauf mit einem Budget von 1800 gleichzeitig sichtbaren Fragmenten gezeichnet; Nachwirkungen blockieren keine weiteren Züge und der Effektschalter beendet auch den Kameraimpuls
 - 3D-Figuren lassen sich auch am sichtbaren Körper anklicken und ziehen; eine stockende Animation gibt die Partie spätestens nach ihrer Abschlussfrist wieder frei
 - Sichtbarer Kurs mit 12 direkt startbaren Mitmach-Einheiten: Schäfermatt spielen und abwehren, Sizilianisch, Alapin, Italienisch, Französisch, Caro-Kann, London, Gabel, Fesselung, Treppenmatt und Opposition
 - 40 Taktikaufgaben: 20 Motivlektionen zu Gabel, Fesselung, Spieß und Abzugsangriff sowie 20 direkte Matt- und Materialaufgaben
@@ -128,8 +129,11 @@ Mit installiertem Node.js:
 
 ```powershell
 node tests.mjs
+node tests-3d-effects.mjs
 ```
 
 Die Tests prüfen exakte IDs und Kategorien, deterministische Generatorausgabe, alle 155 vollständigen Szenarien und Vergleichsantworten, 465 Abschlüsse in Demo/Geführt/Üben plus den Erklärmodus, echte Mattenden in der angegebenen Zugzahl, Materialbilanzen einschließlich Rücknahmen und Remis, unveränderte Stellung bei Fehlern, beide Lernfarben, Rückwärts-/Neustartnavigation, einmalige Abschlussereignisse, Hilfe-Kennzeichnung, Rochade/en passant/Unterverwandlung, alle 64 Engine-Pfeilkoordinaten in beiden Orientierungen, PGN-Header/Export und legale Wiederaufnahme gespeicherter Zugfolgen. Die vorhandenen Regeln-, KI-, Endspiel- und Strategietests bleiben enthalten.
+
+Die Effekttests prüfen mit einer simulierten Grafikschnittstelle den einmaligen Zugabschluss, Abbruch, Abschlussfrist, das Partikelbudget, Folgeanimationen, den Aus-Schalter und reduzierte Bewegung. Die tatsächliche Shader- und Grafikausgabe wird zusätzlich im WebGL-Browser geprüft.
 
 Lern- und Spiel-Elo beginnen bei neuen Profilen bei **0** und werden ausschließlich durch absolvierte Übungen beziehungsweise gewertete Partien aufgebaut. Werte können nicht negativ werden. Bereits erspielte Wertungen bleiben erhalten; lediglich unberührte alte 800-Standardwerte ohne gewertete Aktivität werden auf 0 migriert. Die Lern-Elo reagiert ähnlich einer Elo-Wertung auf richtige und falsche Entscheidungen sowie die Schwierigkeit der Übung; sie ist keine offizielle Spielstärke.

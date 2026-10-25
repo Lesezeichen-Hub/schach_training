@@ -32,7 +32,7 @@
   const analysisJobs = new Map();
   let matchClockTimer = null;
   let automaticMoveAnimation = null;
-  let moveAudioContext = null, soundEnabled = true, specialEffectsEnabled = true, cinematicSoundPlayed = null;
+  let moveAudioContext = null, combatNoiseBuffer = null, soundEnabled = true, specialEffectsEnabled = true, cinematicSoundPlayed = null;
   const savedPositionsKey = "schachwerkstatt-saved-positions";
   const savedMatchesKey = "schachwerkstatt-games";
   const timeControlKeys = new Set(["0+0", "3+0", "3+2", "5+0", "5+3", "10+0", "10+5", "15+20"]);
@@ -137,6 +137,8 @@
     onSquare: (square) => selectSquare(square),
     onDragStart: (from) => {
       if (!boardInputAllowed()) return;
+      const [row, col] = E.coords(from);
+      board3d?.signalSquare?.(from, state.game.board[row][col]);
       state.selected = from; state.legal = E.legalMoves(state.game, from); render();
     },
     onDrop: (from, to) => {
@@ -200,11 +202,26 @@
           gain.gain.setValueAtTime(.0001, start); gain.gain.exponentialRampToValueAtTime(volume, start + .012); gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
           oscillator.connect(gain).connect(context.destination); oscillator.start(start); oscillator.stop(start + duration + .015);
         };
-        if (captured) { tone(.015, 90, 43, .2, .05, "triangle"); tone(.025, 288, 121, .13, .018, "sawtooth"); }
-        if (move.castle) { tone(.035, 145, 96, .15, .025, "triangle"); tone(.12, 185, 118, .19, .022, "triangle"); }
-        if (move.promotion) { tone(.02, 342, 272, .32, .028, "triangle"); tone(.11, 512, 366, .36, .014, "sine"); }
-        if (result.check && result.type !== "checkmate") { tone(.045, 225, 170, .24, .031, "sawtooth"); tone(.19, 188, 140, .2, .02, "triangle"); }
-        if (result.type === "checkmate") { tone(.015, 87, 46, .56, .068, "triangle"); tone(.15, 123, 61, .5, .032, "sawtooth"); }
+        const rubble = (delay, duration, volume, cutoff) => {
+          if (!combatNoiseBuffer) {
+            combatNoiseBuffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
+            const values = combatNoiseBuffer.getChannelData(0);
+            for (let i = 0; i < values.length; i++) values[i] = Math.random() * 2 - 1;
+          }
+          const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain(), start = now + delay;
+          source.buffer = combatNoiseBuffer; filter.type = "lowpass"; filter.frequency.setValueAtTime(cutoff, start); filter.frequency.exponentialRampToValueAtTime(100, start + duration);
+          gain.gain.setValueAtTime(.0001, start); gain.gain.exponentialRampToValueAtTime(volume, start + .006); gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+          source.connect(filter).connect(gain).connect(context.destination); source.start(start, 0, duration); source.stop(start + duration + .02);
+        };
+        const mass = ({ p: .8, n: 1, b: .9, r: 1.25, q: 1.2, k: 1.15 })[E.typeOf(before.board[fr][fc])] || 1;
+        rubble(0, captured ? .34 : .095, captured ? .085 : .025, captured ? 1850 : 650);
+        tone(.005, captured ? 105 * mass : 105, captured ? 34 : 62, captured ? .28 : .11, captured ? .075 : .022, "triangle");
+        if (captured) { rubble(.12, .25, .032, 1100); tone(.035, 315, 85, .16, .024, "sawtooth"); }
+        if (move.castle) { rubble(.085, .22, .045, 520); tone(.08, 135, 48, .24, .035, "triangle"); }
+        if (move.promotion) { rubble(.02, .38, .055, 1600); tone(.025, 275, 81, .32, .032, "sawtooth"); }
+        if (result.check && result.type !== "checkmate") { tone(.05, 155, 78, .27, .035, "sawtooth"); rubble(.11, .18, .025, 450); }
+        if (result.type === "checkmate") { tone(.015, 92, 30, .6, .075, "triangle"); rubble(.14, .44, .065, 1450); rubble(.29, .4, .04, 780); tone(.2, 115, 38, .42, .035, "triangle"); }
+        else if (result.over) { rubble(.03, .42, .022, 300); tone(.04, 92, 48, .38, .02, "triangle"); }
       }
     };
     if (context.state === "suspended") context.resume().then(play).catch(() => {}); else play();
@@ -361,6 +378,7 @@
     if (state.lesson && (state.lesson.ply > 0 || state.lesson.assisted)) state.seenLessons.add(exposureKey(state.lesson));
     cancelLessonTimer(); clearMatchHint(); clearPracticeHint(); clearEngineArrows(); cancelGameAnalysis(); state.sessionId += 1; state.liveAnalysisRequest += 1; state.liveAnalysisPending = 0; state.positionEvaluationRequest += 1; state.positionEvaluation = { fen: null, white: 50, black: 50, score: 0, depth: 0, thinking: false, error: false }; state.variationAiRequest += 1; state.variationAi = false; state.variationPlayerColor = "w"; state.thinking = false; state.lesson = null; state.positionTraining = false; state.positionEditorActive = false; state.editorSnapshot = null; state.importedPgn = false; state.analysisSource = null; state.variationStart = null;
     automaticMoveAnimation?.cancel?.(); automaticMoveAnimation = null; state.moveAnimating = false;
+    board3d?.clearEffects?.();
     state.personalMatchMistake = null; state.personalMatchPending = false;
     state.markedSquares.clear(); state.activeMistake = null; state.mistakeSolved = false;
     state.redoFrames = [];
@@ -794,6 +812,7 @@
       return;
     }
     if (piece && E.colorOf(piece) === state.game.turn) {
+      if (boardView === "3d") board3d?.signalSquare?.(square, piece);
       state.selected = square;
       state.legal = E.legalMoves(state.game, square);
     } else {
@@ -973,14 +992,14 @@
     const capturedPiece = move.castle ? null : move.enPassant ? state.game.board[fromRow][toCol] : state.game.board[toRow][toCol];
     const preview = E.applyMove(state.game, move, false);
     const previewStatus = E.gameStatus(preview);
-    const checkedKing = previewStatus.check ? (preview.turn === "w" ? "K" : "k") : null;
+    const checkedKing = previewStatus.check || previewStatus.type === "checkmate" ? (preview.turn === "w" ? "K" : "k") : null;
     let checkedKingSquare = null;
     if (checkedKing) for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
       if (preview.board[row][col] === checkedKing) checkedKingSquare = E.sq(row, col);
     }
-    const effectKind = previewStatus.type === "checkmate" ? "checkmate" : move.promotion ? "promotion" : move.castle ? "castle" : capturedPiece ? "capture" : previewStatus.check ? "check" : "move";
+    const effectKind = previewStatus.type === "checkmate" ? "checkmate" : previewStatus.over ? "draw" : move.promotion ? "promotion" : move.castle ? "castle" : capturedPiece ? "capture" : previewStatus.check ? "check" : "move";
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const cinematicDurations = { move: 500, capture: 780, check: 760, castle: 900, promotion: 1100, checkmate: 1350 };
+    const cinematicDurations = { move: 460, capture: 760, check: 700, castle: 850, promotion: 1000, checkmate: 1150, draw: 700 };
     const duration = reduced ? 0 : specialEffectsEnabled && boardView === "3d" ? cinematicDurations[effectKind] : 420;
     const finish = () => {
       if (!state.moveAnimating) return;
@@ -1012,7 +1031,7 @@
       };
       completionTimer = window.setTimeout(() => {
         if (!state.moveAnimating || state.sessionId !== sessionId) return;
-        try { visual?.cancel?.(); } finally { finish(); }
+        try { if (visual?.finish) visual.finish(); else visual?.cancel?.(); } finally { finish(); }
       }, duration + 300);
       return;
     }

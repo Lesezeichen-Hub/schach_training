@@ -218,6 +218,27 @@ void main(){
     const sphereProfile=Array.from({length:41},(_,i)=>{const a=-Math.PI/2+i*Math.PI/40;return[Math.sin(a),Math.cos(a)];});
     const torusProfile=Array.from({length:25},(_,i)=>{const a=i*Math.PI*2/24;return[Math.sin(a)*.18,1+Math.cos(a)*.18];});
     const meshes={cube:mesh(gl,cube()),sphere:mesh(gl,lathe(sphereProfile)),torus:mesh(gl,lathe(torusProfile)),cone:mesh(gl,lathe([[-1,.48],[-.86,.5],[.72,.16],[1,0]])),battlement:mesh(gl,battlement()),crown:mesh(gl,crown()),mitre:mesh(gl,bishopMitre()),horse:mesh(gl,knightHead())}; for(const [key,p] of Object.entries(profiles))meshes[key]=mesh(gl,lathe(p));for(const [key,rows] of Object.entries(coordinateGlyphs))meshes[`coordinate-${key}`]=mesh(gl,pixelGlyph(rows));
+    // Debris, dust and ash share one instanced draw, independent of their count.
+    let particleProgram=null,particleVP=null,particleBuffer=null;
+    try{
+      particleProgram=gl.createProgram();
+      gl.attachShader(particleProgram,shader(gl,gl.VERTEX_SHADER,`#version 300 es
+layout(location=0) in vec3 p;layout(location=1) in vec3 n;
+layout(location=2) in vec3 center;layout(location=3) in vec3 size;
+layout(location=4) in vec3 tint;layout(location=5) in vec2 angles;layout(location=6) in float opacity;
+uniform mat4 vp;out vec3 normal;out vec3 color;out float alpha;
+void main(){float cx=cos(angles.x),sx=sin(angles.x),cy=cos(angles.y),sy=sin(angles.y);
+mat3 rx=mat3(1.,0.,0.,0.,cx,sx,0.,-sx,cx),ry=mat3(cy,0.,-sy,0.,1.,0.,sy,0.,cy);
+normal=ry*rx*n;color=tint;alpha=opacity;gl_Position=vp*vec4(center+ry*rx*(p*size),1.);}`));
+      gl.attachShader(particleProgram,shader(gl,gl.FRAGMENT_SHADER,`#version 300 es
+precision highp float;in vec3 normal;in vec3 color;in float alpha;out vec4 outColor;
+void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,1.,.7))));outColor=vec4(pow(max(color*light,vec3(0.)),vec3(1./2.2)),alpha);}`));
+      gl.linkProgram(particleProgram);if(!gl.getProgramParameter(particleProgram,gl.LINK_STATUS))throw new Error("Partikelprogramm nicht verfügbar");
+      particleVP=gl.getUniformLocation(particleProgram,"vp");particleBuffer=gl.createBuffer();
+      gl.bindVertexArray(meshes.cube.vao);gl.bindBuffer(gl.ARRAY_BUFFER,particleBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(12),gl.DYNAMIC_DRAW);
+      for(const[location,size,offset]of[[2,3,0],[3,3,3],[4,3,6],[5,2,9],[6,1,11]]){gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,48,offset*4);gl.vertexAttribDivisor(location,1);}
+    }catch{particleProgram=null;}
     const uVP=gl.getUniformLocation(program,"vp"),uModel=gl.getUniformLocation(program,"mdl"),uColor=gl.getUniformLocation(program,"color"),uEye=gl.getUniformLocation(program,"eye"),uGloss=gl.getUniformLocation(program,"gloss");
     const uLightVP=gl.getUniformLocation(program,"lightVP"),uShadows=gl.getUniformLocation(program,"shadows"),uShadowMap=gl.getUniformLocation(program,"shadowMap");
     const lightVP=multiply(new Float32Array([1/7,0,0,0,0,1/7,0,0,0,0,-2/28,0,0,0,-30/28,1]),lookAt([-6,10,7],[0,0,0],[0,1,0]));
@@ -232,7 +253,7 @@ void main(){
     const shadowsAvailable=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE&&gl.getProgramParameter(depthProgram,gl.LINK_STATUS);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     let shadowPass=false,shadowDirty=true;
-    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,motion=null,motionFrame=0,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9],effectsEnabled=true,bursts=[];
+    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,motion=null,motionFrame=0,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9],effectsEnabled=true,bursts=[],cameraKick=null,lastSelection={square:null,time:0};
     function resize(){const d=Math.min(2,devicePixelRatio||1),w=Math.round(canvas.clientWidth*d),h=Math.round(canvas.clientHeight*d);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}gl.viewport(0,0,w,h);const distance=13.7,horizontal=Math.cos(cameraPitch)*distance;cameraEye=[Math.sin(cameraAngle)*horizontal,.3+Math.sin(cameraPitch)*distance,Math.cos(cameraAngle)*horizontal];const proj=perspective(Math.PI/4,w/h,.1,40),view=lookAt(cameraEye,[0,.3,0],[0,1,0]);vp=multiply(proj,view);invVP=inverse(vp);}
     function drawMesh(which,m,c,gloss=.18){const me=meshes[which];gl.uniformMatrix4fv(shadowPass?depthModel:uModel,false,m);if(!shadowPass){gl.uniform3fv(uColor,c);gl.uniform1f(uGloss,gloss);}gl.bindVertexArray(me.vao);gl.drawElements(gl.TRIANGLES,me.count,gl.UNSIGNED_SHORT,0);}
     function squarePosition(r,c){const vr=data.flipped?7-r:r,vc=data.flipped?7-c:c;return[vc-3.5,vr-3.5];}
@@ -302,98 +323,135 @@ void main(){
     }
     function effectPalette(piece){
       const dark=piece&&piece===piece.toLowerCase();
-      return dark?[[.23,.25,.25],[.61,.38,.19]]:[[.63,.57,.44],[.83,.55,.25]];
+      return dark?[[.12,.14,.15],[.32,.34,.33]]:[[.46,.44,.38],[.66,.63,.55]];
     }
-    function particleBurst(x,z,start,piece,count=30,power=1){
-      const[stone,edge]=effectPalette(piece),particles=[];
+    const combatProfiles={p:{count:110,power:1},n:{count:155,power:1.23},b:{count:145,power:1.15},r:{count:185,power:1.4},q:{count:225,power:1.5},k:{count:155,power:1.2}};
+    const scatter=(i,seed=0)=>{const value=Math.sin(i*12.9898+seed*7.233)*43758.5453;return value-Math.floor(value);};
+    function queueBurst(burst){bursts.push(burst);if(bursts.length>28)bursts.shift();}
+    function particleBurst(x,z,start,piece,count=100,power=1,direction=[0,0],style="impact",attackerType="p"){
+      const[stone,edge]=effectPalette(piece),particles=[],seed=x*17+z*31+count;
       for(let i=0;i<count;i++){
-        const angle=i*2.39996,speed=(.48+(i%9)*.105)*power,ember=i%7===0;
-        particles.push({vx:Math.cos(angle)*speed,vz:Math.sin(angle)*speed,vy:(.75+(i%7)*.16)*power,size:.032+(i%5)*.015,life:.42+(i%7)*.065,color:ember?[.88,.28,.07]:i%3?stone:edge,spin:i*.47});
+        const random=scatter(i+1,seed),dust=i%5<2,ember=style==="impact"&&i%31===0,ash=style==="ash",slash=style==="impact"&&attackerType==="b",siege=style==="impact"&&attackerType==="r";
+        const angle=slash?Math.atan2(direction[1],direction[0])+(random-.5)*1.2:i*2.39996+random*.65;
+        const speed=(.65+random*2.6)*power,kind=dust?"dust":ash?"ash":"shard",thrust=slash?1.7:attackerType==="p"?1.2:.85;
+        particles.push({kind,vx:Math.cos(angle)*speed+direction[0]*power*thrust,vz:Math.sin(angle)*speed+direction[1]*power*thrust,
+          vy:dust?.18+random*.5:(.9+scatter(i+15,seed)*(siege?1.1:2.2))*power,
+          height:style==="impact"&&!dust?.12+scatter(i+21,seed)*1.15:.05,
+          size:dust?.095+random*.15:(.018+random*.054)*(siege?1.35:slash?.75:1),
+          life:dust?1+random*.6:ash?1.4+random*.4:.65+random*.65,
+          color:dust?[.19+random*.06,.18+random*.06,.16+random*.06]:ember?[.78,.32,.09]:i%3?stone:edge,
+          spin:i*.47,flat:slash?.16:.25+scatter(i+9,seed)*.8});
       }
-      bursts.push({type:"burst",x,z,start,particles,life:.94*power,palette:[stone,edge]});
+      queueBurst({type:"burst",x,z,start,particles,life:1.85,power,style});
     }
     function cinematicKick(kind){
       if(!canvas.animate)return;
-      if(!["capture","checkmate"].includes(kind))return;
-      const strong=kind==="checkmate",distance=strong?5:2.5;
-      canvas.animate([{transform:"translate(0)"},{transform:`translate(${distance}px, ${-distance*.35}px)`},{transform:`translate(${-distance*.7}px, ${distance*.25}px)`},{transform:"translate(0)"}],{duration:strong?270:160,easing:"ease-out"});
+      const distance={move:.7,capture:3.6,check:1.7,checkmate:5.5,castle:1.6,promotion:2.3,draw:.5}[kind]||1;
+      cameraKick?.cancel();
+      cameraKick=canvas.animate([{transform:"translate(0)"},{transform:`translate(${distance}px, ${-distance*.65}px)`},{transform:`translate(${-distance*.8}px, ${distance*.4}px)`},{transform:`translate(${distance*.35}px, ${-distance*.2}px)`},{transform:"translate(0)"}],{duration:kind==="checkmate"?300:175,easing:"ease-out"});
     }
     function triggerCinematicEffects(now=performance.now()){
       if(!motion||motion.cueTriggered||!effectsEnabled||!motion.effects)return;
       motion.cueTriggered=true;
       motion.impact=Boolean(motion.capturedPiece);
-      const kind=motion.effectKind||(motion.capturedPiece?"capture":"move"),[x,z]=effectSquarePosition(motion.to),palette=effectPalette(motion.piece);
-      if(!motion.capturedPiece)bursts.push({type:"landing",x,z,start:now,life:.65,palette});
+      const kind=motion.effectKind||(motion.capturedPiece?"capture":"move"),[x,z]=effectSquarePosition(motion.to),[fx,fz]=effectSquarePosition(motion.from);
+      const length=Math.hypot(x-fx,z-fz)||1,direction=[(x-fx)/length,(z-fz)/length],profile=combatProfiles[motion.piece.toLowerCase()]||combatProfiles.p;
+      if(!motion.capturedPiece){
+        particleBurst(x,z,now,motion.piece,kind==="castle"?66:54,.48,direction,"ground");
+        queueBurst({type:"landing",x,z,start:now,life:.55});
+      }
       if(motion.capturedPiece){
         const[cx,cz]=effectSquarePosition(motion.captureSquare||motion.to);
-        particleBurst(cx,cz,now,motion.capturedPiece,kind==="checkmate"?46:30,kind==="checkmate"?1.18:1);
+        particleBurst(cx,cz,now,motion.capturedPiece,profile.count,profile.power,direction,"impact",motion.piece.toLowerCase());
+        particleBurst(cx+direction[0]*.12,cz+direction[1]*.12,now+80,motion.capturedPiece,42,.75,direction,"ground");
       }
       if(motion.rookFrom&&motion.rookTo){
         const[rx,rz]=effectSquarePosition(motion.rookTo);
-        bursts.push({type:"castle",x,z,rx,rz,start:now,life:1.05,palette});
+        queueBurst({type:"castle",x,z,rx,rz,start:now,life:.9});
+        particleBurst(rx,rz,now+45,motion.rookPiece,82,.65,direction,"ground");
       }
       if(motion.promotion){
-        bursts.push({type:"promotion",x,z,start:now,life:1.1,palette});
-        particleBurst(x,z,now,motion.piece,20,.8);
+        queueBurst({type:"promotion",x,z,start:now,life:1.2,palette:effectPalette(motion.piece)});
+        particleBurst(x,z,now,motion.piece,112,.8,[0,0]);
       }
       if(motion.checkedKingSquare){
         const[kx,kz]=effectSquarePosition(motion.checkedKingSquare);
-        bursts.push({type:kind==="checkmate"?"checkmate":"check",x:kx,z:kz,start:now,life:kind==="checkmate"?1.45:1.05,palette:[[.55,.075,.035],[.85,.26,.08]]});
-        if(kind==="checkmate")particleBurst(kx,kz,now,checkedKingPiece(motion),26,.7);
+        queueBurst({type:kind==="checkmate"?"checkmate":"check",x:kx,z:kz,start:now,life:kind==="checkmate"?1.7:1.1});
+        queueBurst({type:"threat",x,z,tx:kx,tz:kz,start:now,life:.34});
+        particleBurst(kx,kz,now+100,checkedKingPiece(motion),kind==="checkmate"?185:58,kind==="checkmate"?1.1:.42,direction,kind==="checkmate"?"impact":"ground");
+        if(kind==="checkmate")for(let i=0;i<2;i++)particleBurst(kx+(i?-.24:.25),kz+(i?.2:-.18),now+210+i*135,checkedKingPiece(motion),105,.92,[0,0]);
+      }
+      if(kind==="draw"){
+        particleBurst(x,z,now,motion.piece,75,.32,[0,0],"ash");
       }
       cinematicKick(kind);
-      motion.onImpact?.();
+      try{motion.onImpact?.();}catch{ /* A failed audio device must not stall a move. */ }
     }
     function checkedKingPiece(activeMotion){return activeMotion.piece===activeMotion.piece.toLowerCase()?"K":"k";}
+    function drawParticleBatch(items){
+      if(!items.length)return;
+      if(!particleProgram){for(const p of items.slice(0,96))drawMesh("cube",modelRotY(...p.position,...p.size,p.angles[1]),p.color,.1);return;}
+      const sorted=items.slice(-1800);
+      for(const p of sorted)p.distance=(p.position[0]-cameraEye[0])**2+(p.position[1]-cameraEye[1])**2+(p.position[2]-cameraEye[2])**2;
+      sorted.sort((a,b)=>b.distance-a.distance);
+      const values=new Float32Array(sorted.length*12);
+      sorted.forEach((p,i)=>values.set([...p.position,...p.size,...p.color,...p.angles,p.alpha],i*12));
+      gl.useProgram(particleProgram);gl.uniformMatrix4fv(particleVP,false,vp);
+      gl.bindVertexArray(meshes.cube.vao);gl.bindBuffer(gl.ARRAY_BUFFER,particleBuffer);gl.bufferData(gl.ARRAY_BUFFER,values,gl.DYNAMIC_DRAW);
+      gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+      gl.drawElementsInstanced(gl.TRIANGLES,meshes.cube.count,gl.UNSIGNED_SHORT,0,sorted.length);
+      gl.depthMask(true);gl.disable(gl.BLEND);gl.useProgram(program);
+    }
     function drawEffects(now=performance.now()){
       if(shadowPass||!effectsEnabled)return;
       bursts=bursts.filter(burst=>(now-burst.start)/1000<burst.life);
+      const debris=[];
+      const cube=(position,size,color,angles=[0,0],alpha=1)=>{if(alpha>.008&&size.every(n=>n>.001))debris.push({position,size,color,angles,alpha});};
+      const brackets=(x,z,fade,color)=>{
+        for(const dx of[-1,1])for(const dz of[-1,1]){
+          cube([x+dx*.43-dx*.09,.025,z+dz*.43],[.11,.012*fade,.018],color);
+          cube([x+dx*.43,.025,z+dz*.43-dz*.09],[.018,.012*fade,.11],color);
+        }
+      };
       for(const burst of bursts){
-        const age=(now-burst.start)/1000,t=Math.min(1,age/burst.life),fade=1-t;
+        const age=(now-burst.start)/1000;if(age<0)continue;
+        const t=Math.min(1,age/burst.life),fade=1-t;
         if(burst.type==="burst"){
-          if(age<.3){const radius=.16+age*2.7;drawMesh("torus",model(burst.x,.025,burst.z,radius,.008*fade,radius),[.35,.32,.28],.05);}
-          if(age<.095){const flash=.1+age*2;drawMesh("sphere",model(burst.x,.25,burst.z,flash,flash*.52,flash),[.94,.47,.17],.55);}
+          if(burst.style==="impact"){
+            cube([burst.x,.016,burst.z],[.32*fade,.009,.32*fade],[.065,.062,.054]);
+            for(let i=0;i<6;i++){const a=i*2.39996;cube([burst.x+Math.cos(a)*.25,.022,burst.z+Math.sin(a)*.25],[.018*fade,.006,.28*fade],[.09,.083,.07],[0,a]);}
+            if(age<.065)for(let i=0;i<4;i++){const s=(1-age/.065)*burst.power;cube([burst.x,.25+i*.08,burst.z],[.07*s,.035*s,(.34+i*.08)*s],[.86,.74,.54],[i*.8,i*1.7],.8);}
+          }
           for(const particle of burst.particles){
             const pt=Math.min(1,age/particle.life);if(pt>=1)continue;
-            const pf=1-pt,size=particle.size*(.45+pf),px=burst.x+particle.vx*age,py=.15+particle.vy*age-2.4*age*age,pz=burst.z+particle.vz*age;
-            drawMesh("cube",modelRotY(px,Math.max(.025,py),pz,size,size*(1.3+pf),size,particle.spin+age*6),particle.color,.3);
-          }
-          for(let i=0;i<10;i++){
-            const angle=i*2.39996,radius=.12+age*(.38+i%4*.1),size=(.09+i%3*.042)*Math.min(1,age*13)*fade;
-            drawMesh("sphere",model(burst.x+Math.cos(angle)*radius,.05+age*(.2+i%4*.11),burst.z+Math.sin(angle)*radius,size*1.5,size*.55,size*1.5),i%3?[.31,.29,.25]:[.42,.39,.32],.02);
+            const pf=1-pt,dust=particle.kind==="dust",ash=particle.kind==="ash",drag=dust?1.1:1.7,travel=(1-Math.exp(-age*drag))/drag;
+            const px=burst.x+particle.vx*travel,pz=burst.z+particle.vz*travel;
+            let py=dust?particle.height+age*.35:ash?particle.height+particle.vy*age-.35*age*age:particle.height+particle.vy*age-4.8*age*age;
+            if(!dust&&!ash&&py<.025){const hit=(particle.vy+Math.sqrt(particle.vy**2+19.2*particle.height))/9.6,bounce=age-hit;py=.025+Math.max(0,(particle.vy+4.8*hit)*.16*bounce-4.8*bounce*bounce);}
+            const size=particle.size*(dust?(.4+age*1.5)*pf:Math.min(1,pf*3));
+            cube([px,Math.max(.025,py),pz],[size*(dust?1.6:1),size*(dust?.55:particle.flat),size],particle.color,[particle.spin+age*(dust?.2:7),particle.spin+age*(dust?.3:5)],dust?Math.min(1,age*20)*pf*.31:ash?pf*.6:Math.min(1,pf*4));
           }
         }else if(burst.type==="landing"){
-          if(age<.38){const r=.17+t*.85;drawMesh("torus",model(burst.x,.021,burst.z,r,.014*fade,r),[.46,.4,.31],.08);}
-          for(let i=0;i<7;i++){const a=i*2.39996,r=.14+age*(.42+i%3*.08),s=.025*fade;drawMesh("sphere",model(burst.x+Math.cos(a)*r,.045+age*.1,burst.z+Math.sin(a)*r,s*1.6,s*.8,s*1.6),[.4,.37,.31],.03);}
+          for(let i=0;i<18;i++){const a=i*2.39996,r=.18+t*.65,s=.04*fade;cube([burst.x+Math.cos(a)*r,.035,burst.z+Math.sin(a)*r],[s,.013,s*1.8],[.29,.27,.23],[0,a],fade*.55);}
         }else if(burst.type==="check"||burst.type==="checkmate"){
-          const mate=burst.type==="checkmate",red=burst.palette[0],pulse=.75+.25*Math.sin(age*(mate?13:9));
-          for(const dx of [-1,1])for(const dz of [-1,1]){
-            const x=burst.x+dx*.4,z=burst.z+dz*.4,y=.035;
-            drawMesh("cube",model(x-dx*.085,y,z,.1,.01,.018),red,.15);
-            drawMesh("cube",model(x,y,z-dz*.085,.018,.01,.1),red,.15);
-          }
-          if(mate){
-            const radius=.28+t*.93;
-            if(age<.52)drawMesh("torus",model(burst.x,.03,burst.z,radius,.022*fade,radius),[.65,.27,.12],.25);
-            for(let i=0;i<12;i++){
-              const angle=i*2.39996,r=.25+age*(.26+i%3*.09),s=(.08+i%3*.026)*fade;
-              drawMesh("sphere",model(burst.x+Math.cos(angle)*r,.14+age*(.48+i%3*.12),burst.z+Math.sin(angle)*r,s,s*.65,s),[.25,.24,.22],.03);
-            }
-            if(age<.42)drawMesh("cube",model(burst.x,.035,burst.z,.39*pulse,.01,.39*pulse),[.39,.13,.075],.1);
-          }else if(age<.25){drawMesh("torus",model(burst.x,.03,burst.z,.33+age*.54,.012*fade,.33+age*.54),[.5,.22,.11],.12);}
+          brackets(burst.x,burst.z,fade,burst.type==="checkmate"?[.36,.12,.055]:[.32,.22,.13]);
+          if(burst.type==="checkmate")for(let i=0;i<8;i++){const a=i*Math.PI/4;cube([burst.x+Math.cos(a)*.65,.025,burst.z+Math.sin(a)*.65],[.012,.007,.24*fade],[.10,.095,.08],[0,-a]);}
+        }else if(burst.type==="threat"){
+          const travel=Math.min(1,age/.12);
+          for(let i=0;i<12;i++){const q=Math.max(0,travel-i*.025),s=.017*(1-i/14)*fade;cube([burst.x+(burst.tx-burst.x)*q,.12,burst.z+(burst.tz-burst.z)*q],[s,s*.5,s*2],[.58,.54,.44],[0,Math.atan2(burst.tx-burst.x,burst.tz-burst.z)],fade*.7);}
         }else if(burst.type==="promotion"){
-          for(let i=0;i<18;i++){
-            const angle=i*2.39996,r=.1+(i%4)*.055+age*.14,height=.1+(i%6)*.19+age*.36,s=(.015+i%3*.009)*fade;
-            drawMesh("cube",modelRotY(burst.x+Math.cos(angle)*r,height,burst.z+Math.sin(angle)*r,s,s*2,s,angle),i%5?[.62,.45,.22]:[.93,.43,.13],.3);
-          }
-          if(age<.44){const r=.17+age*.7;drawMesh("torus",model(burst.x,.03,burst.z,r,.016*fade,r),[.61,.46,.25],.3);}
+          for(let i=0;i<45;i++){const a=i*2.39996,r=.16+scatter(i,3)*.25+age*.25,h=.1+(i%9)*.19+Math.sin(t*Math.PI)*.55,s=(.025+i%4*.013)*fade;cube([burst.x+Math.cos(a)*r,h,burst.z+Math.sin(a)*r],[s,s*.4,s*1.8],burst.palette[i%2],[age*5+i,a],Math.min(1,fade*2));}
         }else if(burst.type==="castle"){
-          for(const [px,pz] of [[burst.x,burst.z],[burst.rx,burst.rz]]){
-            if(age<.43){const radius=.18+age*1.6;drawMesh("torus",model(px,.025,pz,radius,.013*fade,radius),[.43,.39,.32],.05);}
-            for(let i=0;i<5;i++){const a=i*2.39996,r=.12+age*.38,s=.038*fade;drawMesh("sphere",model(px+Math.cos(a)*r,.045+age*.08,pz+Math.sin(a)*r,s*1.5,s*.5,s*1.5),[.38,.36,.32],.02);}
-          }
+          brackets(burst.x,burst.z,fade,[.3,.31,.28]);brackets(burst.rx,burst.rz,fade,[.3,.31,.28]);
+        }else if(burst.type==="selection"){
+          brackets(burst.x,burst.z,fade,[.42,.44,.4]);
         }
       }
+      if(motion?.effects&&!motion.cueTriggered){
+        const raw=motionProgress(now),impactAt=motion.capturedPiece ? .66 : .78,travel=Math.min(1,raw/impactAt),[fx,fz]=effectSquarePosition(motion.from),[tx,tz]=effectSquarePosition(motion.to);
+        for(let i=0;i<38;i++){const q=Math.max(0,travel-i*.012),a=i*2.39996,s=(.018+(i%4)*.01)*(1-i/45);cube([fx+(tx-fx)*q+Math.cos(a)*.09,.05+(i%4)*.018,fz+(tz-fz)*q+Math.sin(a)*.09],[s*1.4,s*.5,s],[.23,.23,.21],[i,raw*6],.65*(1-i/42));}
+      }
+      drawParticleBatch(debris);
     }
     function drawScene(){
       drawMesh("cube",model(0,-.22,0,4.55,.14,4.55),[.19,.12,.07]);
@@ -414,20 +472,14 @@ void main(){
         const fr=8-Number(motion.from[1]),fc=motion.from.charCodeAt(0)-97,tr=8-Number(motion.to[1]),tc=motion.to.charCodeAt(0)-97,[fx,fz]=squarePosition(fr,fc),[tx,tz]=squarePosition(tr,tc),raw=motionProgress();
         const cinematic=Boolean(motion.effects&&effectsEnabled),attacking=Boolean(cinematic&&motion.capturedPiece),impactAt=attacking?.66:.78;
         const phase=Math.min(1,raw/impactAt),smooth=phase*phase*(3-2*phase),travel=raw<impactAt?smooth*.96:.96+(raw-impactAt)/(1-impactAt)*.04;
-        const pieceType=(motion.piece||"p").toLowerCase(),arc=pieceType==="n"?.5:attacking?.36:.22;
-        const x=fx+(tx-fx)*travel,z=fz+(tz-fz)*travel,lift=Math.sin(Math.PI*Math.min(1,raw/.86))*arc,scale=1+Math.sin(Math.PI*Math.min(1,raw/.9))*(attacking?.11:.065);
+        const pieceType=(motion.piece||"p").toLowerCase(),arc=pieceType==="n"?.58:pieceType==="r"?.06:attacking?.19:.09;
+        const recoil=attacking&&raw>.66?Math.sin((raw-.66)/.34*Math.PI)*.055:0;
+        const x=fx+(tx-fx)*(travel-recoil),z=fz+(tz-fz)*(travel-recoil),lift=Math.sin(Math.PI*Math.min(1,raw/.86))*arc,scale=1+Math.sin(Math.PI*Math.min(1,raw/.9))*(attacking?.055:.025);
         const shownPiece=motion.promotion&&raw>.72?(motion.piece===motion.piece.toUpperCase()?motion.promotion.toUpperCase():motion.promotion):motion.piece;
         drawPiece(shownPiece,x,z,lift+(motion.promotion&&raw>.72?Math.sin((raw-.72)/.28*Math.PI)*.25:0),scale);
         if(motion.rookFrom&&motion.rookTo){
           const[rfx,rfz]=effectSquarePosition(motion.rookFrom),[rtx,rtz]=effectSquarePosition(motion.rookTo),rookTravel=Math.min(1,Math.max(0,(raw-.08)/.74)),rs=rookTravel*rookTravel*(3-2*rookTravel);
           drawPiece(motion.rookPiece,rfx+(rtx-rfx)*rs,rfz+(rtz-rfz)*rs,Math.sin(Math.PI*rs)*.12,1+.04*Math.sin(Math.PI*rs));
-        }
-        if(cinematic&&!shadowPass&&!motion.cueTriggered){
-          const trailCount=pieceType==="q"?6:pieceType==="n"?3:4;
-          for(let i=1;i<=trailCount;i++){
-            const q=Math.max(0,travel-i*.045),size=(.052-i*.006)*(1-Math.max(0,raw-.55)),wave=pieceType==="n"?Math.sin(i*1.7+raw*13)*.045:0;
-            if(size>.005)drawMesh("sphere",model(fx+(tx-fx)*q+wave,.05+i*.025,fz+(tz-fz)*q-wave,size*1.4,size*.55,size*1.4),i%3?[.47,.43,.36]:[.69,.45,.23],.06);
-          }
         }
       }
       drawEffects();
@@ -487,8 +539,8 @@ void main(){
       const ray=pointerRay(event),world=groundAt(ray);
       const vc=Math.floor(world[0]+4),vr=Math.floor(world[2]+4);
       if(vc>=0&&vc<=7&&vr>=0&&vr<=7){
-        const c=data.flipped?7-vc:vc,r=data.flipped?7-vr:vr;
-        if(data.board?.[r]?.[c])return{square:"abcdefgh"[c]+(8-r),world,r,c};
+        const c=data.flipped?7-vc:vc,r=data.flipped?7-vr:vr,square="abcdefgh"[c]+(8-r);
+        if(data.board?.[r]?.[c]||data.highlights[square]?.includes("legal"))return{square,world,r,c};
       }
       const piece=pieceAt(ray);
       if(piece)return{...piece,world};
@@ -502,26 +554,49 @@ void main(){
     canvas.addEventListener("pointercancel",()=>{if(drag?.world)shadowDirty=true;drag=null;canvas.classList.remove("dragging","rotating");render();});
     canvas.addEventListener("contextmenu",(e)=>e.preventDefault());
     new ResizeObserver(render).observe(canvas);
+    function effectsAllowed(){return effectsEnabled&&!root.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;}
+    function queueEffectsFrame(){if(!motionFrame)motionFrame=requestAnimationFrame(stepEffects);}
+    function stepEffects(){
+      motionFrame=0;
+      const now=performance.now(),active=motion;
+      if(active){
+        if(active.effects&&(now-active.start)/active.duration>=(active.capturedPiece ? .66 : .78))triggerCinematicEffects(now);
+        shadowDirty=true;
+        if(now-active.start>=active.duration){motion=null;active.done?.();}
+      }
+      render();
+      if(motion||(effectsEnabled&&bursts.some(burst=>(now-burst.start)/1000<burst.life)))queueEffectsFrame();
+    }
+    function clearEffects(){
+      cancelAnimationFrame(motionFrame);motionFrame=0;motion=null;bursts=[];cameraKick?.cancel();cameraKick=null;shadowDirty=true;render();
+    }
     return {
       available:true,
-      update(next){data=next;shadowDirty=true;render();},
-      setEffectsEnabled(value){effectsEnabled=Boolean(value);if(!effectsEnabled)bursts=[];shadowDirty=true;render();},
+      update(next){
+        if(next.flipped!==data.flipped)for(const burst of bursts){
+          for(const key of["x","z","rx","rz","tx","tz"])if(Number.isFinite(burst[key]))burst[key]*=-1;
+          for(const particle of burst.particles||[]){particle.vx*=-1;particle.vz*=-1;}
+        }
+        data=next;shadowDirty=true;render();
+      },
+      setEffectsEnabled(value){effectsEnabled=Boolean(value);if(!effectsEnabled){bursts=[];cameraKick?.cancel();if(motion)motion.effects=false;}shadowDirty=true;render();},
+      clearEffects,
+      signalSquare(square,piece){
+        const now=performance.now();if(!effectsAllowed()||(lastSelection.square===square&&now-lastSelection.time<200))return;
+        lastSelection={square,time:now};const[x,z]=effectSquarePosition(square);
+        queueBurst({type:"selection",x,z,start:now,life:.32});particleBurst(x,z,now,piece,16,.18,[0,0],"ground");queueEffectsFrame();
+      },
       animateMove(next,done){
         cancelAnimationFrame(motionFrame);
+        motionFrame=0;
         const start=performance.now(),duration=Math.max(1,next.duration||1);
-        motion={...next,start,duration,impact:false,cueTriggered:false};
-        let cancelled=false,finished=false;
-        const step=()=>{
-          if(cancelled)return;
-          const now=performance.now();
-          if(motion&&motion.effects&&(now-start)/duration>=(motion.capturedPiece ? .66 : .78))triggerCinematicEffects(now);
-          if(!finished)shadowDirty=true;render();
-          if(!finished&&now-start>=duration){finished=true;motion=null;done?.();}
-          const effectsAlive=effectsEnabled&&bursts.some(burst=>(now-burst.start)/1000<burst.life);
-          if(!finished||effectsAlive)motionFrame=requestAnimationFrame(step);else motionFrame=0;
+        const active={...next,start,duration,impact:false,cueTriggered:false,effects:Boolean(next.effects&&effectsAllowed()),done};motion=active;
+        if(active.effects){const[fx,fz]=effectSquarePosition(active.from);particleBurst(fx,fz,start,active.piece,30,.28,[0,0],"ground");}
+        queueEffectsFrame();
+        return{
+          cancel(){if(motion===active)clearEffects();},
+          finish(){if(motion!==active)return;if(active.effects&&!active.cueTriggered)triggerCinematicEffects();motion=null;shadowDirty=true;active.done?.();render();if(bursts.length)queueEffectsFrame();}
         };
-        motionFrame=requestAnimationFrame(step);
-        return{cancel(){cancelled=true;cancelAnimationFrame(motionFrame);motionFrame=0;motion=null;bursts=[];shadowDirty=true;render();}};
       },
       rotate(){cameraAngle=(cameraAngle+Math.PI/2)%(Math.PI*2);render();},
       render
