@@ -18,18 +18,44 @@
     k: [...turnedBase(.43),[.37,.215],[.5,.17],[.71,.125],[.98,.105],[1.22,.12],[1.39,.165],...collar(1.42,.26),[1.5,.2],...collar(1.53,.275),[1.61,.21],[1.67,.19],[1.73,.225],[1.77,.225],[1.8,.18],[1.81,0]]
   };
   const CAPTURE_IMPACT=.66,MOVE_IMPACT=.78;
+  const attackMotions={
+    p:{windup:.09,back:.028,arc:.23,drive:2.6,lateral:0,yaw:0,lean:.16,compression:.13,bounce:.07},
+    n:{windup:.1,back:.025,arc:1.18,drive:1.35,lateral:.27,yaw:.32,lean:.13,compression:.17,bounce:.15},
+    b:{windup:.12,back:.025,arc:.37,drive:2.05,lateral:-.23,yaw:-.38,lean:.16,compression:.11,bounce:.065},
+    r:{windup:.16,back:.04,arc:.075,drive:2.8,lateral:0,yaw:0,lean:.025,compression:.17,bounce:.055},
+    q:{windup:.14,back:.022,arc:.61,drive:1.6,lateral:0,yaw:.48,lean:.055,compression:.145,bounce:.11},
+    k:{windup:.18,back:.035,arc:.46,drive:2.2,lateral:0,yaw:.08,lean:.1,compression:.18,bounce:.1}
+  };
   function combatPose(progress,type,attacking,effects=true){
     const raw=Math.max(0,Math.min(1,progress)),impact=attacking?CAPTURE_IMPACT:MOVE_IMPACT;
-    if(!effects)return{travel:raw*raw*(3-2*raw),lift:Math.sin(raw*Math.PI)*.16,scale:1,vertical:1};
-    if(raw>=1)return{travel:1,lift:0,scale:1,vertical:1};
-    const windup=attacking?.12:.055,back=attacking?.025:.008;
-    if(raw<windup)return{travel:-back*Math.sin(raw/windup*Math.PI/2),lift:0,scale:1,vertical:1};
+    const rest={travel:1,lift:0,scale:1,vertical:1,lateral:0,yaw:0,tilt:0};
+    if(!effects)return{...rest,travel:raw*raw*(3-2*raw),lift:Math.sin(raw*Math.PI)*.16};
+    if(raw>=1)return rest;
+    const attack=attackMotions[type]||attackMotions.p,windup=attacking?attack.windup:.055,back=attacking?attack.back:.008;
+    if(raw<windup){const t=raw/windup;return{...rest,travel:-back*Math.sin(t*Math.PI/2),tilt:attacking?-attack.lean*.35*Math.sin(t*Math.PI):0};}
     if(raw<impact){
-      const t=(raw-windup)/(impact-windup),arc=attacking?({p:.5,n:1.1,b:.66,r:.26,q:.72,k:.58}[type]||.55):type==="n"?.62:.22;
-      return{travel:-back+(1+back)*Math.pow(t,1.8),lift:arc*Math.sin(t*Math.PI),scale:1,vertical:1};
+      const t=(raw-windup)/(impact-windup),arc=attacking?attack.arc:type==="n"?.62:.22,sweep=Math.sin(t*Math.PI);
+      return{...rest,travel:-back+(1+back)*Math.pow(t,attacking?attack.drive:1.8),lift:arc*sweep,
+        lateral:attacking?attack.lateral*sweep:0,yaw:attacking?attack.yaw*sweep:0,tilt:attacking?attack.lean*sweep:0};
     }
-    const t=(raw-impact)/(1-impact),compression=(attacking?.14:.075)*Math.exp(-t*9)*Math.cos(t*14);
-    return{travel:1-Math.sin(t*Math.PI)*.009,lift:Math.max(0,Math.sin(t*Math.PI*3))*Math.exp(-t*5)*(attacking?.12:.055),scale:1+compression*.24,vertical:1-compression};
+    const t=(raw-impact)/(1-impact),compression=(attacking?attack.compression:.075)*Math.exp(-t*9)*Math.cos(t*14);
+    return{...rest,travel:1-Math.sin(t*Math.PI)*.009,lift:Math.max(0,Math.sin(t*Math.PI*3))*Math.exp(-t*5)*(attacking?attack.bounce:.055),scale:1+compression*.24,vertical:1-compression};
+  }
+  function fragmentState(particle,age){
+    const elapsed=Math.max(0,age-(particle.delay||0)),cluster=particle.stage==="head"?Math.min(elapsed,.085):0,flight=elapsed-cluster;
+    const height=particle.height+cluster*(particle.clusterLift||0),gravity=9.6,hot=particle.kind==="hot",restitution=hot?.33:.2;
+    const speed=Math.sqrt(particle.vy**2+2*gravity*height),firstHit=(particle.vy+speed)/gravity,firstBounce=speed*restitution;
+    const secondHit=firstHit+2*firstBounce/gravity,secondBounce=firstBounce*.35;
+    let y=height+particle.vy*flight-gravity*flight*flight/2,hits=0;
+    if(flight>=firstHit){
+      hits=1;const t=flight-firstHit;y=.025+Math.max(0,firstBounce*t-gravity*t*t/2);
+      if(flight>=secondHit){hits=2;const t=flight-secondHit;y=.025+Math.max(0,secondBounce*t-gravity*t*t/2);}
+    }
+    const drag=hot?1.35:1.7,travel=(1-Math.exp(-flight*drag))/drag;
+    return{elapsed,flight,x:(particle.offsetX||0)+(particle.clusterVX||0)*cluster+particle.vx*travel,
+      z:(particle.offsetZ||0)+(particle.clusterVZ||0)*cluster+particle.vz*travel,y:Math.max(.025,y),hits,
+      heat:hot?Math.max(0,1-elapsed/particle.life)*Math.min(1,elapsed*15):0,
+      hitTimes:[firstHit+(particle.stage==="head"?.085:0),secondHit+(particle.stage==="head"?.085:0)]};
   }
   const coordinateGlyphs = {
     a:["000","011","101","111","101"], b:["100","100","110","101","110"],
@@ -65,6 +91,10 @@
   function model(x,y,z,sx,sy,sz) { return new Float32Array([sx,0,0,0, 0,sy,0,0, 0,0,sz,0, x,y,z,1]); }
   function modelRotX(x,y,z,sx,sy,sz,a) { const c=Math.cos(a),s=Math.sin(a);return new Float32Array([sx,0,0,0, 0,c*sy,s*sy,0, 0,-s*sz,c*sz,0, x,y,z,1]); }
   function modelRotY(x,y,z,sx,sy,sz,a) { const c=Math.cos(a),s=Math.sin(a);return new Float32Array([c*sx,0,-s*sx,0, 0,sy,0,0, s*sz,0,c*sz,0, x,y,z,1]); }
+  function pieceTransform(x,y,z,vertical,yaw,tilt,heading){
+    const rotation=multiply(modelRotY(0,0,0,1,1,1,heading),multiply(modelRotX(0,0,0,1,1,1,tilt),modelRotY(0,0,0,1,1,1,yaw-heading)));
+    return multiply(model(x,y,z,1,1,1),multiply(rotation,multiply(model(0,0,0,1,vertical,1),model(-x,-y,-z,1,1,1))));
+  }
   function inverse(m) {
     const o=new Float32Array(16), a=m;
     const b00=a[0]*a[5]-a[1]*a[4], b01=a[0]*a[6]-a[2]*a[4], b02=a[0]*a[7]-a[3]*a[4], b03=a[1]*a[6]-a[2]*a[5], b04=a[1]*a[7]-a[3]*a[5], b05=a[2]*a[7]-a[3]*a[6], b06=a[8]*a[13]-a[9]*a[12], b07=a[8]*a[14]-a[10]*a[12], b08=a[8]*a[15]-a[11]*a[12], b09=a[9]*a[14]-a[10]*a[13], b10=a[9]*a[15]-a[11]*a[13], b11=a[10]*a[15]-a[11]*a[14];
@@ -267,13 +297,14 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
     const shadowsAvailable=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE&&gl.getProgramParameter(depthProgram,gl.LINK_STATUS);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     let shadowPass=false,shadowDirty=true,pieceDeformation=null;
-    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,motion=null,motionFrame=0,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9],effectsEnabled=true,bursts=[],cameraKick=null,lastSelection={square:null,time:0};
+    let data={board:null,flipped:false,highlights:{},movable:new Set()},drag=null,motion=null,motionFrame=0,vp=null,invVP=null,cameraAngle=0,cameraPitch=.65,cameraEye=[0,8.6,10.9],effectsEnabled=true,bursts=[],ricochets=[],lastRicochetSound=0,cameraKick=null,lastSelection={square:null,time:0};
     function resize(){const d=Math.min(2,devicePixelRatio||1),w=Math.round(canvas.clientWidth*d),h=Math.round(canvas.clientHeight*d);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}gl.viewport(0,0,w,h);const distance=13.7,horizontal=Math.cos(cameraPitch)*distance;cameraEye=[Math.sin(cameraAngle)*horizontal,.3+Math.sin(cameraPitch)*distance,Math.cos(cameraAngle)*horizontal];const proj=perspective(Math.PI/4,w/h,.1,40),view=lookAt(cameraEye,[0,.3,0],[0,1,0]);vp=multiply(proj,view);invVP=inverse(vp);}
-    function drawMesh(which,m,c,gloss=.18){const me=meshes[which];if(pieceDeformation){m=new Float32Array(m);for(const index of[1,5,9])m[index]*=pieceDeformation.vertical;m[13]=pieceDeformation.base+(m[13]-pieceDeformation.base)*pieceDeformation.vertical;}gl.uniformMatrix4fv(shadowPass?depthModel:uModel,false,m);if(!shadowPass){gl.uniform3fv(uColor,c);gl.uniform1f(uGloss,gloss);}gl.bindVertexArray(me.vao);gl.drawElements(gl.TRIANGLES,me.count,gl.UNSIGNED_SHORT,0);}
+    function drawMesh(which,m,c,gloss=.18){const me=meshes[which];if(pieceDeformation)m=multiply(pieceDeformation,m);gl.uniformMatrix4fv(shadowPass?depthModel:uModel,false,m);if(!shadowPass){gl.uniform3fv(uColor,c);gl.uniform1f(uGloss,gloss);}gl.bindVertexArray(me.vao);gl.drawElements(gl.TRIANGLES,me.count,gl.UNSIGNED_SHORT,0);}
     function squarePosition(r,c){const vr=data.flipped?7-r:r,vc=data.flipped?7-c:c;return[vc-3.5,vr-3.5];}
     function colorForSquare(name,r,c){const h=data.highlights[name]||"";if(h.includes("review-played")||h.includes("in-check"))return[.72,.18,.16];if(h.includes("hint-to")||h.includes("review-best-to")||h.includes("selected"))return[.84,.57,.13];if(h.includes("hint-from")||h.includes("review-best-from"))return[.18,.48,.72];if(h.includes("legal")||h.includes("training-target"))return[.35,.62,.29];if(h.includes("opponent-last"))return[.73,.52,.18];return(r+c)%2?[.31,.17,.12]:[.76,.62,.4];}
-    function drawPiece(piece,x,z,lift=0,scale=1,vertical=1){
-      const previousDeformation=pieceDeformation;pieceDeformation=vertical===1?null:{base:lift,vertical};
+    function drawPiece(piece,x,z,lift=0,scale=1,vertical=1,rotation={}){
+      const previousDeformation=pieceDeformation,yaw=rotation.yaw||0,tilt=rotation.tilt||0;
+      pieceDeformation=vertical===1&&!yaw&&!tilt?null:pieceTransform(x,lift,z,vertical,yaw,tilt,rotation.heading||0);
       const type=piece.toLowerCase(),dark=piece===type,color=dark?[.038,.025,.023]:[.82,.69,.40],detail=dark?[.009,.006,.005]:[.22,.14,.055];
       const part=(which,px,py,pz,sx,sy,sz,gloss=.68)=>drawMesh(which,model(x+px*scale,lift+py*scale,z+pz*scale,sx*scale,sy*scale,sz*scale),color,gloss);
       drawMesh(type,model(x,lift,z,scale,scale,scale),color,.68);
@@ -343,10 +374,12 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
     }
     const combatProfiles={p:{count:170,power:1.25},n:{count:235,power:1.48},b:{count:215,power:1.4},r:{count:280,power:1.65},q:{count:320,power:1.8},k:{count:230,power:1.45}};
     const scatter=(i,seed=0)=>{const value=Math.sin(i*12.9898+seed*7.233)*43758.5453;return value-Math.floor(value);};
-    function queueBurst(burst){bursts.push(burst);if(bursts.length>28)bursts.shift();}
+    function queueBurst(burst){bursts.push(burst);if(bursts.length>40)bursts.shift();}
     function shatterPiece(piece,x,z,start,power,direction){
       const type=piece.toLowerCase(),profile=profiles[type],palette=effectPalette(piece),particles=[];
-      const facing=(piece===type?1:-1)*(data.flipped?-1:1),step=.09;
+      const facing=(piece===type?1:-1)*(data.flipped?-1:1),step=.09,height={p:1.21,n:1.63,b:1.85,r:1.47,q:2,k:2.2}[type];
+      const phaseAt=y=>y>=height*.64?"head":y>.27?"body":"base";
+      const delays={head:0,body:.15,base:.32};
       const radiusAt=y=>{
         let radius=0;
         for(let i=1;i<profile.length;i++){
@@ -369,12 +402,38 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
       for(let py=step/2;py<2.2;py+=step)for(let px=-.405;px<=.405;px+=step)for(let pz=-.405;pz<=.495;pz+=step){
         if(!inside(px,py,pz))continue;
         const random=scatter(++index,py*13),radius=Math.hypot(px,pz)||1,speed=power*(1.4+random*2.2);
-        particles.push({kind:"chunk",offsetX:px,offsetZ:pz,height:py,delay:Math.max(0,.065-py*.035),
+        const stage=phaseAt(py);
+        particles.push({kind:"chunk",stage,offsetX:px,offsetZ:pz,height:py,delay:delays[stage]+scatter(index,11)*.02,
+          clusterVX:direction[0]*.9,clusterVZ:direction[1]*.9,clusterLift:1.3,
           vx:px/radius*speed+direction[0]*power*1.7,vz:pz/radius*speed+direction[1]*power*1.7,
           vy:power*(1.7+scatter(index+7,2)*2.2),size:step*.48,flat:.8+random*.4,
           life:1.25+random*.75,color:palette[index%4?0:1],spin:random*.2});
       }
-      queueBurst({type:"burst",style:"shatter",x,z,start,particles,life:2.1,power});
+      for(let i=0;i<10;i++){
+        const random=scatter(i+5,8),py=i<3?height*.8:i<7?height*.45:.14,stage=phaseAt(py),angle=i*2.39996;
+        particles.push({kind:"hot",stage,offsetX:Math.cos(angle)*.18,offsetZ:Math.sin(angle)*.18,height:py,delay:delays[stage],
+          clusterVX:direction[0]*.9,clusterVZ:direction[1]*.9,clusterLift:1.3,
+          vx:Math.cos(angle)*power*(1.1+random)+direction[0]*power*.9,vz:Math.sin(angle)*power*(1.1+random)+direction[1]*power*.9,
+          vy:power*(1+random*1.1),size:.065+random*.045,flat:.6+random*.8,life:2.3+random*.5,color:palette[1],spin:random*.2,emittedHits:0});
+      }
+      queueBurst({type:"burst",style:"shatter",x,z,start,particles,life:3.3,power});
+      for(const[stage,delay]of Object.entries(delays))queueBurst({type:"fracture",stage,x,z,height:stage==="head"?height*.8:stage==="body"?height*.45:.14,start:start+delay*1000,life:.24,power});
+    }
+    function advanceHotDebris(now){
+      if(!effectsEnabled)return;
+      for(const burst of bursts)for(const particle of burst.particles||[]){
+        if(particle.kind!=="hot")continue;
+        const age=(now-burst.start)/1000;if(age<particle.delay||age>particle.delay+particle.life)continue;
+        const state=fragmentState(particle,age),previous=particle.emittedHits||0;
+        for(let index=previous;index<state.hits;index++){
+          const hitAge=particle.delay+state.hitTimes[index];if(age-hitAge>.55)continue;
+          const hit=fragmentState(particle,hitAge+.0001),strength=Math.min(1,burst.power*.35+.25);
+          ricochets.push({x:burst.x+hit.x,z:burst.z+hit.z,start:burst.start+hitAge*1000,life:.55,strength,seed:particle.spin*20+index});
+          if(ricochets.length>48)ricochets.shift();
+          if(now-lastRicochetSound>100){lastRicochetSound=now;try{callbacks.onDebrisImpact?.({strength});}catch{}}
+        }
+        particle.emittedHits=state.hits;
+      }
     }
     function boardDisplacement(x,z,now){
       if(!effectsEnabled)return 0;
@@ -426,9 +485,12 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
       if(motion.capturedPiece){
         const[cx,cz]=effectSquarePosition(motion.captureSquare||motion.to);
         shatterPiece(motion.capturedPiece,cx,cz,now,profile.power,direction);
-        fireExplosion(cx,cz,now,Math.min(1.35,profile.power*.75));
-        particleBurst(cx,cz,now,motion.capturedPiece,profile.count,profile.power,direction,"impact",motion.piece.toLowerCase());
-        particleBurst(cx+direction[0]*.12,cz+direction[1]*.12,now+65,motion.capturedPiece,110,1.05,direction,"ground");
+        queueBurst({type:"strike",attack:motion.piece.toLowerCase(),x:cx,z:cz,start:now,life:.32,direction,power:profile.power});
+        for(const[delay,share,power]of [[0,.3,.34],[150,.35,.45],[320,.35,.75]]){
+          fireExplosion(cx,cz,now+delay,Math.min(1.35,profile.power*power));
+          particleBurst(cx,cz,now+delay,motion.capturedPiece,Math.round(profile.count*share),profile.power,direction,"impact",motion.piece.toLowerCase());
+        }
+        particleBurst(cx+direction[0]*.12,cz+direction[1]*.12,now+385,motion.capturedPiece,110,1.05,direction,"ground");
       }
       if(motion.rookFrom&&motion.rookTo){
         const[rx,rz]=effectSquarePosition(motion.rookTo);
@@ -476,6 +538,7 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
     function drawEffects(now=performance.now()){
       if(shadowPass||!effectsEnabled)return;
       bursts=bursts.filter(burst=>(now-burst.start)/1000<burst.life);
+      ricochets=ricochets.filter(hit=>(now-hit.start)/1000<hit.life);
       const debris=[];
       const cube=(position,size,color,angles=[0,0],alpha=1,priority=0)=>{if(alpha>.008&&size.every(n=>n>.001))debris.push({position,size,color,angles,alpha,priority});};
       const brackets=(x,z,fade,color)=>{
@@ -495,13 +558,33 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
           }
           for(const particle of burst.particles){
             const elapsed=Math.max(0,age-(particle.delay||0)),pt=Math.min(1,elapsed/particle.life);if(pt>=1)continue;
-            const pf=1-pt,dust=particle.kind==="dust",ash=particle.kind==="ash",chunk=particle.kind==="chunk",drag=dust?1.1:1.7,travel=(1-Math.exp(-elapsed*drag))/drag;
-            const px=burst.x+(particle.offsetX||0)+particle.vx*travel,pz=burst.z+(particle.offsetZ||0)+particle.vz*travel;
-            let py=dust?particle.height+elapsed*.5:ash?particle.height+particle.vy*elapsed-.35*elapsed*elapsed:particle.height+particle.vy*elapsed-4.8*elapsed*elapsed;
-            if(!dust&&!ash&&py<.025){const hit=(particle.vy+Math.sqrt(particle.vy**2+19.2*particle.height))/9.6,bounce=elapsed-hit;py=.025+Math.max(0,(particle.vy+4.8*hit)*.2*bounce-4.8*bounce*bounce);}
+            const pf=1-pt,dust=particle.kind==="dust",ash=particle.kind==="ash",hot=particle.kind==="hot",chunk=particle.kind==="chunk"||hot,travel=(1-Math.exp(-elapsed*1.1))/1.1;
+            const solid=dust||ash?null:fragmentState(particle,age);
+            const px=burst.x+(solid?solid.x:particle.vx*travel),pz=burst.z+(solid?solid.z:particle.vz*travel);
+            const py=solid?solid.y:dust?particle.height+elapsed*.5:particle.height+particle.vy*elapsed-.35*elapsed*elapsed;
             const size=particle.size*(dust?(.55+elapsed*1.8)*pf:Math.min(1,pf*3));
-            cube([px,Math.max(.025,py),pz],[size*(dust?1.6:1),size*(dust?.55:particle.flat),size],particle.color,[particle.spin+elapsed*(dust?.2:7),particle.spin+elapsed*(dust?.3:5)],dust?Math.min(1,elapsed*20)*pf*.4:ash?pf*.6:Math.min(1,pf*4),chunk?3:dust?0:1);
+            const spin=solid?solid.flight:elapsed,heat=solid?.heat||0,color=hot?[.11+heat*.14,.095+heat*.065,.075+heat*.02]:particle.color;
+            cube([px,Math.max(.025,py),pz],[size*(dust?1.6:1),size*(dust?.55:particle.flat),size],color,[particle.spin+spin*(dust?.2:7),particle.spin+spin*(dust?.3:5)],dust?Math.min(1,elapsed*20)*pf*.4:ash?pf*.6:Math.min(1,pf*4),chunk?3:dust?0:1);
+            if(hot&&heat>.015){
+              // Exposed hot faces surround the dark core; an enclosed glow would be hidden by its shell.
+              cube([px,py,pz],[size*1.025,size*particle.flat*1.025,size*1.025],[1.15+heat*.35,.035+heat*.27,.005+heat*.02],[particle.spin+spin*7,particle.spin+spin*5],Math.min(.85,heat*1.25),3);
+              for(let i=1;i<=3;i++){
+                if(age-i*.035<particle.delay)continue;
+                const trail=fragmentState(particle,age-i*.035),s=size*.23*(1-i/4);
+                cube([burst.x+trail.x,trail.y,burst.z+trail.z],[s,s*.6,s],[1.12,.12,.008],[i,spin],heat*(.6-i*.12),2);
+              }
+              if(solid.hits)cube([px,.028,pz],[size*1.6,.008,size*1.6],[.6,.105,.015],[0,0],heat*.25,1);
+            }
           }
+        }else if(burst.type==="fracture"){
+          for(let i=0;i<12;i++){const a=i*2.39996,r=.18+t*.25,s=.025*fade;cube([burst.x+Math.cos(a)*r,burst.height+Math.sin(a*2)*.04,burst.z+Math.sin(a)*r],[s,s*.5,s*2.8],i%4?[.46,.42,.34]:[1.12,.14,.01],[i,age*9],fade*.7,2);}
+        }else if(burst.type==="strike"){
+          const[dx,dz]=burst.direction,heading=Math.atan2(dx,dz),color=[.54,.5,.42];
+          if(burst.attack==="b")for(const side of[-1,1])cube([burst.x+side*.12,.65+side*.2,burst.z],[.022*fade,.025*fade,.7*fade],color,[-.48,heading+side*.25],fade,2);
+          else if(burst.attack==="r")for(let i=0;i<14;i++){const side=(i/13-.5)*1.1,front=.12+t*.55;cube([burst.x+dx*front-dz*side,.09+t*.15,burst.z+dz*front+dx*side],[.065*fade,.045*fade,.08*fade],[.27,.27,.24],[i,heading],fade,1);}
+          else if(burst.attack==="q"||burst.attack==="n")for(let i=0;i<24;i++){const a=i*Math.PI/12,r=.2+t*(burst.attack==="q"?1.3:.9),s=.035*fade;cube([burst.x+Math.cos(a)*r,.07,burst.z+Math.sin(a)*r],[s,.018*fade,s*2.8],[.37,.35,.29],[0,-a],fade,1);}
+          else if(burst.attack==="k")for(let i=0;i<4;i++){const a=i*Math.PI/2,r=.22+t*.5;cube([burst.x+Math.cos(a)*r,.06,burst.z+Math.sin(a)*r],[.12*fade,.028*fade,.26*fade],[.3,.29,.25],[0,-a],fade,1);}
+          else for(let i=0;i<9;i++){const q=i/9,r=q*.5+t*.4,s=.03*fade;cube([burst.x+dx*r,.25+q*.06,burst.z+dz*r],[s,s*.6,.12*fade],color,[0,heading],fade,2);}
         }else if(burst.type==="fire"){
           const power=burst.power;
           cube([burst.x,.02,burst.z],[.48*power*fade,.009,.48*power*fade],[.035,.029,.023],[0,0],fade,1);
@@ -551,9 +634,14 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
           brackets(burst.x,burst.z,fade,[.42,.44,.4]);
         }
       }
+      for(const hit of ricochets){
+        const age=(now-hit.start)/1000;if(age<0)continue;const fade=1-age/hit.life;
+        cube([hit.x,.025,hit.z],[.07*fade,.008,.07*fade],[.22,.1,.035],[0,0],fade,1);
+        for(let i=0;i<9;i++){const a=i*2.39996+hit.seed,s=.014*fade,speed=.7+scatter(i,hit.seed)*.9;cube([hit.x+Math.cos(a)*age*speed,Math.max(.035,.04+(1+i%3*.22)*age-4.8*age*age),hit.z+Math.sin(a)*age*speed],[s,s*1.8,s],[1.2,.15+i%3*.06,.01],[i,age*8],fade,2);}
+      }
       if(motion?.effects&&!motion.cueTriggered){
-        const raw=motionProgress(now),travel=combatPose(raw,motion.piece.toLowerCase(),Boolean(motion.capturedPiece)).travel,[fx,fz]=effectSquarePosition(motion.from),[tx,tz]=effectSquarePosition(motion.to);
-        for(let i=0;i<38;i++){const q=Math.max(0,travel-i*.012),a=i*2.39996,s=(.018+(i%4)*.01)*(1-i/45);cube([fx+(tx-fx)*q+Math.cos(a)*.09,.05+(i%4)*.018,fz+(tz-fz)*q+Math.sin(a)*.09],[s*1.4,s*.5,s],[.23,.23,.21],[i,raw*6],.65*(1-i/42));}
+        const raw=motionProgress(now),type=motion.piece.toLowerCase(),[fx,fz]=effectSquarePosition(motion.from),[tx,tz]=effectSquarePosition(motion.to),length=Math.hypot(tx-fx,tz-fz)||1,count={p:18,n:32,b:24,r:52,q:64,k:36}[type]||32;
+        for(let i=0;i<count;i++){const pose=combatPose(Math.max(0,raw-i*.009),type,Boolean(motion.capturedPiece)),a=i*2.39996,s=(.018+(i%4)*.009)*(1-i/(count+6));cube([fx+(tx-fx)*pose.travel-(tz-fz)/length*pose.lateral+Math.cos(a)*.07,.05+pose.lift*(type==="n"?.8:.3),fz+(tz-fz)*pose.travel+(tx-fx)/length*pose.lateral+Math.sin(a)*.07],[s*1.4,s*.5,s],[.23,.23,.21],[i,raw*6],.65*(1-i/(count+5)));}
       }
       drawParticleBatch(debris);
     }
@@ -576,10 +664,10 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
       if(motion){
         const fr=8-Number(motion.from[1]),fc=motion.from.charCodeAt(0)-97,tr=8-Number(motion.to[1]),tc=motion.to.charCodeAt(0)-97,[fx,fz]=squarePosition(fr,fc),[tx,tz]=squarePosition(tr,tc),raw=motionProgress();
         const cinematic=Boolean(motion.effects&&effectsEnabled),attacking=Boolean(motion.capturedPiece),pieceType=(motion.piece||"p").toLowerCase();
-        const pose=combatPose(raw,pieceType,attacking,cinematic),x=fx+(tx-fx)*pose.travel,z=fz+(tz-fz)*pose.travel;
+        const pose=combatPose(raw,pieceType,attacking,cinematic),length=Math.hypot(tx-fx,tz-fz)||1,x=fx+(tx-fx)*pose.travel-(tz-fz)/length*pose.lateral,z=fz+(tz-fz)*pose.travel+(tx-fx)/length*pose.lateral;
         const lift=pose.lift+boardDisplacement(x,z,now);
         const shownPiece=motion.promotion&&raw>.72?(motion.piece===motion.piece.toUpperCase()?motion.promotion.toUpperCase():motion.promotion):motion.piece;
-        drawPiece(shownPiece,x,z,lift,pose.scale,pose.vertical);
+        drawPiece(shownPiece,x,z,lift,pose.scale,pose.vertical,{yaw:pose.yaw,tilt:pose.tilt,heading:Math.atan2(tx-fx,tz-fz)});
         if(motion.rookFrom&&motion.rookTo){
           const[rfx,rfz]=effectSquarePosition(motion.rookFrom),[rtx,rtz]=effectSquarePosition(motion.rookTo),rookPose=combatPose(raw,"r",false,cinematic),rx=rfx+(rtx-rfx)*rookPose.travel,rz=rfz+(rtz-rfz)*rookPose.travel;
           drawPiece(motion.rookPiece,rx,rz,rookPose.lift+boardDisplacement(rx,rz,now),rookPose.scale,rookPose.vertical);
@@ -667,23 +755,25 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
         shadowDirty=true;
         if(now-active.start>=active.duration){motion=null;active.done?.();}
       }
+      advanceHotDebris(now);
       if(bursts.some(burst=>burst.type==="slam"&&now-burst.start<850))shadowDirty=true;
       render();
-      if(motion||(effectsEnabled&&bursts.some(burst=>(now-burst.start)/1000<burst.life)))queueEffectsFrame();
+      if(motion||(effectsEnabled&&(bursts.some(burst=>(now-burst.start)/1000<burst.life)||ricochets.some(hit=>(now-hit.start)/1000<hit.life))))queueEffectsFrame();
     }
     function clearEffects(){
-      cancelAnimationFrame(motionFrame);motionFrame=0;motion=null;bursts=[];cameraKick?.cancel();cameraKick=null;shadowDirty=true;render();
+      cancelAnimationFrame(motionFrame);motionFrame=0;motion=null;bursts=[];ricochets=[];lastRicochetSound=0;cameraKick?.cancel();cameraKick=null;shadowDirty=true;render();
     }
     return {
       available:true,
       update(next){
         if(next.flipped!==data.flipped)for(const burst of bursts){
           for(const key of["x","z","rx","rz","tx","tz"])if(Number.isFinite(burst[key]))burst[key]*=-1;
-          for(const particle of burst.particles||[]){particle.vx*=-1;particle.vz*=-1;if(particle.offsetX)particle.offsetX*=-1;if(particle.offsetZ)particle.offsetZ*=-1;}
+          for(const particle of burst.particles||[]){particle.vx*=-1;particle.vz*=-1;if(particle.offsetX)particle.offsetX*=-1;if(particle.offsetZ)particle.offsetZ*=-1;if(particle.clusterVX)particle.clusterVX*=-1;if(particle.clusterVZ)particle.clusterVZ*=-1;}
         }
+        if(next.flipped!==data.flipped)for(const hit of ricochets){hit.x*=-1;hit.z*=-1;}
         data=next;shadowDirty=true;render();
       },
-      setEffectsEnabled(value){effectsEnabled=Boolean(value);if(!effectsEnabled){bursts=[];cameraKick?.cancel();if(motion)motion.effects=false;}shadowDirty=true;render();},
+      setEffectsEnabled(value){effectsEnabled=Boolean(value);if(!effectsEnabled){bursts=[];ricochets=[];cameraKick?.cancel();if(motion)motion.effects=false;}shadowDirty=true;render();},
       clearEffects,
       signalSquare(square,piece){
         const now=performance.now();if(!effectsAllowed()||(lastSelection.square===square&&now-lastSelection.time<200))return;
@@ -706,5 +796,5 @@ void main(){float light=.46+.54*max(0.,dot(normalize(normal),normalize(vec3(-.5,
       render
     };
   }
-  root.Chess3DView={create,combatPose};
+  root.Chess3DView={create,combatPose,fragmentState};
 })(typeof window!=="undefined"?window:globalThis);

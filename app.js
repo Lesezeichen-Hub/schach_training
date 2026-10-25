@@ -134,6 +134,7 @@
   let boardView = "2d";
   try { boardView = new URLSearchParams(location.search).get("view") === "3d" || localStorage.getItem("schachwerkstatt-board-view") === "3d" ? "3d" : "2d"; } catch { boardView = "2d"; }
   const board3d = window.Chess3DView?.create(board3dEl, {
+    onDebrisImpact: ({ strength }) => playDebrisImpact(strength),
     onSquare: (square) => selectSquare(square),
     onDragStart: (from) => {
       if (!boardInputAllowed()) return;
@@ -171,6 +172,19 @@
     if (!moveAudioContext) moveAudioContext = new AudioContextClass();
     if (moveAudioContext.state === "suspended") moveAudioContext.resume().catch(() => {});
     return moveAudioContext;
+  }
+  function playDebrisImpact(strength) {
+    if (!soundEnabled || !specialEffectsEnabled || boardView !== "3d") return;
+    const context = ensureMoveAudio();
+    if (!context || context.state !== "running") return;
+    const now = context.currentTime, oscillator = context.createOscillator(), gain = context.createGain();
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(380 + strength * 130, now);
+    oscillator.frequency.exponentialRampToValueAtTime(95, now + .075);
+    gain.gain.setValueAtTime(.0001, now);
+    gain.gain.exponentialRampToValueAtTime(.012 * Math.min(1, strength), now + .003);
+    gain.gain.exponentialRampToValueAtTime(.0001, now + .09);
+    oscillator.connect(gain).connect(context.destination); oscillator.start(now); oscillator.stop(now + .1);
   }
   function playMoveSound(before, move) {
     if (cinematicSoundPlayed?.before === before && cinematicSoundPlayed.move === move) { cinematicSoundPlayed = null; return; }
@@ -216,7 +230,12 @@
         const mass = ({ p: .8, n: 1, b: .9, r: 1.25, q: 1.2, k: 1.15 })[E.typeOf(before.board[fr][fc])] || 1;
         rubble(0, captured ? .48 : .14, captured ? .11 : .035, captured ? 2400 : 850);
         tone(.005, captured ? 125 * mass : 120, captured ? 28 : 52, captured ? .36 : .16, captured ? .1 : .032, "triangle");
-        if (captured) { rubble(.012, .075, .045, 3800); rubble(.06, .55, .045, 800); rubble(.1, .3, .052, 1400); rubble(.23, .32, .028, 420); rubble(.32, .1, .016, 2600); tone(.03, 370, 75, .18, .03, "sawtooth"); }
+        if (captured) {
+          rubble(.012, .075, .045, 3800); tone(.03, 370, 75, .12, .03, "sawtooth");
+          rubble(.15, .16, .052, 2000); tone(.15, 165 * mass, 48, .16, .045, "triangle");
+          rubble(.32, .48, .065, 1100); tone(.32, 105 * mass, 27, .32, .065, "triangle");
+          rubble(.4, .35, .028, 420);
+        }
         if (move.castle) { rubble(.085, .22, .045, 520); tone(.08, 135, 48, .24, .035, "triangle"); }
         if (move.promotion) { rubble(.02, .38, .055, 1600); tone(.025, 275, 81, .32, .032, "sawtooth"); }
         if (result.check && result.type !== "checkmate") { tone(.05, 155, 78, .27, .035, "sawtooth"); rubble(.11, .18, .025, 450); }
